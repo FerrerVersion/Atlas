@@ -1,0 +1,367 @@
+@import 'leaflet/dist/leaflet.css';
+
+/* ------------------------------------------------------------------ */
+/* Contenedor del mapa y variables de tema                             */
+/* ------------------------------------------------------------------ */
+.atlas-map {
+  position: absolute;
+  inset: 0;
+  background: var(--map-bg, #f2efe9);
+  font-family: var(--map-font);
+  transition: background-color 300ms ease;
+}
+.atlas-map .leaflet-container {
+  background: transparent;
+  font-family: inherit;
+}
+.atlas-map .leaflet-control-attribution {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  background: rgb(255 255 255 / 0.75);
+  backdrop-filter: blur(6px);
+  border-radius: 8px 0 0 0;
+  max-width: 70vw;
+}
+.atlas-map.is-dark .leaflet-control-attribution {
+  background: rgb(10 14 25 / 0.7);
+  color: #cbd5e1;
+}
+.atlas-map.is-dark .leaflet-control-attribution a {
+  color: #7dd3fc;
+}
+
+.tiles-pixelated img {
+  image-rendering: pixelated;
+}
+
+/* Capas vectoriales propias */
+.atlas-map .leaflet-roads-pane,
+.atlas-map .leaflet-nodes-pane {
+  pointer-events: none;
+}
+.fx-glow .leaflet-roads-pane canvas {
+  filter: drop-shadow(0 0 3px var(--map-accent)) drop-shadow(0 0 6px color-mix(in srgb, var(--map-accent) 50%, transparent));
+}
+
+/* ------------------------------------------------------------------ */
+/* Efectos de pantalla                                                 */
+/* ------------------------------------------------------------------ */
+.map-fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 450;
+}
+.map-fx.scanlines {
+  background: repeating-linear-gradient(to bottom, rgb(255 255 255 / 0.035) 0 1px, transparent 1px 3px);
+  mix-blend-mode: screen;
+}
+.map-fx.grid {
+  background-image:
+    linear-gradient(rgb(224 242 254 / 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(224 242 254 / 0.09) 1px, transparent 1px),
+    linear-gradient(rgb(224 242 254 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(224 242 254 / 0.04) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+}
+.map-fx.vignette {
+  background: radial-gradient(ellipse at center, transparent 55%, rgb(0 0 0 / 0.38) 100%);
+}
+.map-fx.paper {
+  background:
+    radial-gradient(ellipse at 20% 15%, rgb(255 248 220 / 0.35), transparent 60%),
+    radial-gradient(ellipse at 80% 85%, rgb(120 80 30 / 0.18), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.33 0 0 0 0 0.18 0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+.fx-hue-cycle .leaflet-tile-pane {
+  animation: hue-cycle 18s linear infinite;
+}
+@keyframes hue-cycle {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+
+/* ------------------------------------------------------------------ */
+/* Ruta                                                               */
+/* ------------------------------------------------------------------ */
+.route-line.route-animated {
+  animation: route-flow 1.1s linear infinite;
+}
+@keyframes route-flow {
+  to { stroke-dashoffset: -48; }
+}
+.route-glow {
+  filter: drop-shadow(0 0 4px var(--route-color)) drop-shadow(0 0 10px var(--route-color));
+}
+.route-progress {
+  opacity: 0.35;
+}
+
+/* ------------------------------------------------------------------ */
+/* Etiquetas de calle con la tipografía del tema                       */
+/* ------------------------------------------------------------------ */
+.street-label {
+  pointer-events: none;
+  white-space: nowrap;
+}
+.street-label span {
+  display: inline-block;
+  transform: translate(-50%, -50%) rotate(var(--rot));
+  font-family: var(--map-font);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-spacing, 0);
+  text-transform: var(--label-transform, none);
+  color: var(--label-color);
+  text-shadow:
+    0 0 3px var(--label-halo),
+    0 0 3px var(--label-halo),
+    0 0 6px var(--label-halo);
+}
+.fx-glow .street-label span {
+  text-shadow: 0 0 4px var(--label-color), 0 0 2px var(--label-halo), 0 0 6px var(--label-halo);
+}
+
+/* ------------------------------------------------------------------ */
+/* Marcadores                                                          */
+/* ------------------------------------------------------------------ */
+.atlas-marker {
+  background: none;
+  border: none;
+}
+.mk {
+  --c: var(--marker-color, #dc2626);
+  --t: var(--marker-text, #fff);
+  position: relative;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: var(--t);
+  font: 700 12px/1 var(--font-sans);
+  transition: transform 160ms ease;
+}
+.mk:hover {
+  transform: scale(1.08);
+}
+.mk-pin::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--c);
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  border: 2px solid white;
+  box-shadow: 0 6px 14px -4px rgb(0 0 0 / 0.5);
+}
+.mk-pin > * {
+  position: relative;
+  transform: translateY(-1px);
+}
+.mk-dot::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 999px;
+  background: var(--c);
+  border: 3px solid white;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+.mk-dot > * {
+  position: relative;
+  font-size: 10px;
+}
+.mk-diamond::before {
+  content: '';
+  position: absolute;
+  inset: 5px;
+  background: var(--c);
+  transform: rotate(45deg);
+  border: 3px solid #111827;
+  box-shadow: 0 0 0 2px white, 0 6px 12px rgb(0 0 0 / 0.4);
+}
+.mk-diamond > * {
+  position: relative;
+  color: #111827;
+}
+.mk-pixel::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  background: var(--c);
+  box-shadow:
+    0 0 0 3px #000,
+    4px 4px 0 3px #000;
+}
+.mk-pixel > * {
+  position: relative;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 9px;
+  color: #000;
+}
+.mk-glow::before {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 999px;
+  background: var(--c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 35%, transparent), 0 0 18px 4px var(--c);
+}
+.mk-glow > * {
+  position: relative;
+  color: var(--t);
+  font-size: 10px;
+}
+.mk-seal::before {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 46% 54% 50% 50% / 52% 48% 52% 48%;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--c) 70%, white), var(--c) 60%);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--c) 70%, black), 0 4px 8px rgb(60 30 10 / 0.45);
+}
+.mk-seal > * {
+  position: relative;
+  font-family: Cinzel, Georgia, serif;
+}
+.mk-crosshair::before,
+.mk-crosshair::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 2px solid var(--c);
+  border-radius: 999px;
+}
+.mk-crosshair::after {
+  inset: -4px 15px;
+  border-radius: 0;
+  border-width: 0 2px;
+}
+.mk-crosshair > * {
+  position: relative;
+  color: var(--c);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-shadow: 0 0 3px #0b3a6e;
+}
+.mk-blob::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: linear-gradient(135deg, var(--c), #00ffd5);
+  animation: blob 3s ease-in-out infinite;
+  border: 2px solid #111;
+}
+.mk-blob > * {
+  position: relative;
+}
+@keyframes blob {
+  0%, 100% { border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%; transform: rotate(0deg); }
+  50% { border-radius: 70% 30% 46% 54% / 30% 39% 61% 70%; transform: rotate(20deg); }
+}
+
+/* Marcadores de POI */
+.poi {
+  --c: #64748b;
+  width: var(--poi-size, 30px);
+  height: var(--poi-size, 30px);
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  transition: transform 140ms ease;
+}
+.poi:hover,
+.poi.is-selected {
+  transform: scale(1.18);
+}
+.poi svg {
+  width: 58%;
+  height: 58%;
+}
+.poi-filled {
+  background: var(--c);
+  color: white;
+  border: 2px solid white;
+  box-shadow: 0 4px 10px -2px rgb(0 0 0 / 0.4);
+}
+.poi-outline {
+  background: rgb(255 255 255 / 0.92);
+  color: var(--c);
+  border: 2px solid var(--c);
+}
+.is-dark .poi-outline {
+  background: rgb(10 14 25 / 0.85);
+}
+.poi-neon {
+  background: rgb(5 0 15 / 0.75);
+  color: var(--c);
+  border: 1.5px solid var(--c);
+  box-shadow: 0 0 10px var(--c), inset 0 0 6px var(--c);
+}
+.poi-pixel {
+  border-radius: 0;
+  background: var(--c);
+  color: #000;
+  box-shadow: 0 0 0 2px #000, 3px 3px 0 2px #000;
+}
+.poi-pixel svg {
+  shape-rendering: crispEdges;
+}
+.poi-ink {
+  background: #f5e7c4;
+  color: #3b2412;
+  border: 2px solid #3b2412;
+  box-shadow: 2px 3px 0 rgb(59 36 18 / 0.35);
+}
+
+/* Usuario */
+.user-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #2563eb;
+  border: 3px solid white;
+  box-shadow: 0 0 0 6px rgb(37 99 235 / 0.25), 0 2px 6px rgb(0 0 0 / 0.4);
+}
+.user-dot.pulse {
+  animation: pulse 2s ease-out infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgb(37 99 235 / 0.45), 0 2px 6px rgb(0 0 0 / 0.4); }
+  100% { box-shadow: 0 0 0 18px rgb(37 99 235 / 0), 0 2px 6px rgb(0 0 0 / 0.4); }
+}
+.nav-puck {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--route-color, #2563eb);
+  border: 3px solid white;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--route-color, #2563eb) 30%, transparent), 0 4px 10px rgb(0 0 0 / 0.4);
+}
+
+.nav-puck svg {
+  width: 15px;
+  height: 15px;
+  color: white;
+  fill: white;
+}
+
+/* Popup contextual */
+.atlas-map .leaflet-popup-content-wrapper {
+  border-radius: 16px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 16px 40px -12px rgb(0 0 0 / 0.45);
+}
+.atlas-map .leaflet-popup-content {
+  margin: 0;
+  font-family: var(--font-sans);
+}
+.atlas-map.is-dark .leaflet-popup-content-wrapper,
+.atlas-map.is-dark .leaflet-popup-tip {
+  background: #0f172a;
+  color: #e2e8f0;
+}
