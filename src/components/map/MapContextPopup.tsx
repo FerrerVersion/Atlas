@@ -1,0 +1,74 @@
+import { useEffect, useState } from 'react'
+import { Popup, useMapEvents } from 'react-leaflet'
+import { Flag, MapPin, Navigation2, Plus, Search } from 'lucide-react'
+import { placeFromMap } from '@/features/geocoding/placeFromMap'
+import { useAppStore } from '@/store/useAppStore'
+
+/** Menú al pulsar el mapa: usar el punto como origen, destino, parada o consultar qué hay. */
+export function MapContextPopup() {
+  const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null)
+  const navActive = useAppStore((s) => s.navigation.active)
+
+  useMapEvents({
+    click: (e) => {
+      if (navActive) return
+      setPoint({ lat: e.latlng.lat, lng: e.latlng.lng })
+    },
+  })
+
+  useEffect(() => {
+    if (!point) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setPoint(null)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [point])
+
+  if (!point) return null
+
+  const act = async (kind: 'origin' | 'destination' | 'stop' | 'info') => {
+    const p = point
+    setPoint(null)
+    const s = useAppStore.getState()
+    const place = await placeFromMap(p.lat, p.lng)
+    if (kind === 'info') {
+      s.selectPlace(place, { fly: false })
+      s.setPanelTab('explore')
+      return
+    }
+    const st = useAppStore.getState()
+    if (kind === 'origin') st.setOrigin(place)
+    else if (kind === 'destination') st.setDestination(place)
+    else {
+      const emptyMiddle = st.waypoints.findIndex((w, i) => i > 0 && i < st.waypoints.length - 1 && !w.place)
+      if (emptyMiddle >= 0) st.setWaypoint(emptyMiddle, place)
+      else st.addStop(place)
+    }
+    st.setPanelTab('route')
+  }
+
+  const item = 'flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-white/10'
+  return (
+    <Popup position={[point.lat, point.lng]} eventHandlers={{ remove: () => setPoint(null) }} closeButton={false}>
+      <div className="min-w-[200px] py-1" role="menu" aria-label="Acciones del punto">
+        <p className="px-4 pt-2 pb-1 font-mono text-[11px] text-slate-500">
+          {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
+        </p>
+        <button type="button" role="menuitem" className={item} onClick={() => act('origin')}>
+          <Navigation2 className="h-4 w-4 text-emerald-500" /> Ruta desde aquí
+        </button>
+        <button type="button" role="menuitem" className={item} onClick={() => act('destination')}>
+          <Flag className="h-4 w-4 text-rose-500" /> Ruta hasta aquí
+        </button>
+        <button type="button" role="menuitem" className={item} onClick={() => act('stop')}>
+          <Plus className="h-4 w-4 text-sky-500" /> Añadir como parada
+        </button>
+        <button type="button" role="menuitem" className={item} onClick={() => act('info')}>
+          <Search className="h-4 w-4 text-slate-500" /> ¿Qué hay aquí?
+        </button>
+        <p className="flex items-center gap-1 px-4 pt-1 pb-2 text-[10px] text-slate-400">
+          <MapPin className="h-3 w-3" /> Nombre real vía Nominatim
+        </p>
+      </div>
+    </Popup>
+  )
+}
