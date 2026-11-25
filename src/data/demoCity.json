@@ -1,0 +1,17 @@
+{
+  "name": "Buñol",
+  "bbox": {
+    "south": 39.4105,
+    "west": -0.801,
+    "north": 39.4265,
+    "east": -0.78
+  },
+  "center": {
+    "lat": 39.418499999999995,
+    "lng": -0.7905
+  },
+  "source": "OpenStreetMap (Overpass API)",
+  "license": "ODbL 1.0 — © OpenStreetMap contributors",
+  "osmTimestamp": "2026-11-25T19:26:05Z",
+  "downloadedAt": "2026-11-25T19:28:05.921Z"
+}
