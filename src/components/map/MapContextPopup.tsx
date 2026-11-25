@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Popup, useMapEvents } from 'react-leaflet'
 import { Flag, MapPin, Navigation2, Plus, Search } from 'lucide-react'
 import { placeFromMap } from '@/features/geocoding/placeFromMap'
@@ -8,10 +8,14 @@ import { useAppStore } from '@/store/useAppStore'
 export function MapContextPopup() {
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null)
   const navActive = useAppStore((s) => s.navigation.active)
+  // Leaflet recibe el clic del botón del menú después de React (con el popup ya
+  // desmontado): se ignora el clic inmediatamente posterior a una acción.
+  const ignoreUntil = useRef(0)
 
   useMapEvents({
     click: (e) => {
-      if (navActive) return
+      if (navActive || performance.now() < ignoreUntil.current) return
+      if ((e.originalEvent.target as HTMLElement | null)?.closest('.leaflet-popup')) return
       setPoint({ lat: e.latlng.lat, lng: e.latlng.lng })
     },
   })
@@ -27,6 +31,7 @@ export function MapContextPopup() {
 
   const act = async (kind: 'origin' | 'destination' | 'stop' | 'info') => {
     const p = point
+    ignoreUntil.current = performance.now() + 400
     setPoint(null)
     const s = useAppStore.getState()
     const place = await placeFromMap(p.lat, p.lng)
@@ -48,7 +53,7 @@ export function MapContextPopup() {
 
   const item = 'flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-white/10'
   return (
-    <Popup position={[point.lat, point.lng]} eventHandlers={{ remove: () => setPoint(null) }} closeButton={false}>
+    <Popup key={`${point.lat},${point.lng}`} position={[point.lat, point.lng]} eventHandlers={{ remove: () => setPoint(null) }} closeButton={false}>
       <div className="min-w-[200px] py-1" role="menu" aria-label="Acciones del punto">
         <p className="px-4 pt-2 pb-1 font-mono text-[11px] text-slate-500">
           {point.lat.toFixed(5)}, {point.lng.toFixed(5)}

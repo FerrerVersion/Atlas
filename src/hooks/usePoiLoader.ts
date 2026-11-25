@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { fetchPois } from '@/features/osm/overpassService'
-import { POI_CATEGORY_MAP } from '@/features/poi/poiTypes'
+import { POI_CATEGORY_MAP, type PoiCategory } from '@/features/poi/poiTypes'
 import { bboxAround, bboxDiagonal, type BBox } from '@/utils/geometry'
 import { isAbortError } from '@/utils/http'
 import { useAppStore } from '@/store/useAppStore'
@@ -18,18 +18,20 @@ const snap = (b: BBox) => {
 
 /** Descarga POIs reales de OSM para las categorías activas en la vista actual. */
 export function usePoiLoader() {
-  const categories = useAppStore((s) => s.activeCategories)
-  const view = useAppStore((s) => s.viewBBox)
-  const viewKey = view ? JSON.stringify(snap(view)) : ''
+  const categoriesKey = useAppStore((s) => s.activeCategories.join(','))
+  // Clave estable de la zona (redondeada) para no repetir consultas al mover poco el mapa.
+  const viewKey = useAppStore((s) => (s.viewBBox ? JSON.stringify(snap(s.viewBBox)) : ''))
 
   useEffect(() => {
     const { setPois, notify } = useAppStore.getState()
+    const categories = categoriesKey ? (categoriesKey.split(',') as PoiCategory[]) : []
+    const view = viewKey ? (JSON.parse(viewKey) as BBox) : null
     if (categories.length === 0 || !view) {
       setPois([], 'idle')
       return
     }
     const radius = Math.max(...categories.map((c) => POI_CATEGORY_MAP[c].searchRadius))
-    const box = clampBBox(snap(view), radius)
+    const box = clampBBox(view, radius)
     const controller = new AbortController()
     const t = setTimeout(async () => {
       setPois(useAppStore.getState().pois, 'loading')
@@ -47,5 +49,5 @@ export function usePoiLoader() {
       clearTimeout(t)
       controller.abort()
     }
-  }, [categories.join(','), viewKey])
+  }, [categoriesKey, viewKey])
 }

@@ -30,6 +30,9 @@ export function RouteLayer({ theme }: { theme: MapTheme }) {
         pathOptions={{ color: r.casing, weight: r.width + 5, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }}
       />
       <Polyline
+        // className solo se aplica al crear la capa: se remonta al cambiar de tema.
+        key={`${theme.id}-${lineClass}`}
+        className={lineClass}
         positions={positions}
         interactive={false}
         pathOptions={{
@@ -39,14 +42,14 @@ export function RouteLayer({ theme }: { theme: MapTheme }) {
           dashArray: r.dash,
           lineCap: theme.marker.shape === 'pixel' ? 'square' : 'round',
           lineJoin: 'round',
-          className: lineClass,
         }}
       />
       {traveled && traveled.length > 1 && (
         <Polyline
+          className="route-progress"
           positions={traveled}
           interactive={false}
-          pathOptions={{ color: '#64748b', weight: r.width + 1, opacity: 0.8, lineCap: 'round', className: 'route-progress' }}
+          pathOptions={{ color: '#64748b', weight: r.width + 1, opacity: 0.8, lineCap: 'round' }}
         />
       )}
     </>

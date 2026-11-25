@@ -66,11 +66,14 @@ export async function computeMultiRoute(
 ): Promise<MultiRoute> {
   if (points.length < 2) throw new RouteError('Se necesitan al menos un origen y un destino.')
 
-  if (opts.download !== false) {
+  // Evita peticiones innecesarias: si la zona ya está cargada se usa directamente.
+  const alreadyLoaded = networkStore.covers(expandBBox(bboxOf(points), 300))
+  if (opts.download !== false && !alreadyLoaded) {
     opts.onStatus?.('Descargando red viaria de OpenStreetMap…')
     const plan = planNetworkQuery(points, prefs.profile)
     const ways = await fetchRoadNetwork(plan, opts.signal)
     networkStore.addWays(ways)
+    networkStore.addCoverage(plan.detail)
   }
   opts.signal?.throwIfAborted()
 

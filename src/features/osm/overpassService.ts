@@ -15,14 +15,14 @@ const DEFAULT_ENDPOINTS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ]
 /** Tiempo máximo por servidor antes de probar el siguiente espejo. */
-const ENDPOINT_TIMEOUT_MS = 25_000
+const ENDPOINT_TIMEOUT_MS = 20_000
 
 export const OVERPASS_ENDPOINTS: string[] = (import.meta.env.VITE_OVERPASS_URLS as string | undefined)
   ?.split(',')
   .map((s) => s.trim())
   .filter(Boolean) ?? DEFAULT_ENDPOINTS
 
-const client = new RateLimitedClient(1200)
+const client = new RateLimitedClient(1200, ENDPOINT_TIMEOUT_MS)
 /** Índice del último espejo que respondió: se prueba primero la próxima vez. */
 let preferred = 0
 const CACHE_TTL = 7 * 24 * 3600 * 1000
@@ -43,19 +43,18 @@ export async function queryOverpass<T>(ql: string, signal?: AbortSignal): Promis
   const order = OVERPASS_ENDPOINTS.map((_, i) => (preferred + i) % OVERPASS_ENDPOINTS.length)
   for (const idx of order) {
     const endpoint = OVERPASS_ENDPOINTS[idx]
-    const timeout = AbortSignal.timeout(ENDPOINT_TIMEOUT_MS)
     try {
       const data = await client.request<OverpassResponse<T>>(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({ data: ql }).toString(),
-        signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+        signal,
       })
       preferred = idx
       await cacheSet(key, data)
       return data
     } catch (e) {
-      // Cancelación del usuario: se propaga. Timeout o error de red: siguiente espejo.
+      // Cancelación del usuario: se propaga. Timeout (408) o error de red: siguiente espejo.
       if (signal?.aborted) throw e
       lastError = e
       if (e instanceof HttpError && e.status === 400) break

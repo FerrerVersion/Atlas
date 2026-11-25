@@ -1,12 +1,14 @@
 import { Clock, Gauge, Milestone, Navigation, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { formatDistance, formatDuration } from '@/utils/distance'
+import { useNow } from '@/hooks/useMediaQuery'
 import { useAppStore } from '@/store/useAppStore'
 
 export function RouteSummary() {
   const route = useAppStore((s) => s.route)
+  const now = useNow()
   if (!route) return null
-  const eta = new Date(Date.now() + route.duration * 1000)
+  const eta = new Date(now + route.duration * 1000)
   const avg = route.duration > 0 ? (route.distance / route.duration) * 3.6 : 0
   return (
     <section className="space-y-3 rounded-2xl bg-gradient-to-br from-accent/15 to-accent/5 p-4" aria-label="Resumen de la ruta">

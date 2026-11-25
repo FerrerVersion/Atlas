@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import L from 'leaflet'
-import { ICONS } from '@/components/ui/DynamicIcon'
+import { ICONS } from './icons'
 import { POI_CATEGORY_MAP, type PoiCategory } from '@/features/poi/poiTypes'
 import type { MapTheme } from '@/features/themes/themeTypes'
 import type { CSSProperties } from 'react'

@@ -4,27 +4,37 @@
  * (p. ej. Nominatim: máximo 1 petición por segundo).
  */
 export class RateLimitedClient {
-  private last = 0
-  private chain: Promise<unknown> = Promise.resolve()
+  /** Próximo instante en que puede empezar una petición. */
+  private nextSlot = 0
   private readonly minIntervalMs: number
+  private readonly timeoutMs: number
 
-  constructor(minIntervalMs: number) {
+  constructor(minIntervalMs: number, timeoutMs = 20_000) {
     this.minIntervalMs = minIntervalMs
+    this.timeoutMs = timeoutMs
   }
 
+  /**
+   * Espacia el INICIO de las peticiones (no las serializa): una respuesta lenta
+   * no bloquea a las siguientes. Cada petición tiene un tiempo máximo.
+   */
   async request<T>(input: string, init: RequestInit = {}): Promise<T> {
-    const run = async () => {
-      const wait = this.last + this.minIntervalMs - Date.now()
-      if (wait > 0) await sleep(wait, init.signal ?? undefined)
-      init.signal?.throwIfAborted()
-      this.last = Date.now()
-      const res = await fetch(input, init)
-      if (!res.ok) throw new HttpError(res.status, `HTTP ${res.status} en ${new URL(input).host}`)
-      return (await res.json()) as T
+    const now = Date.now()
+    const start = Math.max(now, this.nextSlot)
+    this.nextSlot = start + this.minIntervalMs
+    if (start > now) await sleep(start - now, init.signal ?? undefined)
+    init.signal?.throwIfAborted()
+    const timeout = AbortSignal.timeout(this.timeoutMs)
+    const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout
+    let res: Response
+    try {
+      res = await fetch(input, { ...init, signal })
+    } catch (e) {
+      if (timeout.aborted && !init.signal?.aborted) throw new HttpError(408, `Tiempo de espera agotado en ${new URL(input).host}`)
+      throw e
     }
-    const next = this.chain.then(run, run)
-    this.chain = next.catch(() => undefined)
-    return next
+    if (!res.ok) throw new HttpError(res.status, `HTTP ${res.status} en ${new URL(input).host}`)
+    return (await res.json()) as T
   }
 }
 

@@ -6,7 +6,7 @@ import { SettingsPanel } from '@/components/settings/SettingsPanel'
 import { ThemeGallery } from '@/components/themes/ThemeGallery'
 import { useAppStore, type PanelTab } from '@/store/useAppStore'
 
-export const TABS: { id: PanelTab; label: string; icon: typeof Compass }[] = [
+const TABS: { id: PanelTab; label: string; icon: typeof Compass }[] = [
   { id: 'explore', label: 'Explorar', icon: Compass },
   { id: 'route', label: 'Ruta', icon: Route },
   { id: 'styles', label: 'Estilos', icon: Palette },

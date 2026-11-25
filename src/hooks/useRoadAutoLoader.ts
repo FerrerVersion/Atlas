@@ -19,18 +19,20 @@ export async function loadRoadsForBBox(view: BBox, signal?: AbortSignal) {
   const ways = await fetchRoadNetwork({ detail: [bboxOf(corners)] }, signal)
   networkStore.addWays(ways)
   networkStore.markCells(missing.map((c) => c.key))
+  networkStore.addCoverage(missing.map((c) => c.bbox))
   return ways.length
 }
 
 /** Carga automáticamente las calles reales al acercarse (zoom ≥ 15). */
 export function useRoadAutoLoader() {
-  const view = useAppStore((s) => s.viewBBox)
-  const zoom = useAppStore((s) => s.lastView.zoom)
+  const zoomedIn = useAppStore((s) => s.lastView.zoom >= AUTOLOAD_MIN_ZOOM)
   const enabled = useAppStore((s) => s.autoLoadRoads)
-  const key = view ? cellsForBBox(view).map((c) => c.key).join('|') : ''
+  // Clave = celdas visibles: solo se reacciona cuando cambian.
+  const key = useAppStore((s) => (s.viewBBox ? cellsForBBox(s.viewBBox).map((c) => c.key).join('|') : ''))
 
   useEffect(() => {
-    if (!enabled || !view || zoom < AUTOLOAD_MIN_ZOOM) return
+    const view = useAppStore.getState().viewBBox
+    if (!enabled || !view || !zoomedIn || !key) return
     const controller = new AbortController()
     const t = setTimeout(async () => {
       const { setRoadsStatus } = useAppStore.getState()
@@ -47,5 +49,5 @@ export function useRoadAutoLoader() {
       clearTimeout(t)
       controller.abort()
     }
-  }, [key, enabled, zoom >= AUTOLOAD_MIN_ZOOM])
+  }, [key, enabled, zoomedIn])
 }

@@ -153,5 +153,8 @@ export async function searchPlaces(query: string, opts: SearchOptions = {}): Pro
     remote = await fn.call(provider, q, { near: opts.near, signal: opts.signal })
     cache.set(key, remote)
   }
-  return dedupe([...head, ...withDistances(remote ?? [], opts.near), ...local])
+  // Una calle local con el mismo nombre que un resultado remoto es la misma calle.
+  const remoteNames = new Set((remote ?? []).map((p) => normalize(p.name)))
+  const extra = local.filter((p) => !(p.kind === 'street' && remoteNames.has(normalize(p.name))))
+  return dedupe([...head, ...withDistances(remote ?? [], opts.near), ...extra])
 }

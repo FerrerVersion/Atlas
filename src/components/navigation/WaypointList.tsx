@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical, LocateFixed, Plus, X } from 'lucide-react'
 import { PlaceAutocomplete } from '@/components/search/PlaceAutocomplete'
 import { Button, IconButton } from '@/components/ui/Button'
@@ -8,8 +8,8 @@ import { useAppStore, type Waypoint } from '@/store/useAppStore'
 const MAX_STOPS = 8
 
 function WaypointRow({ wp, index, total }: { wp: Waypoint; index: number; total: number }) {
+  // El componente se remonta (key) cuando cambia el lugar, reiniciando el texto.
   const [text, setText] = useState(wp.place?.name ?? '')
-  useEffect(() => setText(wp.place?.name ?? ''), [wp.place])
   const s = () => useAppStore.getState()
   const isFirst = index === 0
   const isLast = index === total - 1
@@ -91,7 +91,7 @@ export function WaypointList() {
     <div className="space-y-2">
       <ol className="space-y-2" aria-label="Paradas de la ruta">
         {waypoints.map((w, i) => (
-          <WaypointRow key={w.id} wp={w} index={i} total={waypoints.length} />
+          <WaypointRow key={`${w.id}:${w.place?.id ?? ''}`} wp={w} index={i} total={waypoints.length} />
         ))}
       </ol>
       <div className="flex gap-2">

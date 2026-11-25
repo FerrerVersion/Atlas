@@ -9,6 +9,7 @@ import { useAppStore } from '@/store/useAppStore'
 export async function loadDemoData() {
   const { demoCity, demoRoads, demoPOIs } = await import('@/data/demo')
   networkStore.addWays(demoRoads)
+  networkStore.addCoverage([demoCity.bbox])
   const s = useAppStore.getState()
   s.setPois(poisFromOsm(demoPOIs), 'idle')
   s.flyTo(demoCity.center.lat, demoCity.center.lng, 16, demoCity.bbox)

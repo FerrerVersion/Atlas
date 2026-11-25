@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { buildGraphFromOsm, type OsmWay } from '@/features/routing/graph'
 import type { RoadGraph, TravelProfile } from '@/features/routing/routeTypes'
-import { bboxIntersects, type BBox } from '@/utils/geometry'
+import { bboxContains, bboxIntersects, type BBox } from '@/utils/geometry'
 
 /**
  * Almacén en memoria de la red viaria descargada (vías OSM reales).
@@ -12,6 +12,8 @@ class NetworkStore {
   private graphs = new Map<TravelProfile, { version: number; graph: RoadGraph }>()
   private listeners = new Set<() => void>()
   private loadedCells = new Set<string>()
+  /** Zonas descargadas con todo el detalle de calles. */
+  private coverage: BBox[] = []
   version = 0
 
   subscribe = (fn: () => void) => {
@@ -42,8 +44,26 @@ class NetworkStore {
     return added
   }
 
+  /** Registra zonas cuyas calles se han cargado completas. */
+  addCoverage(boxes: BBox[]) {
+    this.coverage.push(...boxes)
+  }
+
+  /** ¿Está la zona completamente dentro de lo ya cargado? (esquinas y centro). */
+  covers(b: BBox): boolean {
+    const pts: [number, number][] = [
+      [b.south, b.west],
+      [b.south, b.east],
+      [b.north, b.west],
+      [b.north, b.east],
+      [(b.south + b.north) / 2, (b.west + b.east) / 2],
+    ]
+    return pts.every(([lat, lng]) => this.coverage.some((c) => bboxContains(c, lat, lng)))
+  }
+
   clear() {
     this.ways.clear()
+    this.coverage = []
     this.loadedCells.clear()
     this.graphs.clear()
     this.bump()

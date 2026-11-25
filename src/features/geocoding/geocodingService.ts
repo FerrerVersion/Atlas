@@ -131,7 +131,7 @@ interface PhotonFeature {
   }
 }
 
-const photonClient = new RateLimitedClient(250)
+const photonClient = new RateLimitedClient(250, 10_000)
 const OSM_TYPE: Record<string, string> = { N: 'node', W: 'way', R: 'relation' }
 
 export function placeFromPhoton(f: PhotonFeature): Place | null {
@@ -203,7 +203,7 @@ interface NominatimResult {
 }
 
 // Política de Nominatim: máximo 1 petición por segundo.
-const nominatimClient = new RateLimitedClient(1100)
+const nominatimClient = new RateLimitedClient(1100, 15_000)
 
 export function placeFromNominatim(r: NominatimResult): Place {
   const key = r.category ?? r.class

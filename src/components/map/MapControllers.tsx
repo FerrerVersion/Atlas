@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import { navigationState } from '@/features/navigation/navigationProgress'
@@ -10,9 +10,18 @@ import { useAppStore } from '@/store/useAppStore'
 /** Padding para que el panel lateral/inferior no tape la zona de interés. */
 function usePanelPadding() {
   const desktop = useMediaQuery('(min-width: 768px)')
-  return desktop
-    ? { paddingTopLeft: L.point(440, 60), paddingBottomRight: L.point(80, 60) }
-    : { paddingTopLeft: L.point(30, 110), paddingBottomRight: L.point(30, 220) }
+  const ref = useRef(desktop)
+  useEffect(() => {
+    ref.current = desktop
+  }, [desktop])
+  // Se lee en el momento de animar, sin forzar nuevas animaciones al redimensionar.
+  return useCallback(
+    () =>
+      ref.current
+        ? { paddingTopLeft: L.point(440, 60), paddingBottomRight: L.point(80, 60) }
+        : { paddingTopLeft: L.point(30, 110), paddingBottomRight: L.point(30, 220) },
+    [],
+  )
 }
 
 /** Publica la instancia del mapa y sincroniza vista ↔ store. */
@@ -55,13 +64,13 @@ export function MapTargetController() {
           [b.south, b.west],
           [b.north, b.east],
         ],
-        { ...padding, maxZoom: target.zoom ?? 17, animate, duration: 1.1 },
+        { ...padding(), maxZoom: target.zoom ?? 17, animate, duration: 1.1 },
       )
     } else {
       map.flyTo([target.lat, target.lng], target.zoom ?? Math.max(map.getZoom(), 15), { animate, duration: 1.1 })
     }
-    // Solo reaccionamos a peticiones nuevas (nonce).
-  }, [target?.nonce])
+    // `target` cambia de identidad solo con cada petición nueva.
+  }, [map, target, padding])
   return null
 }
 
@@ -73,8 +82,8 @@ export function FitRouteController() {
   useEffect(() => {
     const route = useAppStore.getState().route
     if (!nonce || !route || route.geometry.length < 2) return
-    map.flyToBounds(L.latLngBounds(route.geometry), { ...padding, maxZoom: 17, animate: !prefersReducedMotion(), duration: 0.9 })
-  }, [nonce])
+    map.flyToBounds(L.latLngBounds(route.geometry), { ...padding(), maxZoom: 17, animate: !prefersReducedMotion(), duration: 0.9 })
+  }, [map, nonce, padding])
   return null
 }
 

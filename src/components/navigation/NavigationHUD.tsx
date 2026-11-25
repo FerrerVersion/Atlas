@@ -3,6 +3,7 @@ import { IconButton } from '@/components/ui/Button'
 import { navigationState } from '@/features/navigation/navigationProgress'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { formatDistance, formatDuration } from '@/utils/distance'
+import { useNow } from '@/hooks/useMediaQuery'
 import { useAppStore } from '@/store/useAppStore'
 import { ManeuverIcon } from './ManeuverIcon'
 
@@ -12,6 +13,7 @@ export function NavigationHUD() {
   const route = useAppStore((s) => s.route)
   const voice = useAppStore((s) => s.navPrefs.voice)
   const { locate } = useGeolocation()
+  const now = useNow(15_000)
   if (!nav.active || !route) return null
   const st = navigationState(route, nav.progress)
   const s = useAppStore.getState
@@ -24,7 +26,7 @@ export function NavigationHUD() {
     s().setNavProgress(ins[idx].offset + 1)
   }
 
-  const eta = new Date(Date.now() + st.remainingTime * 1000)
+  const eta = new Date(now + st.remainingTime * 1000)
   return (
     <>
       <div className="pointer-events-auto fixed inset-x-3 top-3 z-[1000] mx-auto max-w-xl animate-slide-up md:top-4" data-testid="nav-hud">

@@ -15,11 +15,7 @@ export function useSearch(query: string, submitNonce = 0) {
 
   useEffect(() => {
     const q = query.trim()
-    if (q.length < 2) {
-      setResults([])
-      setStatus('idle')
-      return
-    }
+    if (q.length < 2) return
     const controller = new AbortController()
     const submit = submitNonce > 0
     const t = setTimeout(
@@ -50,5 +46,6 @@ export function useSearch(query: string, submitNonce = 0) {
     }
   }, [query, submitNonce])
 
-  return { results, status, error }
+  const short = query.trim().length < 2
+  return { results: short ? [] : results, status: short ? 'idle' : status, error: short ? null : error }
 }
