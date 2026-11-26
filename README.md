@@ -80,9 +80,9 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 113 tests unitarios y de integración
+npm test             # Vitest: 120 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 46 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 48 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 
@@ -102,6 +102,9 @@ Medido con la versión de producción, servida comprimida como en un hosting rea
 | Primer pintado, móvil 4G lento (1.ª visita) | 1,24 s | **0,19 s** |
 | Buscar: primera sugerencia (calle ya cargada) | 0,79 s | **0,03 s** |
 | Ruta pulsando origen y destino en el mapa | 4,8 s | **0,8 s** |
+| Ruta larga Valencia → Buñol (servidor de calles a 1,5 s por respuesta) | 3,8 s | **3,3 s** |
+| Mapa en movimiento tras una lectura GPS (fotogramas en 1 s) | 16 (y 0,75 s parado) | **44-47, sin pausas** |
+| Huecos en blanco al desplazar media pantalla (teselas lentas) | 20 | **0** |
 
 Cómo:
 - **Descargas en paralelo**: los trozos de red viaria (corredor, calles cercanas, anillos de acceso) se piden de 2 en 2, el más pesado primero.
@@ -114,6 +117,9 @@ Cómo:
 - **Clic en el mapa instantáneo**: el punto se usa al momento y su nombre real (Nominatim) se rellena cuando llega, sin recalcular.
 - **Rejilla de celdas compartida**: la carga del mapa, la precarga de paradas y las rutas reutilizan las mismas celdas de calles (nunca se piden dos veces).
 - **Overpass**: se recuerda entre visitas el último servidor que respondió; se prueba el siguiente a los 6 s (12 s en consultas grandes).
+- **Movimiento fluido**: la posición se anima fotograma a fotograma entre lecturas del GPS y el mapa la acompaña sin tirones.
+- **Mapa precargado alrededor de la pantalla**: un anillo extra de teselas y 600 m de calles de margen; también carga mientras se arrastra.
+- **Ruta provisional**: en cuanto los datos llegados permiten una ruta real se muestra, y se afina al terminar la descarga. Al elegir el origen se precargan sus calles y su anillo de acceso; como mucho 2 consultas reales a Overpass a la vez.
 - **Arranque**: pantalla inicial en el propio HTML, estilos y registro de la PWA que no bloquean el pintado, paneles secundarios y modo navegación descargados aparte (precargados en reposo) y teselas sin fundido.
 
 Para medirlo: `npx vite preview --port 4173` y `node scripts/perf-ux.mjs` (servicios simulados con latencias realistas).

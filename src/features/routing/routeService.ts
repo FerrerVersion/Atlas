@@ -66,7 +66,7 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
   // (p. ej. Buñol solo enlaza con la A-3 por la CV-425, a ~2,7 km del centro).
   // Las celdas de detalle incluyen todas las calles: radio corto (1-4 celdas por parada).
   const radius = diag > 60_000 ? 900 : 600
-  const accessRadius = diag > 60_000 ? 8000 : 5000
+  const accessRadius = diag > 60_000 ? 8000 : ACCESS_RADIUS
   // Primero el nivel más ligero razonable; si no conecta, se amplía (ver computeMultiRoute).
   const level: CorridorLevel = diag <= 30_000 ? 'secondary' : diag <= 120_000 ? 'primary' : 'trunk'
   return {
@@ -77,17 +77,9 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
   }
 }
 
-/** Descargas simultáneas a Overpass (los servidores públicos admiten ~2 por usuario). */
-export const OVERPASS_CONCURRENCY = 2
+/** Radio del anillo de acceso en trayectos medios (y en la precarga). */
+export const ACCESS_RADIUS = 5000
 
-/** Ejecuta `fn` sobre los elementos con un máximo de `limit` tareas a la vez. */
-export async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
-  let next = 0
-  const worker = async () => {
-    while (next < items.length) await fn(items[next++])
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-}
 
 
 /**
@@ -97,8 +89,15 @@ export async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Pr
  */
 export async function prefetchAround(point: RoutePoint, profile: TravelProfile, signal?: AbortSignal) {
   if (profile !== 'car') return
-  // Mismas celdas que usará el cálculo de la ruta (y la carga automática del mapa).
-  await ensureRoadCells(bboxAround(point.lat, point.lng, 600), { maxCells: 9, signal })
+  // Mismas consultas que usará el cálculo de la ruta: las calles cercanas (celdas, que
+  // comparte también el mapa) y el anillo de acceso de trayectos medios. Así, mientras
+  // se elige el destino, la mitad de la descarga ya está hecha.
+  await Promise.all([
+    ensureRoadCells(bboxAround(point.lat, point.lng, 600), { maxCells: 9, signal }),
+    fetchRoadNetwork({ detail: [], access: [bboxAround(point.lat, point.lng, ACCESS_RADIUS)] }, signal).then((w) =>
+      networkStore.addWays(w),
+    ),
+  ])
 }
 
 export interface ComputeOptions {
@@ -106,6 +105,11 @@ export interface ComputeOptions {
   /** Si es false, solo usa los datos ya cargados (modo offline/demo). */
   download?: boolean
   onStatus?: (status: string) => void
+  /**
+   * Ruta provisional: en cuanto los datos que ya han llegado permiten una ruta válida
+   * (por calles reales) se entrega aquí, sin esperar al resto de la descarga.
+   */
+  onProvisional?: (route: MultiRoute) => void
 }
 
 /** Calcula una ruta que pasa por todas las paradas en orden. */
@@ -122,23 +126,49 @@ export async function computeMultiRoute(
   const plan = download ? planNetworkQuery(points, prefs.profile) : null
   const onRetry = (host: string) => opts.onStatus?.(`El servidor no responde; probando ${host}…`)
 
+  // Ruta provisional: se intenta con lo que ya hay (precarga, mapa) y tras cada trozo.
+  let provisional = false
+  const tryProvisional = () => {
+    if (!opts.onProvisional || provisional || networkStore.size === 0 || opts.signal?.aborted) return
+    try {
+      const route = routeOnGraph(networkStore.graph(prefs.profile), points, prefs)
+      provisional = true
+      opts.onProvisional(route)
+    } catch {
+      /* aún faltan datos para conectar las paradas */
+    }
+  }
+  if (plan) tryProvisional()
+
   if (plan) {
     // Descarga por trozos pequeños (cada uno con caché propia): más fiable con
     // servidores Overpass saturados que una única consulta grande.
-    // El corredor (lo más pesado) primero; el resto en paralelo. Las calles cercanas a
-    // cada parada se piden por celdas: si la precarga o el mapa ya las tienen, no se repiten.
+    // Orden pensado para tener cuanto antes una ruta provisional: las calles de cada
+    // parada (casi siempre ya precargadas) y el corredor; los anillos de acceso al final.
+    // Las calles se piden por celdas: si la precarga o el mapa ya las tienen, no se repiten.
     type Task = () => Promise<unknown>
-    const tasks: Task[] = [
+    // Las calles cercanas suelen estar ya precargadas o en camino: se esperan aparte para
+    // no ocupar una de las 2 plazas de descarga mientras tanto.
+    const details: Task[] = plan.detail.map((b) => () => ensureRoadCells(b, { maxCells: 36, signal: opts.signal, onRetry }))
+    const downloads: Task[] = [
       ...(plan.corridor ? [() => fetchRoadNetwork({ detail: [], corridor: plan.corridor }, opts.signal, onRetry).then((w) => networkStore.addWays(w))] : []),
-      ...plan.detail.map((b) => () => ensureRoadCells(b, { maxCells: 36, signal: opts.signal, onRetry })),
       ...(plan.access ?? []).map((b) => () => fetchRoadNetwork({ detail: [], access: [b] }, opts.signal, onRetry).then((w) => networkStore.addWays(w))),
     ]
+    const total = details.length + downloads.length
     let done = 0
-    opts.onStatus?.(`Descargando red viaria de OpenStreetMap (0/${tasks.length})…`)
-    await mapLimit(tasks, OVERPASS_CONCURRENCY, async (task) => {
-      await task()
-      opts.onStatus?.(`Descargando red viaria de OpenStreetMap (${++done}/${tasks.length})…`)
-    })
+    const finished = () => {
+      done++
+      opts.onStatus?.(
+        provisional
+          ? `Ruta lista · afinando con más datos (${done}/${total})…`
+          : `Descargando red viaria de OpenStreetMap (${done}/${total})…`,
+      )
+      tryProvisional()
+    }
+    opts.onStatus?.(`Descargando red viaria de OpenStreetMap (0/${total})…`)
+    // El cliente de Overpass limita a 2 consultas reales a la vez (en orden de llegada:
+    // el corredor, lo más pesado, va primero).
+    await Promise.all([...downloads, ...details].map((t) => t().then(finished)))
   }
   opts.signal?.throwIfAborted()
 

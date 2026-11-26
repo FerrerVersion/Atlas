@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>113 + 46</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>120 + 48</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -171,8 +171,8 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>113 tests unitarios y de integración (Vitest).</td></tr>
-    <tr><td><code>npm run test:e2e</code></td><td>46 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
+    <tr><td><code>npm test</code></td><td>120 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm run test:e2e</code></td><td>48 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
   </table>
@@ -257,6 +257,8 @@ npm run dev</pre>
   </div>
 
   <div class="callout"><strong>Medición en tiempo real</strong>En cuanto eliges una ruta, cada lectura del GPS se sitúa sobre ella (dando prioridad al tramo por el que vas, para no «saltar» si la ruta pasa dos veces por la misma calle). Se descartan lecturas con señal débil y los saltos imposibles (más de 250 km/h entre dos lecturas). Aunque no pulses «Iniciar», el resumen muestra «En ruta ahora: quedan X · llegada hh:mm». Durante la navegación la pantalla del móvil se mantiene encendida.</div>
+
+  <p><b>Movimiento fluido:</b> el GPS da una lectura por segundo; la posición mostrada se anima fotograma a fotograma entre lecturas (con una duración algo mayor que el intervalo para no detenerse) y el mapa la acompaña sin tirones.</p>
 
   <h3>2.5 Ubicación del dispositivo</h3>
   <p>Al abrir la web se pide permiso de ubicación. Si lo concedes, el mapa se centra donde estás y el punto azul (con su círculo de precisión) se actualiza mientras la página esté abierta. Detalles:</p>
@@ -494,8 +496,8 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>113</b><span>tests unitarios y de integración</span></div>
-    <div class="kpi"><b>46</b><span>pruebas e2e (23 escenarios × escritorio y móvil)</span></div>
+    <div class="kpi"><b>120</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>48</b><span>pruebas e2e (24 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
   </div>
@@ -548,6 +550,9 @@ npm run dev</pre>
     <tr><td>Primer pintado en móvil lento (primera visita)</td><td>1,24 s</td><td><b>0,19 s</b></td></tr>
     <tr><td>Buscar: primera sugerencia (calle ya cargada)</td><td>0,79 s</td><td><b>0,03 s</b></td></tr>
     <tr><td>Ruta pulsando origen y destino en el mapa</td><td>4,8 s</td><td><b>0,8 s</b></td></tr>
+    <tr><td>Ruta larga Valencia → Buñol (servidor a 1,5 s por respuesta)</td><td>3,8 s</td><td><b>3,3 s</b></td></tr>
+    <tr><td>Movimiento del mapa tras una lectura GPS</td><td>0,25 s y parado</td><td><b>continuo (44-47 fotogramas/s)</b></td></tr>
+    <tr><td>Huecos en blanco al desplazar el mapa</td><td>20</td><td><b>0</b></td></tr>
     <tr><td>Construir el grafo (15 000 vías) + A*</td><td colspan="2">≈ 100 ms: no es el cuello de botella</td></tr>
   </table>
   <ul>
@@ -648,7 +653,11 @@ VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/
     <tr><td class="mono">07d56fd</td><td>feat: medición de la ruta en tiempo real con el GPS y recálculo al desviarse</td></tr>
     <tr><td class="mono">d7de05a</td><td>perf: respuesta instantánea, celdas compartidas y arranque sin bloqueos</td></tr>
     <tr><td class="mono">2901ae6</td><td>fix: la ruta sale del punto exacto y usa caminos accesibles en coche</td></tr>
-    <tr><td class="mono">—</td><td>feat: tiempos realistas con curvas, aceleración y maniobras</td></tr>
+    <tr><td class="mono">0f79b85</td><td>feat: tiempos realistas con curvas, aceleración y maniobras</td></tr>
+    <tr><td class="mono">089a7d0</td><td>ci: publicación automática en GitHub Pages</td></tr>
+    <tr><td class="mono">651690b</td><td>feat: movimiento fluido de la ubicación en tiempo real</td></tr>
+    <tr><td class="mono">f0a1bd7</td><td>feat: precargar mapa alrededor de la pantalla</td></tr>
+    <tr><td class="mono">—</td><td>perf: ruta provisional y descargas sin esperas</td></tr>
   </table>
 
   <h3>A.5 Glosario</h3>

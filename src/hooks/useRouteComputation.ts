@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { networkStore } from '@/features/osm/networkStore'
 import { OverpassError } from '@/features/osm/overpassService'
 import { computeMultiRoute, prefetchAround, RouteError } from '@/features/routing/routeService'
+import type { MultiRoute } from '@/features/routing/routeTypes'
 import { isAbortError } from '@/utils/http'
 import { filledWaypoints, useAppStore } from '@/store/useAppStore'
 
@@ -42,10 +43,18 @@ export function useRouteComputation() {
       setRoute(useAppStore.getState().route, 'loading', 'Preparando ruta…')
       const prefs = useAppStore.getState().navPrefs
       const onStatus = (m: string) => setRoute(useAppStore.getState().route, 'loading', m)
+      // Ruta provisional: se muestra (y se encuadra) en cuanto hay una válida.
+      let provisional: MultiRoute | null = null
+      const onProvisional = (r: MultiRoute) => {
+        if (controller.signal.aborted) return
+        provisional = r
+        setRoute(r, 'loading', 'Ruta lista · afinando con más datos…')
+        requestFitRoute()
+      }
       try {
         let route
         try {
-          route = await computeMultiRoute(places, prefs, { signal: controller.signal, onStatus })
+          route = await computeMultiRoute(places, prefs, { signal: controller.signal, onStatus, onProvisional })
         } catch (e) {
           // Sin conexión con Overpass: intenta con los datos ya cargados (p. ej. demo offline).
           if (e instanceof OverpassError && networkStore.size > 0) {
@@ -55,9 +64,15 @@ export function useRouteComputation() {
         }
         if (controller.signal.aborted) return
         setRoute(route, 'ready')
-        requestFitRoute()
+        if (!provisional) requestFitRoute()
       } catch (e) {
         if (isAbortError(e) || controller.signal.aborted) return
+        // Si ya había una ruta válida y falla solo el afinado, se conserva esa ruta.
+        if (provisional && e instanceof OverpassError) {
+          setRoute(provisional, 'ready')
+          notify('No se pudieron descargar todos los datos: ruta calculada con los disponibles.', 'info')
+          return
+        }
         const msg =
           e instanceof RouteError || e instanceof OverpassError
             ? e.message

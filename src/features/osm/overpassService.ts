@@ -59,6 +59,26 @@ interface OverpassResponse<T> {
 
 export class OverpassError extends Error {}
 
+/**
+ * Como mucho 2 consultas reales a la vez (lo que admiten los servidores públicos por
+ * usuario). Esperar a una consulta ya en curso no ocupa plaza (se reutiliza).
+ */
+export const MAX_CONCURRENT_QUERIES = 2
+let running = 0
+const waiting: (() => void)[] = []
+async function acquireSlot() {
+  if (running < MAX_CONCURRENT_QUERIES) {
+    running++
+    return
+  }
+  await new Promise<void>((resolve) => waiting.push(resolve))
+}
+function releaseSlot() {
+  const next = waiting.shift()
+  if (next) next()
+  else running--
+}
+
 /** Consultas en curso: si se pide la misma (p. ej. precarga + ruta), se reutiliza. */
 const inFlight = new Map<string, Promise<OverpassResponse<unknown>>>()
 
@@ -72,7 +92,16 @@ export function queryOverpass<T>(
   const pending = inFlight.get(key)
   if (pending) return abortable(pending as Promise<OverpassResponse<T>>, signal)
   // La descarga compartida no se cancela si un solo interesado se va: otro puede necesitarla.
-  const shared = runQuery<T>(ql, key, onRetry, hedgeMs).finally(() => inFlight.delete(key))
+  const shared = (async () => {
+    const cached = await cacheGet<OverpassResponse<T>>(key, CACHE_TTL)
+    if (cached) return cached
+    await acquireSlot()
+    try {
+      return await runQuery<T>(ql, key, onRetry, hedgeMs)
+    } finally {
+      releaseSlot()
+    }
+  })().finally(() => inFlight.delete(key))
   inFlight.set(key, shared)
   return abortable(shared, signal)
 }

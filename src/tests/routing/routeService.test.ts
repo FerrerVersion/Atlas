@@ -54,12 +54,11 @@ describe('computeMultiRoute', () => {
       { onStatus: (s) => status.push(s) },
     )
     const kinds = calls.map((c) => c.corridor?.level ?? (c.access ? 'acceso' : 'detalle'))
-    // El corredor (lo más pesado) va primero; la ampliación, al final.
-    expect(kinds[0]).toBe('primary')
+    // Todo en paralelo (el límite de 2 consultas reales lo pone el cliente de Overpass);
+    // la ampliación del corredor, al final.
     expect(kinds.at(-1)).toBe('secondary')
-    expect([...kinds.slice(1, -1)].sort()).toEqual(['acceso', 'acceso', 'detalle', 'detalle'])
-    expect(maxConcurrent).toBeLessThanOrEqual(2)
-    expect(maxConcurrent).toBe(2)
+    expect([...kinds.slice(0, -1)].sort()).toEqual(['acceso', 'acceso', 'detalle', 'detalle', 'primary'])
+    expect(maxConcurrent).toBeGreaterThan(1)
     expect(route.distance).toBeGreaterThan(30_000)
     expect(status).toContain('Ampliando la red de carreteras para conectar las paradas…')
   })

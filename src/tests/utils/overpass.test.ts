@@ -114,3 +114,21 @@ describe('servidor preferido', () => {
     expect(OVERPASS_ENDPOINTS.length).toBeGreaterThan(1)
   })
 })
+
+describe('límite de consultas simultáneas', () => {
+  it('nunca hay más de 2 consultas reales a la vez', async () => {
+    let now = 0
+    let peak = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      now++
+      peak = Math.max(peak, now)
+      await new Promise((r) => setTimeout(r, 15))
+      now--
+      return Response.json({ elements: [] })
+    }))
+    vi.resetModules()
+    const { queryOverpass } = await import('@/features/osm/overpassService')
+    await Promise.all(Array.from({ length: 6 }, (_, i) => queryOverpass(`[out:json];way(${i},${Math.random()});out;`)))
+    expect(peak).toBeLessThanOrEqual(2)
+  })
+})
