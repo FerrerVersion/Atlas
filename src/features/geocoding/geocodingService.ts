@@ -38,6 +38,8 @@ export interface Place {
   osm?: { type: string; id: number }
   distanceMeters?: number
   category?: string
+  /** Clave OSM principal (railway, highway, amenity…): distingue p. ej. una estación de tren de una calle. */
+  osmKey?: string
 }
 
 export interface GeocodingProvider {
@@ -68,6 +70,18 @@ const KIND_LABELS: Record<PlaceKind, string> = {
   other: 'Lugar',
 }
 
+/** Valores de `highway` que son vías (el resto —paradas, andenes— son lugares). */
+const ROAD_VALUES = new Set([
+  'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'service', 'living_street',
+  'pedestrian', 'track', 'road', 'footway', 'path', 'cycleway', 'steps', 'bridleway',
+  'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link',
+])
+/** Claves OSM de lugares de interés (se comprueban ANTES que «tiene número de portal»). */
+const POI_KEYS = new Set([
+  'amenity', 'shop', 'tourism', 'historic', 'leisure', 'aeroway', 'office', 'railway', 'craft', 'public_transport',
+  'healthcare', 'man_made', 'natural', 'sport', 'emergency', 'club', 'landuse',
+])
+
 export function kindFromOsm(key: string | undefined, value: string | undefined, type?: string): PlaceKind {
   const v = value ?? ''
   if (key === 'place') {
@@ -85,27 +99,38 @@ export function kindFromOsm(key: string | undefined, value: string | undefined, 
     if (type === 'district') return 'suburb'
     return 'town'
   }
-  if (key === 'highway') return 'street'
+  // Solo las vías son calles: una parada de autobús (highway=bus_stop) es un lugar.
+  if (key === 'highway') return ROAD_VALUES.has(v) ? 'street' : 'poi'
+  // Photon marca como «house» cualquier elemento con dirección postal (también una
+  // estación o una tienda): por eso las claves de lugar se miran antes.
+  if (key && POI_KEYS.has(key)) return 'poi'
   if (key === 'building' || type === 'house') return 'address'
-  if (['amenity', 'shop', 'tourism', 'historic', 'leisure', 'aeroway', 'office', 'railway', 'craft'].includes(key ?? '')) {
-    return 'poi'
-  }
   if (type === 'street') return 'street'
   if (type === 'city') return 'city'
   if (type === 'district' || type === 'locality') return 'suburb'
   return 'other'
 }
 
+/** Etiquetas por «clave=valor» (más precisas) o solo por valor. */
+const OSM_TAG_LABELS: Record<string, string> = {
+  'railway=station': 'Estación de tren', 'railway=halt': 'Apeadero', 'railway=stop': 'Parada de tren',
+  'railway=platform': 'Andén', 'railway=tram_stop': 'Parada de tranvía', 'railway=subway_entrance': 'Acceso al metro',
+  'public_transport=station': 'Estación', 'public_transport=platform': 'Parada', 'public_transport=stop_position': 'Parada',
+  'highway=bus_stop': 'Parada de autobús', 'highway=platform': 'Parada de autobús', 'amenity=bus_station': 'Estación de autobuses',
+  'aeroway=terminal': 'Terminal de aeropuerto', 'aeroway=aerodrome': 'Aeropuerto', 'amenity=parking': 'Aparcamiento',
+}
 const OSM_VALUE_LABELS: Record<string, string> = {
-  fuel: 'Gasolinera', restaurant: 'Restaurante', cafe: 'Cafetería', bar: 'Bar', parking: 'Aparcamiento',
-  hospital: 'Hospital', clinic: 'Centro de salud', police: 'Policía', pharmacy: 'Farmacia',
-  supermarket: 'Supermercado', museum: 'Museo', attraction: 'Atracción', aerodrome: 'Aeropuerto',
-  station: 'Estación', school: 'Centro educativo', university: 'Universidad', hotel: 'Hotel',
+  fuel: 'Gasolinera', restaurant: 'Restaurante', cafe: 'Cafetería', bar: 'Bar', pub: 'Bar', fast_food: 'Comida rápida',
+  hospital: 'Hospital', clinic: 'Centro de salud', doctors: 'Centro de salud', police: 'Policía', pharmacy: 'Farmacia',
+  supermarket: 'Supermercado', bakery: 'Panadería', convenience: 'Tienda', museum: 'Museo', attraction: 'Atracción',
+  aerodrome: 'Aeropuerto', station: 'Estación', school: 'Centro educativo', university: 'Universidad', hotel: 'Hotel',
   castle: 'Castillo', monument: 'Monumento', park: 'Parque', stadium: 'Estadio', marina: 'Puerto deportivo',
+  townhall: 'Ayuntamiento', library: 'Biblioteca', place_of_worship: 'Lugar de culto', bank: 'Banco', atm: 'Cajero',
 }
 
-export const kindLabel = (kind: PlaceKind, osmValue?: string) =>
-  (kind === 'poi' && osmValue && OSM_VALUE_LABELS[osmValue]) || KIND_LABELS[kind]
+export const kindLabel = (kind: PlaceKind, osmValue?: string, osmKey?: string) =>
+  (kind === 'poi' && ((osmKey && osmValue && OSM_TAG_LABELS[`${osmKey}=${osmValue}`]) || (osmValue && OSM_VALUE_LABELS[osmValue]))) ||
+  KIND_LABELS[kind]
 
 /* ---------------------------------- Photon --------------------------------- */
 
@@ -139,7 +164,9 @@ export function placeFromPhoton(f: PhotonFeature): Place | null {
   const [lng, lat] = f.geometry.coordinates
   const kind = kindFromOsm(p.osm_key, p.osm_value, p.type)
   const streetLine = p.street ? `${p.street}${p.housenumber ? ` ${p.housenumber}` : ''}` : undefined
-  const name = p.name ?? streetLine
+  const ref = `${p.osm_type}${p.osm_id}`
+  // Si ya se conoce su nombre en español (name:es de OSM), se usa ese.
+  const name = (PLACE_KINDS.has(kind) ? spanishNames.get(ref) : undefined) ?? p.name ?? streetLine
   if (!name) return null
   const parts = [
     p.name && streetLine ? streetLine : undefined,
@@ -154,7 +181,7 @@ export function placeFromPhoton(f: PhotonFeature): Place | null {
     id: `photon:${p.osm_type}${p.osm_id}`,
     name,
     kind,
-    kindLabel: kindLabel(kind, p.osm_value),
+    kindLabel: kindLabel(kind, p.osm_value, p.osm_key),
     address: [...new Set(parts)].join(', ') || undefined,
     lat,
     lng,
@@ -162,6 +189,7 @@ export function placeFromPhoton(f: PhotonFeature): Place | null {
     source: 'photon',
     osm: { type: OSM_TYPE[p.osm_type] ?? 'node', id: p.osm_id },
     category: p.osm_value,
+    osmKey: p.osm_key,
   }
 }
 
@@ -215,7 +243,7 @@ export function placeFromNominatim(r: NominatimResult): Place {
     id: `nominatim:${r.osm_type}${r.osm_id}`,
     name,
     kind,
-    kindLabel: kindLabel(kind, r.type),
+    kindLabel: kindLabel(kind, r.type, key),
     address: address || undefined,
     lat: Number(r.lat),
     lng: Number(r.lon),
@@ -223,7 +251,56 @@ export function placeFromNominatim(r: NominatimResult): Place {
     source: 'nominatim',
     osm: { type: r.osm_type, id: r.osm_id },
     category: r.type,
+    osmKey: key,
   }
+}
+
+/* --------------------- Nombres en español (sin inventar) --------------------- */
+
+/**
+ * Photon solo devuelve el nombre oficial local (p. ej. «València») y no admite el
+ * español; Nominatim sí (name:es de OSM) pero su política no permite usarlo para
+ * autocompletar. Por eso el nombre en español se consulta UNA vez, al elegir un
+ * municipio, región o país, y se recuerda: las búsquedas siguientes ya lo muestran.
+ */
+export const PLACE_KINDS = new Set<PlaceKind>(['country', 'region', 'city', 'town', 'village', 'suburb'])
+/** Referencia OSM corta («R344953») → nombre en español. */
+const spanishNames = new Map<string, string>()
+const shortRef = (osm: { type: string; id: number }) => `${osm.type.charAt(0).toUpperCase()}${osm.id}`
+
+export function rememberSpanishName(place: Place) {
+  if (place.osm && PLACE_KINDS.has(place.kind) && place.source === 'nominatim') spanishNames.set(shortRef(place.osm), place.name)
+}
+
+/** ¿Hay que consultar su nombre en español? (municipios y similares de Photon aún no consultados). */
+export function needsSpanishName(place: Place): boolean {
+  return place.source === 'photon' && !!place.osm && PLACE_KINDS.has(place.kind) && !spanishNames.has(shortRef(place.osm))
+}
+
+const pendingNames = new Map<string, Promise<string | null>>()
+
+/** Devuelve el lugar con su nombre en español de OSM (o tal cual si no tiene otro). */
+export async function resolveSpanishName(place: Place): Promise<Place> {
+  if (!place.osm || !PLACE_KINDS.has(place.kind)) return place
+  const ref = shortRef(place.osm)
+  const known = spanishNames.get(ref)
+  if (known) return known === place.name ? place : { ...place, name: known }
+  let job = pendingNames.get(ref)
+  if (!job) {
+    job = (async () => {
+      const url = new URL('/lookup', NOMINATIM_URL)
+      url.searchParams.set('osm_ids', ref)
+      url.searchParams.set('format', 'jsonv2')
+      url.searchParams.set('accept-language', 'es')
+      const data = await nominatimClient.request<NominatimResult[]>(url.toString())
+      const name = data[0]?.name?.trim() || null
+      spanishNames.set(ref, name ?? place.name)
+      return name
+    })().finally(() => pendingNames.delete(ref))
+    pendingNames.set(ref, job)
+  }
+  const name = await job.catch(() => null)
+  return name && name !== place.name ? { ...place, name } : place
 }
 
 export const nominatimProvider: GeocodingProvider = {
@@ -240,7 +317,9 @@ export const nominatimProvider: GeocodingProvider = {
       url.searchParams.set('viewbox', [near.lng - d, near.lat + d, near.lng + d, near.lat - d].join(','))
     }
     const data = await nominatimClient.request<NominatimResult[]>(url.toString(), { signal })
-    return data.map(placeFromNominatim)
+    const places = data.map(placeFromNominatim)
+    places.forEach(rememberSpanishName)
+    return places
   },
   async reverse(lat, lng, { signal, zoom = 18 } = {}) {
     const url = new URL('/reverse', NOMINATIM_URL)

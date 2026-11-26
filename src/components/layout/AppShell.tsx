@@ -6,6 +6,7 @@ import { NavigationRunner } from '@/hooks/useNavigationRunner'
 import { usePoiLoader } from '@/hooks/usePoiLoader'
 import { useRoadAutoLoader } from '@/hooks/useRoadAutoLoader'
 import { useNetworkKeepAreas } from '@/hooks/useNetworkKeepAreas'
+import { useSpanishPlaceNames } from '@/hooks/useSpanishPlaceNames'
 import { useRouteComputation } from '@/hooks/useRouteComputation'
 import { useMapTheme, useMediaQuery } from '@/hooks/useUiTheme'
 import { useAppStore } from '@/store/useAppStore'
@@ -63,6 +64,10 @@ function PoiLoader() {
   usePoiLoader()
   return null
 }
+function PlaceNames() {
+  useSpanishPlaceNames()
+  return null
+}
 function RoadAutoLoader() {
   useRoadAutoLoader()
   useNetworkKeepAreas()
@@ -73,6 +78,7 @@ function Orchestrators() {
     <>
       <RouteComputation />
       <PoiLoader />
+      <PlaceNames />
       <RoadAutoLoader />
       <NavigationRunner />
     </>

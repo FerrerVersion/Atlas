@@ -1,5 +1,5 @@
 import { geocoding, kindLabel, parseCoordinates, type Place } from '@/features/geocoding/geocodingService'
-import { networkStore } from '@/features/osm/networkStore'
+import { networkStore, STREET_CLUSTER_M } from '@/features/osm/networkStore'
 import { POI_CATEGORIES, POI_CATEGORY_MAP, type POI, type PoiCategory } from '@/features/poi/poiTypes'
 import { haversine } from '@/utils/distance'
 
@@ -73,17 +73,18 @@ export function poiToPlace(p: POI): Place {
 export function searchLocal(query: string, pois: POI[], near?: { lat: number; lng: number }, limit = 6): Place[] {
   if (normalize(query).length < 2) return []
   const scored: { place: Place; score: number }[] = []
-  for (const s of networkStore.streetIndex().values()) {
-    const score = matchScore(s.name, query)
-    if (score > 0) {
+  for (const spots of networkStore.streetIndex().values()) {
+    const score = matchScore(spots[0].name, query)
+    if (score === 0) continue
+    for (const s of spots) {
       scored.push({
         score,
         place: {
-          id: `street:${s.name}`,
+          id: `street:${s.name}@${s.lat.toFixed(4)},${s.lng.toFixed(4)}`,
           name: s.name,
           kind: 'street',
           kindLabel: kindLabel('street'),
-          address: 'Calle en la zona cargada',
+          address: 'Calle de la zona cargada en el mapa',
           lat: s.lat,
           lng: s.lng,
           source: 'local',
@@ -109,14 +110,50 @@ export function withDistances(places: Place[], near?: { lat: number; lng: number
   )
 }
 
-function dedupe(places: Place[]): Place[] {
+/** Importancia dentro de un grupo de transporte con el mismo nombre (se queda la mayor). */
+const TRANSIT_RANK: Record<string, number> = {
+  'railway=station': 4, 'public_transport=station': 4, 'amenity=bus_station': 4,
+  'railway=halt': 3, 'railway=stop': 2, 'public_transport=stop_position': 2,
+  'railway=platform': 1, 'public_transport=platform': 1, 'railway=tram_stop': 2,
+}
+const transitRank = (p: Place) => (p.osmKey && p.category ? TRANSIT_RANK[`${p.osmKey}=${p.category}`] : undefined)
+
+/** Distancia máxima para considerar que dos resultados con el mismo nombre son el mismo lugar. */
+export const SAME_PLACE_M = 400
+
+/**
+ * Quita resultados repetidos sin perder lugares distintos:
+ *  - el mismo objeto OSM (o el mismo nombre en el mismo punto) solo una vez;
+ *  - una estación con sus paradas y andenes del mismo nombre (OSM los mapea por
+ *    separado) es un único resultado: la estación;
+ *  - el mismo nombre y tipo a menos de SAME_PLACE_M (p. ej. una calle partida en
+ *    varios tramos) también.
+ * Lugares con el mismo nombre pero lejos (la Calle Mayor de dos pueblos) se conservan.
+ */
+export function dedupePlaces(places: Place[]): Place[] {
   const seen = new Set<string>()
-  return places.filter((p) => {
-    const key = p.osm ? `${p.osm.type}${p.osm.id}` : `${normalize(p.name)}|${p.lat.toFixed(3)}|${p.lng.toFixed(3)}`
-    if (seen.has(key)) return false
+  const out: Place[] = []
+  for (const p of places) {
+    const key = p.osm ? `${p.osm.type}${p.osm.id}` : `${normalize(p.name)}|${p.lat.toFixed(4)}|${p.lng.toFixed(4)}`
+    if (seen.has(key)) continue
     seen.add(key)
-    return true
-  })
+    if (p.kind === 'category' || p.kind === 'coordinates') {
+      out.push(p)
+      continue
+    }
+    const name = normalize(p.name)
+    const rank = transitRank(p)
+    const twin = out.findIndex(
+      (q) =>
+        normalize(q.name) === name &&
+        haversine(q.lat, q.lng, p.lat, p.lng) <= SAME_PLACE_M &&
+        (q.kindLabel === p.kindLabel || (rank !== undefined && transitRank(q) !== undefined)),
+    )
+    if (twin === -1) out.push(p)
+    // Del grupo de transporte se queda la estación (en la posición del primero).
+    else if (rank !== undefined && rank > (transitRank(out[twin]) ?? 0)) out[twin] = p
+  }
+  return out
 }
 
 const cache = new Map<string, Place[]>()
@@ -156,7 +193,7 @@ export function searchInstant(query: string, opts: Omit<SearchOptions, 'signal' 
   const coords = parseCoordinates(q)
   if (coords) return [coords]
   const cat = detectCategory(q)
-  return dedupe([
+  return dedupePlaces([
     ...(cat ? [categoryPlace(cat)] : []),
     ...searchSaved(q, opts.saved ?? [], opts.near),
     ...searchLocal(q, opts.pois ?? [], opts.near),
@@ -180,11 +217,15 @@ export async function searchPlaces(query: string, opts: SearchOptions = {}): Pro
     // Caché acotada: se descarta la entrada más antigua.
     if (cache.size > 200) cache.delete(cache.keys().next().value!)
   }
-  // Una calle local con el mismo nombre que un resultado remoto es la misma calle.
-  const remoteNames = new Set((remote ?? []).map((p) => normalize(p.name)))
+  // Una calle local es la misma que un resultado remoto solo si se llama igual Y está
+  // cerca (el remoto trae la población): la Calle Mayor de otro pueblo se conserva.
+  const sameStreet = (p: Place) =>
+    (remote ?? []).some(
+      (r) => normalize(r.name) === normalize(p.name) && haversine(r.lat, r.lng, p.lat, p.lng) < STREET_CLUSTER_M,
+    )
   const head = instant.filter((p) => p.kind === 'category')
-  const extra = instant.filter((p) => p.kind !== 'category' && !(p.kind === 'street' && remoteNames.has(normalize(p.name))))
-  return dedupe([...head, ...withDistances(remote ?? [], opts.near), ...extra])
+  const extra = instant.filter((p) => p.kind !== 'category' && !(p.kind === 'street' && sameStreet(p)))
+  return dedupePlaces([...head, ...withDistances(remote ?? [], opts.near), ...extra])
 }
 
 /** ¿Hay resultados remotos ya en caché para esta búsqueda? (para mostrarlos sin esperar). */

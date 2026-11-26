@@ -10,7 +10,7 @@ La originalidad está en la interfaz, los estilos y las funcionalidades. **Ning�
 
 ## Características
 
-- **Búsqueda** de ciudades, municipios, barrios, calles, POIs y coordenadas, con autocompletado, normalización de acentos y sin distinguir mayúsculas. Resultados con nombre real, tipo, dirección, icono y distancia aproximada.
+- **Búsqueda** de ciudades, municipios, barrios, calles, POIs y coordenadas, con autocompletado, normalización de acentos y sin distinguir mayúsculas. Resultados con nombre real, tipo, dirección, icono y distancia aproximada. Resultados sin duplicados: una estación con sus paradas y andenes del mismo nombre es un solo resultado, y los tipos se etiquetan bien (Municipio, Estación de tren, Parada de autobús, Calle…). Las calles ya cargadas con el mismo nombre en dos pueblos aparecen por separado, cada una en su sitio.
 - **Búsqueda por categoría** («gasolineras», «restaurantes cerca»…) y filtros de **POIs reales** (12 categorías) vía Overpass.
 - **Mapa interactivo** (Leaflet): zoom con botones, rueda y pellizco, arrastre, centrado en el lugar seleccionado y en tu ubicación (si das permiso), ajuste automático a la ruta, menú contextual («Ruta desde aquí / hasta aquí / Añadir parada / ¿Qué hay aquí?»).
 - **Motor de rutas A\*** sobre la red viaria real: sentidos únicos, rotondas, límites de velocidad, modo coche/a pie, ruta más rápida o más corta, evitar autopistas, detección de destinos inaccesibles.
@@ -81,7 +81,7 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 171 tests unitarios y de integración
+npm test             # Vitest: 179 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
 npm run test:e2e     # Playwright: 52 pruebas (26 en escritorio y 26 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
@@ -274,7 +274,7 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 ## Limitaciones
 
 - **El cálculo de rutas descarga la red viaria en vivo desde Overpass**, un servicio público gratuito: con el servidor saturado una ruta puede tardar decenas de segundos (ver *Rendimiento*). Overpass, Photon, Nominatim y las teselas tienen políticas de uso ligero; la app limita sus consultas, pero para uso intensivo hay que desplegar instancias propias (o un motor de rutas en servidor).
-- El autocompletado (Photon) muestra el nombre oficial de OSM (p. ej. «València») y la búsqueda con Enter (Nominatim, en español) puede mostrar «Valencia».
+- El autocompletado (Photon) solo conoce el nombre oficial local de OSM (p. ej. «València») y no admite el español. Al elegir un municipio, región o país se consulta una vez su nombre en español de OSM (`name:es`, con Nominatim `/lookup`) y se recuerda: la ficha y las búsquedas siguientes muestran «Valencia». La primera lista, antes de elegir, aún puede mostrar el nombre local. Las calles y comercios conservan su nombre de OSM sin traducir.
 - Rutas en vivo hasta ~300 km en coche (~25 km a pie); en trayectos largos solo se descargan vías principales en el corredor.
 - No hay tráfico en tiempo real, restricciones de giro (`turn restrictions`) ni carriles; los tiempos no consideran pendientes (no hay datos de elevación), así que en puertos de montaña pueden quedarse algo cortos.
 - Las capas Esri Canvas tienen detalle nativo hasta zoom 16; por encima, las calles se dibujan en vectorial a partir de OSM.

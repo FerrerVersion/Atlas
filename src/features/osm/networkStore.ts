@@ -2,10 +2,21 @@ import { useSyncExternalStore } from 'react'
 import { buildGraphFromOsm, type OsmWay } from '@/features/routing/graph'
 import type { RoadGraph, TravelProfile } from '@/features/routing/routeTypes'
 import { bboxContains, bboxIntersects, type BBox } from '@/utils/geometry'
+import { haversine } from '@/utils/distance'
 
 /** Tope de vías en memoria (~1,3 KB cada una sin contar el grafo) y nivel al que se baja al liberar. */
 export const MAX_WAYS = 50_000
 export const TARGET_WAYS = 40_000
+
+/** Tramos de una calle con el mismo nombre a menos de esta distancia son la misma calle. */
+export const STREET_CLUSTER_M = 1_500
+
+export interface StreetSpot {
+  name: string
+  lat: number
+  lng: number
+  highway: string
+}
 
 const center = (b: BBox) => [(b.south + b.north) / 2, (b.west + b.east) / 2] as const
 
@@ -157,17 +168,24 @@ export class NetworkStore {
     return out
   }
 
-  private streetCache: { version: number; idx: Map<string, { name: string; lat: number; lng: number; highway: string }> } | null = null
+  private streetCache: { version: number; idx: Map<string, StreetSpot[]> } | null = null
 
-  /** Nombres de calle reales presentes en los datos cargados (cacheado por versión). */
-  streetIndex(): Map<string, { name: string; lat: number; lng: number; highway: string }> {
+  /**
+   * Calles con nombre real presentes en los datos cargados: por cada nombre, una
+   * entrada por ZONA (tramos a menos de STREET_CLUSTER_M se agrupan). Así la «Calle
+   * Mayor» de dos pueblos son dos resultados, cada uno en su sitio. Cacheado por versión.
+   */
+  streetIndex(): Map<string, StreetSpot[]> {
     if (this.streetCache?.version === this.version) return this.streetCache.idx
-    const idx = new Map<string, { name: string; lat: number; lng: number; highway: string }>()
+    const idx = new Map<string, StreetSpot[]>()
     for (const w of this.ways.values()) {
       const name = w.tags.name
-      if (!name || idx.has(name)) continue
+      if (!name) continue
       const mid = w.geometry[Math.floor(w.geometry.length / 2)]
-      idx.set(name, { name, lat: mid.lat, lng: mid.lon, highway: w.tags.highway })
+      let spots = idx.get(name)
+      if (!spots) idx.set(name, (spots = []))
+      if (spots.some((p) => haversine(p.lat, p.lng, mid.lat, mid.lon) < STREET_CLUSTER_M)) continue
+      spots.push({ name, lat: mid.lat, lng: mid.lon, highway: w.tags.highway })
     }
     this.streetCache = { version: this.version, idx }
     return idx

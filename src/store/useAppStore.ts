@@ -242,6 +242,7 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           waypoints: s.waypoints.map((w) => (w.place?.id === place.id ? { ...w, place: { ...place, lat: w.place.lat, lng: w.place.lng } } : w)),
           selectedPlace: s.selectedPlace?.id === place.id ? place : s.selectedPlace,
+          history: s.history.some((h) => h.id === place.id) ? s.history.map((h) => (h.id === place.id ? { ...h, name: place.name } : h)) : s.history,
         })),
       setOrigin: (place) => get().setWaypoint(0, place),
       setDestination: (place) => get().setWaypoint(get().waypoints.length - 1, place),
