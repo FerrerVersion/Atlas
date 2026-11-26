@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { buildGraphFromOsm, type OsmWay } from '@/features/routing/graph'
+import { GraphBuilder, type OsmWay } from '@/features/routing/graph'
 import type { RoadGraph, TravelProfile } from '@/features/routing/routeTypes'
 import { bboxContains, bboxIntersects, type BBox } from '@/utils/geometry'
 import { haversine } from '@/utils/distance'
@@ -31,7 +31,8 @@ const center = (b: BBox) => [(b.south + b.north) / 2, (b.west + b.east) / 2] as 
  */
 export class NetworkStore {
   private ways = new Map<number, OsmWay & { bbox: BBox }>()
-  private graphs = new Map<TravelProfile, { version: number; graph: RoadGraph }>()
+  /** Un constructor incremental por perfil: al llegar vías nuevas solo se procesan esas. */
+  private builders = new Map<TravelProfile, { version: number; builder: GraphBuilder }>()
   private listeners = new Set<() => void>()
   private loadedCells = new Set<string>()
   /** Zonas descargadas con todo el detalle de calles. */
@@ -91,6 +92,8 @@ export class NetworkStore {
       for (const cell of cellsForBBox(c.bbox)) this.loadedCells.delete(cell.key)
     }
     this.coverage = this.coverage.filter((cov) => !toRemove.some((c) => bboxIntersects(cov, c.bbox)))
+    // Quitar vías no es incremental: el próximo grafo se construye de cero.
+    this.builders.clear()
     return toRemove.length
   }
 
@@ -146,7 +149,7 @@ export class NetworkStore {
     this.ways.clear()
     this.coverage = []
     this.loadedCells.clear()
-    this.graphs.clear()
+    this.builders.clear()
     this.bump()
   }
 
@@ -191,12 +194,19 @@ export class NetworkStore {
     return idx
   }
 
+  /**
+   * Grafo de rutas de las vías cargadas. Es el MISMO objeto entre llamadas y se
+   * actualiza de forma incremental con las vías que hayan llegado desde la última vez
+   * (su `revision` cambia): no se reconstruye entero por cada descarga.
+   */
   graph(profile: TravelProfile): RoadGraph {
-    const cached = this.graphs.get(profile)
-    if (cached && cached.version === this.version) return cached.graph
-    const graph = buildGraphFromOsm(this.ways.values(), { profile })
-    this.graphs.set(profile, { version: this.version, graph })
-    return graph
+    let entry = this.builders.get(profile)
+    if (!entry) this.builders.set(profile, (entry = { version: -1, builder: new GraphBuilder({ profile }) }))
+    if (entry.version !== this.version) {
+      entry.builder.addWays(this.ways.values())
+      entry.version = this.version
+    }
+    return entry.builder.graph
   }
 
   hasCell(key: string) {

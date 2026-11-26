@@ -21,7 +21,8 @@ describe('buildGraphFromOsm', () => {
     const g = buildGraphFromOsm(ways)
     expect(g.nodes.has('n11')).toBe(true)
     expect(g.nodes.get('n11')!.type).toBe('intersection')
-    expect(g.nodes.get('n11')!.name).toBe('Calle Uno / Calle Dos')
+    // Nombres del cruce en orden alfabético (no dependen del orden de las vías).
+    expect(g.nodes.get('n11')!.name).toBe('Calle Dos / Calle Uno')
     // 4 tramos de doble sentido = 8 aristas dirigidas
     expect(g.edges.size).toBe(8)
     const names = new Set([...g.edges.values()].map((e) => e.name))

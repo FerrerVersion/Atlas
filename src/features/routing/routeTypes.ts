@@ -66,7 +66,24 @@ export interface RoadGraph {
   outgoing: Map<string, string[]>
   /** Velocidad máxima del grafo (km/h), usada por la heurística admisible. */
   maxSpeed: number
+  /** Aumenta con cada cambio estructural (las cachés derivadas lo comprueban). */
+  revision?: number
+  /** Índice espacial de aristas (cuadrícula), mantenido por GraphBuilder. */
+  index?: EdgeIndex
 }
+
+/**
+ * Cuadrícula de celdas de `cellDeg` grados → ids de las aristas que la tocan (clave
+ * numérica, ver cellKey). De cada vía de doble sentido solo se indexa la arista de ida:
+ * la de vuelta tiene la misma geometría y el ajuste a la vía ya trata las dos.
+ */
+export interface EdgeIndex {
+  cellDeg: number
+  cells: Map<number, Set<string>>
+}
+
+/** Clave numérica de una celda (i = fila, j = columna; admite coordenadas negativas). */
+export const cellKey = (i: number, j: number) => (i + 40_000) * 100_000 + (j + 40_000)
 
 export type CostMode = 'fastest' | 'shortest'
 export type TravelProfile = 'car' | 'walk'

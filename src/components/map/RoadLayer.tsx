@@ -7,6 +7,7 @@ import { MIN_OVERLAY_ZOOM, NODE_MIN_ZOOM, PANES, REGIONAL_MIN_ZOOM } from '@/fea
 import { roadClass, toRoadType } from '@/features/routing/graph'
 import type { RoadClass } from '@/features/routing/routeTypes'
 import type { MapTheme } from '@/features/themes/themeTypes'
+import type { BBox } from '@/utils/geometry'
 
 const DRAW_ORDER: RoadClass[] = ['path', 'local', 'minor', 'major', 'highway']
 
@@ -29,15 +30,31 @@ function lineScale(zoom: number) {
   return zoom >= 10 ? 0.6 : 0.45
 }
 
+/** Margen dibujado alrededor de la vista, en pantallas (1 = una pantalla más por cada lado). */
+export const DRAW_MARGIN = 1
+
+const boundsToBBox = (b: L.LatLngBounds): BBox => ({ south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast() })
+const containsBBox = (outer: BBox, inner: BBox) =>
+  inner.south >= outer.south && inner.north <= outer.north && inner.west >= outer.west && inner.east <= outer.east
+
 /**
  * Capa vectorial de calles REALES (OSM) dibujada con el estilo del tema.
- * Usa canvas para rendimiento; la geometría nunca se altera.
+ * Usa canvas y solo dibuja las vías de la zona visible y un margen alrededor: con
+ * decenas de miles de vías cargadas, el mapa sigue moviéndose con fluidez. Al salir
+ * de esa zona se vuelve a dibujar. La geometría nunca se altera.
  */
 export function RoadLayer({ theme }: { theme: MapTheme }) {
   const map = useMap()
   const version = useNetworkVersion()
   const [zoom, setZoom] = useState(() => Math.round(map.getZoom()))
-  useMapEvent('zoomend', () => setZoom(Math.round(map.getZoom())))
+  const [area, setArea] = useState<BBox>(() => boundsToBBox(map.getBounds().pad(DRAW_MARGIN)))
+  useMapEvent('zoomend', () => {
+    setZoom(Math.round(map.getZoom()))
+    setArea(boundsToBBox(map.getBounds().pad(DRAW_MARGIN)))
+  })
+  useMapEvent('moveend', () => {
+    if (!containsBBox(area, boundsToBBox(map.getBounds()))) setArea(boundsToBBox(map.getBounds().pad(DRAW_MARGIN)))
+  })
   const bucket = zoom < REGIONAL_MIN_ZOOM ? 0 : Math.min(zoom, 17)
 
   useEffect(() => {
@@ -49,7 +66,7 @@ export function RoadLayer({ theme }: { theme: MapTheme }) {
     const scale = lineScale(bucket)
 
     const byClass = new Map<RoadClass, L.LatLngExpression[][]>()
-    for (const w of networkStore.allWays()) {
+    for (const w of networkStore.waysInBBox(area)) {
       const t = toRoadType(w.tags.highway)
       if (!t) continue
       const c = roadClass(t)
@@ -84,7 +101,7 @@ export function RoadLayer({ theme }: { theme: MapTheme }) {
       group.remove()
       renderer.remove()
     }
-  }, [map, theme, version, bucket])
+  }, [map, theme, version, bucket, area])
 
   return theme.overlay.showNodes ? <GraphNodes theme={theme} zoom={zoom} /> : null
 }

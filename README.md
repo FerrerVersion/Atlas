@@ -81,7 +81,8 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 179 tests unitarios y de integración
+npm test             # Vitest: 184 tests unitarios y de integración
+npm run bench        # Benchmarks con una ciudad sintética de 45.000 vías (no forman parte de npm test)
 npx playwright install chromium   # solo la primera vez
 npm run test:e2e     # Playwright: 52 pruebas (26 en escritorio y 26 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
@@ -134,7 +135,18 @@ Cómo:
 
 Para medirlo: `npx vite preview --port 4173` y `node scripts/perf-ux.mjs` (servicios simulados con latencias realistas).
 
-Construir el grafo y calcular A* no es el cuello de botella: con 15 000 vías reales tarda unos 100 ms.
+**Motor con una ciudad grande** (`npm run bench`: ciudad sintética de 150×150 cruces, 45.000 vías y 67.000 aristas, con la forma de los datos de OSM; Node en un Mac, en un móvil cuenta de 4 a 6 veces más):
+
+| | Antes | Ahora |
+|---|---|---|
+| Añadir 100 vías y obtener el grafo | 139 ms (se reconstruía entero) | **2,4 ms** (incremental) |
+| Ajustar una parada a la calle más cercana | 5 ms (recorría todas las aristas) | **0,04 ms** (índice espacial) |
+| A* de esquina a esquina (29,5 km) | 18 ms | 20 ms |
+| Construir el grafo entero de golpe | 155 ms | 185-215 ms |
+
+El grafo es **incremental**: al llegar vías nuevas solo se procesan esas y las ya cargadas que pasan por un cruce nuevo (un test comprueba que el resultado es idéntico a construirlo de cero, en cualquier orden). Construirlo entero cuesta algo más que antes por el índice y la contabilidad, pero solo ocurre tras liberar memoria. El mapa **solo dibuja las vías de la zona visible** y una pantalla de margen: con 45.000 vías cargadas, el JavaScript al alejar, arrastrar y acercar baja de ~315 ms a ~125 ms y desaparecen las tareas largas. Con los temas que usan filtros CSS (Cyberpunk, Blueprint, Retro arcade…) el arrastre sigue siendo menos fluido por el coste de pintar esos filtros, no del código.
+
+Web Worker: evaluado y **no** implementado por ahora; con estos tiempos lo que queda en el hilo principal durante una ruta es A* (≈20 ms aquí) y obligaría a duplicar la red viaria en memoria (el mapa y la búsqueda también la usan).
 
 ## Arquitectura
 
@@ -286,7 +298,7 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 
 - Restricciones de giro y perfiles de bicicleta.
 - Teselas vectoriales (MapLibre) para recolorear agua/parques de forma exacta y rotar el mapa.
-- Web Worker para construir el grafo y ejecutar A* en zonas grandes.
+- Web Worker para el motor local si se calculan rutas sobre zonas mucho mayores (evaluado en la fase 6: hoy no compensa).
 - Superponer mapas personalizados calibrados sobre el mapa real.
 - Importación de archivos `.osm`/`.pbf` y GeoJSON arbitrarios.
 

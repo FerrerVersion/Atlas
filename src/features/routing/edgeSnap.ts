@@ -1,7 +1,7 @@
 import { haversine, polylineLength, type LatLngTuple } from '@/utils/distance'
 import { projectOnSegment } from '@/utils/geometry'
-import { connectedComponents } from './graph'
-import type { GraphEdge, RoadGraph } from './routeTypes'
+import { componentsOf } from './graph'
+import { cellKey, type GraphEdge, type RoadGraph } from './routeTypes'
 
 /**
  * Ajuste de una parada al PUNTO EXACTO de la calle más cercana (no al cruce más
@@ -16,22 +16,22 @@ export interface EdgeSnap {
   distance: number
 }
 
-const componentCache = new WeakMap<RoadGraph, ReturnType<typeof connectedComponents>>()
+/** Radio máximo (en celdas del índice) que se recorre antes de pasar a la búsqueda completa. */
+const MAX_INDEX_RINGS = 6
 
 export function nearestEdge(graph: RoadGraph, lat: number, lng: number): EdgeSnap | null {
   if (graph.edges.size === 0) return null
-  let cc = componentCache.get(graph)
-  if (!cc) componentCache.set(graph, (cc = connectedComponents(graph)))
+  const cc = componentsOf(graph)
   const largest = Math.max(...cc.sizes)
   // Ignora fragmentos aislados (trozos de vía desconectados del resto).
   const minSize = Math.min(largest, Math.max(2, Math.floor(largest * 0.05)))
   const p: LatLngTuple = [lat, lng]
   let best: EdgeSnap | null = null
-  for (const edge of graph.edges.values()) {
-    if (cc.sizes[cc.component.get(edge.from) ?? 0] < minSize) continue
+  const consider = (edge: GraphEdge) => {
+    if (cc.sizes[cc.component.get(edge.from) ?? 0] < minSize) return
     const g = edge.geometry
     // Poda barata: el tramo entero está más lejos que el mejor candidato.
-    if (best && haversine(lat, lng, g[0][0], g[0][1]) - edge.distance > best.distance) continue
+    if (best && haversine(lat, lng, g[0][0], g[0][1]) - edge.distance > best.distance) return
     for (let i = 1; i < g.length; i++) {
       const proj = projectOnSegment(p, g[i - 1], g[i])
       if (!best || proj.distance < best.distance) {
@@ -39,6 +39,36 @@ export function nearestEdge(graph: RoadGraph, lat: number, lng: number): EdgeSna
       }
     }
   }
+
+  // Con índice espacial: se miran las celdas en anillos crecientes alrededor del punto
+  // y se para en cuanto ningún anillo más lejano puede tener nada más cerca.
+  const index = graph.index
+  if (index && index.cells.size > 0) {
+    const d = index.cellDeg
+    const ci = Math.floor(lat / d)
+    const cj = Math.floor(lng / d)
+    // Lado más corto de una celda en metros (en longitud se encoge con la latitud).
+    const side = Math.min(d * 111_320, d * 111_320 * Math.cos((lat * Math.PI) / 180))
+    const seen = new Set<string>()
+    for (let r = 0; r <= MAX_INDEX_RINGS; r++) {
+      for (let i = ci - r; i <= ci + r; i++) {
+        for (let j = cj - r; j <= cj + r; j++) {
+          if (Math.max(Math.abs(i - ci), Math.abs(j - cj)) !== r) continue
+          for (const eid of index.cells.get(cellKey(i, j)) ?? []) {
+            if (seen.has(eid)) continue
+            seen.add(eid)
+            const e = graph.edges.get(eid)
+            if (e) consider(e)
+          }
+        }
+      }
+      // Todo lo que queda fuera de los anillos 0..r está al menos a r·lado.
+      if (best && (best as EdgeSnap).distance <= r * side) return best
+    }
+  }
+  // Sin índice (grafos de prueba, mapas propios) o nada cerca: búsqueda completa.
+  best = null
+  for (const edge of graph.edges.values()) consider(edge)
   return best
 }
 

@@ -1,5 +1,5 @@
 import { haversine, polylineLength, type LatLngTuple } from '@/utils/distance'
-import type { GraphEdge, GraphNode, RoadClass, RoadGraph, RoadType, TravelProfile } from './routeTypes'
+import { cellKey, type GraphEdge, type GraphNode, type RoadClass, type RoadGraph, type RoadType, type TravelProfile } from './routeTypes'
 import { curveAwareTime } from './travelTime'
 import { travelSeconds } from '@/utils/distance'
 
@@ -236,48 +236,174 @@ export function addRoad(
  * conservan la geometría completa y el nombre real de la vía.
  */
 export function buildGraphFromOsm(ways: Iterable<OsmWay>, options: BuildGraphOptions = {}): RoadGraph {
-  const profile = options.profile ?? 'car'
-  const maxEdgeLength = options.maxEdgeLength ?? 250
-  const graph = createGraph()
+  return new GraphBuilder(options).addWays(ways).graph
+}
 
-  const usable: { way: OsmWay; type: RoadType }[] = []
-  const usage = new Map<number, number>()
-  const nodeNames = new Map<number, Set<string>>()
+/** Lado de las celdas del índice espacial de aristas (~0,005° ≈ 430-550 m). */
+export const EDGE_INDEX_CELL_DEG = 0.005
 
-  for (const way of ways) {
-    const type = toRoadType(way.tags.highway)
-    if (!type || !isAllowed(type, way.tags, profile)) continue
-    if (way.nodes.length < 2 || way.nodes.length !== way.geometry.length) continue
-    usable.push({ way, type })
-    way.nodes.forEach((id, i) => {
-      // Una vía cerrada (rotonda) usa su primer nodo dos veces: cuenta solo una.
-      if (i === way.nodes.length - 1 && id === way.nodes[0]) return
-      usage.set(id, (usage.get(id) ?? 0) + 1)
-      const label = way.tags.name ?? way.tags.ref
-      if (label) {
-        let set = nodeNames.get(id)
-        if (!set) nodeNames.set(id, (set = new Set()))
-        set.add(label)
-      }
-    })
+/**
+ * Construye el grafo de forma INCREMENTAL: al añadir vías solo se procesan las
+ * nuevas y las ya cargadas que pasan por un nodo que ahora es un cruce (hay que
+ * partirlas ahí). El resultado es idéntico a construirlo de cero con todas las vías.
+ * Mantiene además un índice espacial de las aristas para el ajuste a la vía.
+ */
+export class GraphBuilder {
+  readonly graph: RoadGraph = createGraph()
+  private readonly profile: TravelProfile
+  private readonly maxEdgeLength: number
+  private usage = new Map<number, number>()
+  private nodeNames = new Map<number, Set<string>>()
+  /**
+   * Nodo OSM → vías utilizables que pasan por él: un número si es una sola (casi
+   * todos los nodos, los interiores) y una lista solo en los cruces (menos memoria).
+   */
+  private nodeWays = new Map<number, number | number[]>()
+  private ways = new Map<number, { way: OsmWay; type: RoadType }>()
+  /** Todas las vías ya evaluadas (también las descartadas para este perfil). */
+  private seen = new Set<number>()
+  /** Vía → aristas que generó (para rehacerla si cambia). */
+  private wayEdges = new Map<number, string[]>()
+  /** Nodo del grafo → nº de extremos de arista que lo usan (se borra al llegar a 0). */
+  private refs = new Map<string, number>()
+
+  constructor(options: BuildGraphOptions = {}) {
+    this.profile = options.profile ?? 'car'
+    this.maxEdgeLength = options.maxEdgeLength ?? 250
+    this.graph.revision = 0
+    this.graph.index = { cellDeg: EDGE_INDEX_CELL_DEG, cells: new Map() }
   }
 
-  const ensureNode = (osmId: number, lat: number, lng: number, type: GraphNode['type']) => {
+  has(wayId: number) {
+    return this.ways.has(wayId)
+  }
+
+  addWays(ways: Iterable<OsmWay>): this {
+    const fresh: number[] = []
+    // Grafo vacío (construcción completa): todo es nuevo y los nodos se crean ya con su
+    // tipo y nombre definitivos, así que no hace falta saber qué nodos cambiaron.
+    const initial = this.graph.edges.size === 0
+    const touched = new Set<number>()
+    for (const way of ways) {
+      if (this.seen.has(way.id)) continue
+      this.seen.add(way.id)
+      const type = toRoadType(way.tags.highway)
+      if (!type || !isAllowed(type, way.tags, this.profile)) continue
+      if (way.nodes.length < 2 || way.nodes.length !== way.geometry.length) continue
+      this.ways.set(way.id, { way, type })
+      fresh.push(way.id)
+      const label = way.tags.name ?? way.tags.ref
+      way.nodes.forEach((id, i) => {
+        // Una vía cerrada (rotonda) usa su primer nodo dos veces: cuenta solo una.
+        if (i === way.nodes.length - 1 && id === way.nodes[0]) return
+        this.usage.set(id, (this.usage.get(id) ?? 0) + 1)
+        if (!initial) touched.add(id)
+        const prev = this.nodeWays.get(id)
+        if (prev === undefined) this.nodeWays.set(id, way.id)
+        else if (typeof prev === 'number') this.nodeWays.set(id, [prev, way.id])
+        else prev.push(way.id)
+        if (label) {
+          let set = this.nodeNames.get(id)
+          if (!set) this.nodeNames.set(id, (set = new Set()))
+          set.add(label)
+        }
+      })
+    }
+    if (fresh.length === 0) return this
+
+    if (initial) {
+      for (const w of fresh) this.addWayEdges(w)
+      this.graph.revision = (this.graph.revision ?? 0) + 1
+      return this
+    }
+    // Vías a (re)partir: las nuevas y las existentes que pasan por un nodo que ahora es cruce.
+    const resplit = new Set(fresh)
+    for (const n of touched) {
+      const list = this.nodeWays.get(n)
+      if (Array.isArray(list)) for (const w of list) resplit.add(w)
+    }
+    for (const w of resplit) this.removeWayEdges(w)
+    for (const w of resplit) this.addWayEdges(w)
+    // Tipo y nombre de los nodos afectados (un extremo puede haberse convertido en cruce).
+    for (const n of touched) {
+      const node = this.graph.nodes.get(`n${n}`)
+      if (!node) continue
+      node.type = (this.usage.get(n) ?? 0) > 1 ? 'intersection' : 'endpoint'
+      node.name = this.nameOf(n)
+    }
+    this.graph.revision = (this.graph.revision ?? 0) + 1
+    return this
+  }
+
+  private nameOf(osmId: number) {
+    const names = this.nodeNames.get(osmId)
+    // Orden alfabético: el nombre no depende del orden en que llegaron las vías.
+    return names && names.size > 1 ? [...names].sort((a, b) => a.localeCompare(b, 'es')).slice(0, 3).join(' / ') : undefined
+  }
+
+  private ensureNode(osmId: number, lat: number, lng: number) {
     const id = `n${osmId}`
-    if (!graph.nodes.has(id)) {
-      const names = nodeNames.get(osmId)
-      addNode(graph, {
+    if (!this.graph.nodes.has(id)) {
+      addNode(this.graph, {
         id,
         lat,
         lng,
-        type,
-        name: names && names.size > 1 ? [...names].slice(0, 3).join(' / ') : undefined,
+        type: (this.usage.get(osmId) ?? 0) > 1 ? 'intersection' : 'endpoint',
+        name: this.nameOf(osmId),
       })
     }
     return id
   }
 
-  for (const { way, type } of usable) {
+  private indexCells(e: GraphEdge): number[] {
+    const d = EDGE_INDEX_CELL_DEG
+    let s = Infinity, n = -Infinity, w = Infinity, ea = -Infinity
+    for (const [lat, lng] of e.geometry) {
+      if (lat < s) s = lat
+      if (lat > n) n = lat
+      if (lng < w) w = lng
+      if (lng > ea) ea = lng
+    }
+    const keys: number[] = []
+    for (let i = Math.floor(s / d); i <= Math.floor(n / d); i++) {
+      for (let j = Math.floor(w / d); j <= Math.floor(ea / d); j++) keys.push(cellKey(i, j))
+    }
+    return keys
+  }
+
+  private removeWayEdges(wayId: number) {
+    const ids = this.wayEdges.get(wayId)
+    if (!ids) return
+    const g = this.graph
+    for (const eid of ids) {
+      const e = g.edges.get(eid)
+      if (!e) continue
+      const out = g.outgoing.get(e.from)
+      if (out) {
+        const k = out.indexOf(eid)
+        if (k >= 0) out.splice(k, 1)
+      }
+      if (!eid.endsWith(':r')) for (const key of this.indexCells(e)) g.index!.cells.get(key)?.delete(eid)
+      g.edges.delete(eid)
+      for (const nid of [e.from, e.to]) {
+        const r = (this.refs.get(nid) ?? 1) - 1
+        if (r > 0) this.refs.set(nid, r)
+        else {
+          this.refs.delete(nid)
+          g.nodes.delete(nid)
+          g.outgoing.delete(nid)
+        }
+      }
+    }
+    this.wayEdges.delete(wayId)
+  }
+
+  private addWayEdges(wayId: number) {
+    const entry = this.ways.get(wayId)
+    if (!entry) return
+    const { way, type } = entry
+    const g = this.graph
+    const profile = this.profile
     const dir = onewayDirection(way.tags, profile)
     const speed =
       profile === 'walk'
@@ -296,7 +422,7 @@ export function buildGraphFromOsm(ways: Iterable<OsmWay>, options: BuildGraphOpt
       tunnel: way.tags.tunnel !== undefined && way.tags.tunnel !== 'no',
       sourceId: `way/${way.id}`,
     }
-
+    const created: string[] = []
     let segStart = 0
     let segLen = 0
     let segIndex = 0
@@ -305,34 +431,43 @@ export function buildGraphFromOsm(ways: Iterable<OsmWay>, options: BuildGraphOpt
       const b = way.geometry[i]
       segLen += haversine(a.lat, a.lon, b.lat, b.lon)
       const isLast = i === way.nodes.length - 1
-      const isJunction = (usage.get(way.nodes[i]) ?? 0) > 1
-      if (!isLast && !isJunction && segLen < maxEdgeLength) continue
+      const isJunction = (this.usage.get(way.nodes[i]) ?? 0) > 1
+      if (!isLast && !isJunction && segLen < this.maxEdgeLength) continue
 
       const startOsm = way.nodes[segStart]
       const endOsm = way.nodes[i]
       if (startOsm !== endOsm) {
         const g0 = way.geometry[segStart]
         const g1 = way.geometry[i]
-        const startType = (usage.get(startOsm) ?? 0) > 1 ? 'intersection' : 'endpoint'
-        const endType = (usage.get(endOsm) ?? 0) > 1 ? 'intersection' : 'endpoint'
-        const from = ensureNode(startOsm, g0.lat, g0.lon, startType)
-        const to = ensureNode(endOsm, g1.lat, g1.lon, endType)
-        const geometry = way.geometry
-          .slice(segStart, i + 1)
-          .map((p) => [p.lat, p.lon] as LatLngTuple)
+        const from = this.ensureNode(startOsm, g0.lat, g0.lon)
+        const to = this.ensureNode(endOsm, g1.lat, g1.lon)
+        const geometry = way.geometry.slice(segStart, i + 1).map((p) => [p.lat, p.lon] as LatLngTuple)
         const id = `w${way.id}_${segIndex++}`
         const forward = dir === -1 ? [...geometry].reverse() : geometry
         // En coche se frena en las curvas (la geometría al revés tarda lo mismo).
         const time = profile === 'car' ? curveAwareTime(forward, speed) : undefined
         const road = { ...base, id, time, geometry: forward, from: dir === -1 ? to : from, to: dir === -1 ? from : to }
-        addRoad(graph, road)
+        const before = g.edges.size
+        addRoad(g, road)
+        const ids = g.edges.size - before === 2 ? [`${id}:f`, `${id}:r`] : [`${id}:f`]
+        for (const eid of ids) {
+          const e = g.edges.get(eid)!
+          created.push(eid)
+          this.refs.set(e.from, (this.refs.get(e.from) ?? 0) + 1)
+          this.refs.set(e.to, (this.refs.get(e.to) ?? 0) + 1)
+          if (eid.endsWith(':r')) continue
+          for (const key of this.indexCells(e)) {
+            let set = g.index!.cells.get(key)
+            if (!set) g.index!.cells.set(key, (set = new Set()))
+            set.add(eid)
+          }
+        }
       }
       segStart = i
       segLen = 0
     }
+    this.wayEdges.set(wayId, created)
   }
-
-  return graph
 }
 
 /* ------------------------------------------------------------------ */
@@ -374,7 +509,16 @@ export function connectedComponents(graph: RoadGraph) {
   return { component, sizes }
 }
 
-const componentCache = new WeakMap<RoadGraph, ReturnType<typeof connectedComponents>>()
+const componentCache = new WeakMap<RoadGraph, { revision: number | undefined; cc: ReturnType<typeof connectedComponents> }>()
+
+/** Componentes conexas del grafo, recalculadas solo si el grafo ha cambiado. */
+export function componentsOf(graph: RoadGraph) {
+  const cached = componentCache.get(graph)
+  if (cached && cached.revision === graph.revision) return cached.cc
+  const cc = connectedComponents(graph)
+  componentCache.set(graph, { revision: graph.revision, cc })
+  return cc
+}
 
 export interface SnapResult {
   node: GraphNode
@@ -387,8 +531,7 @@ export interface SnapResult {
  */
 export function nearestNode(graph: RoadGraph, lat: number, lng: number): SnapResult | null {
   if (graph.nodes.size === 0) return null
-  let cc = componentCache.get(graph)
-  if (!cc) componentCache.set(graph, (cc = connectedComponents(graph)))
+  const cc = componentsOf(graph)
   const largest = Math.max(...cc.sizes)
   const minSize = Math.min(largest, Math.max(2, Math.floor(largest * 0.05)))
   let best: SnapResult | null = null

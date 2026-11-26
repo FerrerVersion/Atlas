@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "bench": "ATLAS_BENCH=1 vitest run --environment node",
     "test:e2e": "playwright test",
     "lint": "oxlint",
     "typecheck": "tsc -b",

@@ -110,8 +110,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./src/tests/setup.ts'],
-    include: ['src/**/*.test.{ts,tsx}'],
+    setupFiles: process.env.ATLAS_BENCH === '1' ? [] : ['./src/tests/setup.ts'],
+    // Los benchmarks (src/bench) solo se ejecutan con `npm run bench`.
+    include: process.env.ATLAS_BENCH === '1' ? ['src/bench/**/*.test.ts'] : ['src/**/*.test.{ts,tsx}'],
+    exclude: process.env.ATLAS_BENCH === '1' ? [] : ['src/bench/**', 'node_modules/**'],
     css: false,
   },
 })
