@@ -7,16 +7,21 @@ import type { MapTheme, TileLayerSpec } from '@/features/themes/themeTypes'
 
 function createTileLayer(spec: TileLayerSpec, pane?: string) {
   const p = TILE_PROVIDERS[spec.provider]
+  // En pantallas retina Leaflet pide teselas de un nivel más (zoomOffset +1): hay que
+  // bajar el zoom nativo máximo para no pedir niveles que el servidor no tiene
+  // (Esri Canvas devuelve «Map data not yet available» por encima del 16).
+  const retina = !spec.pixelated && L.Browser.retina
   const layer = L.tileLayer(p.url, {
     attribution: p.attribution,
     subdomains: p.subdomains ?? 'abc',
-    maxNativeZoom: spec.pixelated ? p.maxNativeZoom - 1 : p.maxNativeZoom,
-    maxZoom: spec.maxZoom ?? 20,
+    maxNativeZoom: p.maxNativeZoom - (spec.pixelated || retina ? 1 : 0),
+    // Leaflet resta 1 a maxZoom en modo retina: se compensa para ocultar la capa al mismo zoom.
+    maxZoom: (spec.maxZoom ?? 20) + (retina ? 1 : 0),
     opacity: spec.opacity ?? 1,
     // Efecto pixelado: teselas de un nivel inferior escaladas al doble.
     tileSize: spec.pixelated ? 512 : 256,
     zoomOffset: spec.pixelated ? -1 : 0,
-    detectRetina: !spec.pixelated,
+    detectRetina: retina,
     className: spec.pixelated ? 'tiles-pixelated' : '',
     crossOrigin: true,
     pane: pane ?? 'tilePane',

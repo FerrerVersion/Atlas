@@ -96,10 +96,35 @@ test('filtro de POIs muestra establecimientos reales', async ({ page }) => {
   await expect(page.getByText('Mesón del Castillo').first()).toBeVisible({ timeout: 10_000 })
 })
 
-test('editor de mapas personalizados', async ({ page }) => {
+test('editor de mapas personalizados: nodos, vías y ruta A*', async ({ page }) => {
   await page.goto('/custom')
-  await expect(page.getByRole('heading', { name: 'Mapas personalizados' })).toBeVisible()
   await expect(page.getByText(/no se envía a ningún servidor/)).toBeVisible()
+  await page.locator('input[type=file][accept^="image"]').setInputFiles('e2e/assets/mapa-ficticio.png')
+  const img = page.locator('img.leaflet-image-layer')
+  await expect(img).toBeVisible()
+  await page.waitForTimeout(500)
+  const ib = (await img.boundingBox())!
+  const s = ib.width / 900
+  const pts = [[120, 330], [420, 300], [720, 330]]
+  const click = (i: number) => page.mouse.click(ib.x + pts[i][0] * s, ib.y + pts[i][1] * s)
+
+  await page.getByRole('radio', { name: 'Nodos' }).click()
+  for (let i = 0; i < 3; i++) await click(i)
+  await expect(page.getByRole('textbox', { name: /Nombre del nodo/ })).toHaveCount(3)
+
+  await page.getByRole('radio', { name: 'Vías' }).click()
+  await click(0)
+  await click(1) // crea 0→1 y deja el 1 seleccionado
+  await click(1) // vuelve a pulsar el 1: cancela (las vías no tapan los nodos)
+  await expect(page.getByText(/Elige el nodo final/)).toHaveCount(0)
+  await click(1)
+  await click(2)
+  await expect(page.getByText(/· ↔ ·/)).toHaveCount(2)
+
+  await page.getByRole('radio', { name: 'Ruta' }).click()
+  await click(0)
+  await click(2)
+  await expect(page.getByText(/Has llegado a tu destino/)).toBeVisible()
 })
 
 test('el menú del mapa fija origen y destino y se cierra (sin nombres inventados)', async ({ page }) => {
@@ -160,5 +185,23 @@ test.describe('ubicación denegada', () => {
     await expect(page.getByRole('alert')).toHaveCount(0)
     await page.getByRole('button', { name: 'Mi ubicación' }).click()
     await expect(page.getByRole('alert')).toContainText(/ubicación/)
+  })
+})
+
+test.describe('pantallas retina', () => {
+  test.use({ deviceScaleFactor: 2 })
+  test('nunca pide teselas Esri por encima del zoom nativo (16)', async ({ page }) => {
+    const zooms: number[] = []
+    await page.route(/arcgisonline\.com/, (route) => {
+      const m = route.request().url().match(/tile\/(\d+)\//)
+      if (m) zooms.push(Number(m[1]))
+      return route.fulfill({ status: 200, contentType: 'image/png', body: Buffer.alloc(0) })
+    })
+    await page.addInitScript(() =>
+      localStorage.setItem('atlas-nav:prefs', JSON.stringify({ state: { themeId: 'blueprint', lastView: { lat: 39.4185, lng: -0.7915, zoom: 18 } }, version: 1 })),
+    )
+    await page.goto('/')
+    await expect.poll(() => zooms.length).toBeGreaterThan(0)
+    expect(Math.max(...zooms)).toBeLessThanOrEqual(16)
   })
 })

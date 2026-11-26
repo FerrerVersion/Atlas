@@ -82,6 +82,8 @@ export function CustomMapCanvas({ map, mode, pendingNode, pendingRef, routeEnds,
         return (
           <CircleMarker
             key={n.id}
+            // Capa superior: las vías nunca deben tapar los nodos (clics).
+            pane="markerPane"
             center={toLL(h, n.x, n.y)}
             radius={active ? 9 : 6}
             pathOptions={{ color: '#fff', weight: 2, fillColor: active ? '#22d3ee' : '#0f172a', fillOpacity: 1 }}
