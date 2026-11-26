@@ -1,5 +1,6 @@
 import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
+import { flushSync } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import L from 'leaflet'
 import { ICONS } from './icons'
 import { POI_CATEGORY_MAP, type PoiCategory } from '@/features/poi/poiTypes'
@@ -44,7 +45,12 @@ export function iconSvg(name: string): string {
   let svg = iconCache.get(name)
   if (!svg) {
     const Icon = ICONS[name] ?? ICONS.MapPin
-    svg = renderToStaticMarkup(createElement(Icon, { strokeWidth: 2.2, 'aria-hidden': true }))
+    // Render síncrono en un nodo suelto (evita incluir react-dom/server en el bundle).
+    const host = document.createElement('div')
+    const root = createRoot(host)
+    flushSync(() => root.render(createElement(Icon, { strokeWidth: 2.2, 'aria-hidden': true })))
+    svg = host.innerHTML
+    root.unmount()
     iconCache.set(name, svg)
   }
   return svg

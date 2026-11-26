@@ -219,7 +219,7 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 - Las capas Esri Canvas tienen detalle nativo hasta zoom 16; por encima, las calles se dibujan en vectorial a partir de OSM.
 - Los colores de agua/parques/edificios de cada tema se aplican mediante filtros sobre teselas ráster (no hay teselas vectoriales).
 - Rotación del mapa no implementada (Leaflet no la soporta de forma nativa).
-- El bundle principal (~820 kB) podría dividirse más.
+- El bundle principal (~620 kB, ~196 kB comprimido) podría dividirse más.
 
 ## Próximas mejoras
 

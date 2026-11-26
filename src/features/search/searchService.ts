@@ -152,6 +152,8 @@ export async function searchPlaces(query: string, opts: SearchOptions = {}): Pro
     const fn = opts.submit ? provider.search : (provider.autocomplete ?? provider.search)
     remote = await fn.call(provider, q, { near: opts.near, signal: opts.signal })
     cache.set(key, remote)
+    // Caché acotada: se descarta la entrada más antigua.
+    if (cache.size > 200) cache.delete(cache.keys().next().value!)
   }
   // Una calle local con el mismo nombre que un resultado remoto es la misma calle.
   const remoteNames = new Set((remote ?? []).map((p) => normalize(p.name)))

@@ -20,6 +20,7 @@ export function useNavigationRunner() {
   const voice = useAppStore((s) => s.navPrefs.voice)
   const progress = useAppStore((s) => s.navigation.progress)
   const lastSpoken = useRef<string>('')
+  const offRoute = useRef(false)
 
   // Simulación
   useEffect(() => {
@@ -49,8 +50,14 @@ export function useNavigationRunner() {
   useEffect(() => {
     if (!active || simulating || !route || !user) return
     const loc = locateOnPolyline(route.geometry, [user.lat, user.lng])
-    if (loc.distance < 60) useAppStore.getState().setNavProgress(loc.offset)
-    else useAppStore.getState().notify('Te has desviado de la ruta.', 'info')
+    if (loc.distance < 60) {
+      offRoute.current = false
+      useAppStore.getState().setNavProgress(loc.offset)
+    } else if (!offRoute.current) {
+      // Un solo aviso por desvío (no en cada actualización del GPS).
+      offRoute.current = true
+      useAppStore.getState().notify('Te has desviado de la ruta.', 'info')
+    }
   }, [active, simulating, route, user])
 
   // Voz
