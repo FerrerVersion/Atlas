@@ -71,9 +71,10 @@ export function PlaceAutocomplete({ value, onValueChange, onPick, placeholder, a
               setActive((a) => Math.max(a - 1, 0))
             } else if (e.key === 'Enter') {
               e.preventDefault()
-              // Enter elige la opción marcada con el teclado; si no, lanza una búsqueda
-              // completa en Nominatim y un segundo Enter elige el primer resultado.
-              if (results[active] && (navigated || (submitNonce > 0 && status === 'idle'))) pick(results[active])
+              // Enter elige la opción resaltada (la primera por defecto). Si no hay
+              // resultados, lanza una búsqueda completa en Nominatim.
+              if (results[active] && status === 'idle') pick(results[active])
+              else if (results[active] && navigated) pick(results[active])
               else {
                 setSubmitNonce((n) => n + 1)
                 setOpen(true)

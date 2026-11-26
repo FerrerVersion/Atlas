@@ -5,6 +5,7 @@ import type { POI, PoiCategory } from '@/features/poi/poiTypes'
 import type { CostMode, MultiRoute, TravelProfile } from '@/features/routing/routeTypes'
 import { DEFAULT_THEME_ID, hasTheme } from '@/features/themes/themeRegistry'
 import type { BBox } from '@/utils/geometry'
+import { sanitizePrefs } from './sanitizePrefs'
 
 export interface Waypoint {
   id: string
@@ -256,7 +257,28 @@ export const useAppStore = create<AppState>()(
     {
       name: 'atlas-nav:prefs',
       version: 1,
-      storage: createJSONStorage(() => localStorage),
+      // getItem tolera JSON corrupto (se trata como «sin preferencias»).
+      storage: createJSONStorage(() => ({
+        getItem: (k) => {
+          const raw = localStorage.getItem(k)
+          if (!raw) return null
+          try {
+            JSON.parse(raw)
+            return raw
+          } catch {
+            return null
+          }
+        },
+        setItem: (k, v) => {
+          try {
+            localStorage.setItem(k, v)
+          } catch {
+            /* almacenamiento lleno o bloqueado */
+          }
+        },
+        removeItem: (k) => localStorage.removeItem(k),
+      })),
+      merge: (persisted, current) => ({ ...current, ...sanitizePrefs(persisted, current) }),
       partialize: (s) => ({
         themeId: s.themeId,
         uiMode: s.uiMode,

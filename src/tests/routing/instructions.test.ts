@@ -148,3 +148,17 @@ describe('routeOnGraph (paradas múltiples)', () => {
     )
   })
 })
+
+describe('casos límite de ruta', () => {
+  const g = buildGraphFromOsm(demoRoads)
+  it('origen y destino en el mismo punto: error explicativo, no una ruta de 0 m', () => {
+    const p = { lat: 39.4205, lng: -0.7905 }
+    expect(() => routeOnGraph(g, [p, { ...p }], { cost: 'fastest', avoidHighways: false })).toThrow(/mismo punto/)
+  })
+  it('una parada repetida en medio no rompe la ruta', () => {
+    const a = { lat: 39.4205, lng: -0.7905 }
+    const b = { lat: 39.4135, lng: -0.7945 }
+    const r = routeOnGraph(g, [a, b, b], { cost: 'fastest', avoidHighways: false })
+    expect(r.distance).toBeGreaterThan(0)
+  })
+})

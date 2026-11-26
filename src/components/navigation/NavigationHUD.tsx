@@ -48,13 +48,15 @@ export function NavigationHUD() {
         </div>
       </div>
       <div className="pointer-events-auto fixed inset-x-3 bottom-3 z-[1000] mx-auto max-w-xl animate-slide-up md:bottom-6">
-        <div className="glass-strong flex items-center gap-2 rounded-3xl p-3">
-          <div className="min-w-0 flex-1 px-1">
-            <p className="text-lg font-bold tabular-nums">{formatDuration(st.remainingTime)}</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
+        {/* En pantallas estrechas: datos en una fila y botones en otra. */}
+        <div className="glass-strong flex flex-wrap items-center gap-x-2 gap-y-1 rounded-3xl p-3 sm:flex-nowrap">
+          <div className="flex min-w-0 basis-full items-baseline gap-3 px-1 sm:block sm:flex-1 sm:basis-auto">
+            <p className="text-lg font-bold whitespace-nowrap tabular-nums">{formatDuration(st.remainingTime)}</p>
+            <p className="text-xs whitespace-nowrap text-slate-500 dark:text-slate-400">
               {formatDistance(st.remainingDistance)} · {eta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
+          <div className="flex w-full items-center justify-between sm:w-auto sm:justify-end sm:gap-1">
           <IconButton label="Maniobra anterior" onClick={() => jump(-1)}>
             <ChevronLeft className="h-5 w-5" />
           </IconButton>
@@ -84,6 +86,7 @@ export function NavigationHUD() {
           <IconButton label="Salir de la navegación" onClick={() => s().stopNavigation()} className="text-rose-500">
             <X className="h-5 w-5" />
           </IconButton>
+          </div>
         </div>
       </div>
     </>

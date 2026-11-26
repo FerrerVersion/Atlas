@@ -36,7 +36,7 @@ export function AppShell() {
             navigating ? 'top-32' : desktop ? 'top-4' : 'top-[calc(max(0.75rem,env(safe-area-inset-top))+4.25rem)]'
           }`}
         >
-          <MapControls />
+          <MapControls compact={navigating && !desktop} />
         </div>
       </div>
       <NavigationHUD />

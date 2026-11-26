@@ -64,6 +64,7 @@ export function formatDistance(meters: number): string {
 
 export function formatDuration(seconds: number): string {
   if (!Number.isFinite(seconds)) return '—'
+  if (seconds <= 0) return '0 min'
   const totalMin = Math.max(1, Math.round(seconds / 60))
   if (totalMin < 60) return `${totalMin} min`
   const h = Math.floor(totalMin / 60)

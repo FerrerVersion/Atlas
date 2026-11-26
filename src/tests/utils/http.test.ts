@@ -28,3 +28,12 @@ describe('RateLimitedClient', () => {
     await expect(slow).rejects.toMatchObject({ status: 408 })
   })
 })
+
+describe('formato de duración', async () => {
+  const { formatDuration } = await import('@/utils/distance')
+  it('0 s es «0 min», no «1 min»', () => {
+    expect(formatDuration(0)).toBe('0 min')
+    expect(formatDuration(20)).toBe('1 min')
+    expect(formatDuration(3720)).toBe('1 h 2 min')
+  })
+})

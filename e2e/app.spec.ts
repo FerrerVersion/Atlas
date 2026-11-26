@@ -205,3 +205,88 @@ test.describe('pantallas retina', () => {
     expect(Math.max(...zooms)).toBeLessThanOrEqual(16)
   })
 })
+
+test('arranca aunque las preferencias guardadas estén dañadas', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', (e) => errors.push(e.message))
+  await page.addInitScript(() =>
+    localStorage.setItem('atlas-nav:prefs', JSON.stringify({ state: { themeId: 'x', lastView: { lat: 'x', lng: null, zoom: 99 } }, version: 1 })),
+  )
+  await page.goto('/')
+  await expect(page.locator('.leaflet-container')).toBeVisible()
+  await expect(page.locator('.atlas-map')).toHaveAttribute('data-theme', 'classic')
+  expect(errors).toEqual([])
+})
+
+test('Enter elige el primer resultado (p. ej. coordenadas)', async ({ page }) => {
+  await page.goto('/')
+  const input = page.getByRole('combobox', { name: 'Buscar un lugar' })
+  await input.fill('39.4189, -0.7909')
+  await expect(page.getByRole('option')).toHaveCount(1)
+  await input.press('Enter')
+  await expect(page.getByTestId('place-name')).toHaveText('39.41890, -0.79090')
+})
+
+test('mismo origen y destino: aviso claro en lugar de una ruta de 0 m', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('tab', { name: 'Ajustes' }).click()
+  await page.getByRole('button', { name: /Cargar demo offline/ }).click()
+  await page.getByRole('tab', { name: 'Ruta' }).click()
+  for (const box of ['Origen', 'Destino']) {
+    await page.getByRole('combobox', { name: box }).fill('Blasco')
+    await page.getByRole('option', { name: /Blasco Ibáñez/ }).first().click()
+  }
+  await expect(page.getByTestId('route-error')).toContainText('mismo punto')
+  await expect(page.getByRole('button', { name: 'Iniciar' })).toHaveCount(0)
+})
+
+test.describe('móvil pequeño (375×667)', () => {
+  test.use({ viewport: { width: 375, height: 667 }, hasTouch: true, isMobile: true })
+
+  test('el desplegable de búsqueda no queda tapado por los controles del mapa', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('combobox', { name: 'Buscar un lugar' }).fill('Blasco')
+    const option = page.getByRole('option', { name: /Blasco Ibáñez/ })
+    await expect(option).toBeVisible()
+    // El punto donde estaba el botón de estilos debe pertenecer al desplegable.
+    const box = (await option.boundingBox())!
+    const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[role=option]') !== null, [box.x + box.width - 20, box.y + box.height / 2])
+    expect(hit).toBe(true)
+    await option.click()
+    await expect(page.getByTestId('place-name')).toHaveText('Avenida de Vicente Blasco Ibáñez')
+  })
+
+  test('la barra de navegación cabe y se puede salir', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('tab', { name: 'Ajustes' }).click()
+    await page.getByRole('button', { name: /Cargar demo offline/ }).click()
+    await page.getByRole('tab', { name: 'Ruta' }).click()
+    await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+    await page.getByRole('option', { name: /Blasco Ibáñez/ }).first().click()
+    await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+    await page.getByRole('option', { name: /Doctor Beltrán/ }).first().click()
+    await page.getByRole('button', { name: 'Iniciar' }).click()
+    const hud = page.getByTestId('nav-hud')
+    await expect(hud).toBeVisible()
+    // El tiempo restante no se parte en varias líneas.
+    const time = page.locator('.glass-strong p.text-lg').first()
+    expect((await time.boundingBox())!.height).toBeLessThan(40)
+    await expect(page.getByRole('button', { name: 'Cargar calles reales de esta zona' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Salir de la navegación' }).click({ timeout: 3000 })
+    await expect(hud).toBeHidden()
+  })
+
+  test('un arrastre corto del asa no expande el panel', async ({ page }) => {
+    await page.goto('/')
+    const handle = page.getByRole('button', { name: 'Expandir panel' })
+    const b = (await handle.boundingBox())!
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(b.x + b.width / 2, b.y - 40, { steps: 5 })
+    await page.mouse.up()
+    await expect(page.getByRole('button', { name: 'Expandir panel' })).toBeVisible()
+    // Un toque simple sí lo expande.
+    await page.getByRole('button', { name: 'Expandir panel' }).click()
+    await expect(page.getByRole('button', { name: 'Contraer panel' })).toBeVisible()
+  })
+})

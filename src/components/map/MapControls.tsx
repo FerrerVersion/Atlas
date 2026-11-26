@@ -8,7 +8,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { MapThemeSelector } from './MapThemeSelector'
 
 /** Controles flotantes: zoom, ubicación, recentrar, ajustar ruta, cargar calles y estilos. */
-export function MapControls() {
+export function MapControls({ compact = false }: { compact?: boolean }) {
   const map = useMapInstance()
   const { locate } = useGeolocation()
   const selected = useAppStore((s) => s.selectedPlace)
@@ -49,6 +49,8 @@ export function MapControls() {
           <Minus className="h-5 w-5" />
         </IconButton>
       </div>
+      {/* En navegación móvil se ocultan para no tapar la barra inferior. */}
+      {!compact && (
       <div className={group}>
         <IconButton
           label="Mi ubicación"
@@ -72,6 +74,7 @@ export function MapControls() {
           {roadsStatus === 'loading' ? <Spinner /> : <Download className="h-5 w-5" />}
         </IconButton>
       </div>
+      )}
     </div>
   )
 }

@@ -144,6 +144,13 @@ export function routeOnGraph(graph: RoadGraph, points: RoutePoint[], prefs: Omit
     return { lat: s.node.lat, lng: s.node.lng, offsetMeters: s.distance, nodeId: s.node.id }
   })
 
+  if (snapped.every((s) => s.nodeId === snapped[0].nodeId)) {
+    throw new RouteError(
+      'El origen y el destino están en el mismo punto de la red de calles. Elige un destino distinto.',
+      'same-point',
+    )
+  }
+
   const legs: RouteLeg[] = []
   const instructions: Instruction[] = []
   let offset = 0

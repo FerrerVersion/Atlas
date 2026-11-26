@@ -12,6 +12,8 @@ export function MobileNavigation() {
   const setExpanded = useAppStore((s) => s.setSheetExpanded)
   const [drag, setDrag] = useState<number | null>(null)
   const start = useRef<{ y: number; expanded: boolean } | null>(null)
+  // Tras arrastrar el asa llega un «click»: se ignora para no alternar el panel.
+  const dragged = useRef(false)
 
   const collapsedH = 132
   const expandedVh = 68
@@ -19,7 +21,7 @@ export function MobileNavigation() {
 
   return (
     <>
-      <div className="pointer-events-auto absolute inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[900]">
+      <div className="pointer-events-auto absolute inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[1000]">
         <div className="glass rounded-2xl p-1.5">
           <SearchBar size="md" />
         </div>
@@ -34,16 +36,26 @@ export function MobileNavigation() {
           aria-label={expanded ? 'Contraer panel' : 'Expandir panel'}
           aria-expanded={expanded}
           className="flex h-6 w-full shrink-0 touch-none items-center justify-center"
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => {
+            if (dragged.current) {
+              dragged.current = false
+              return
+            }
+            setExpanded(!expanded)
+          }}
           onPointerDown={(e) => {
             start.current = { y: e.clientY, expanded }
+            dragged.current = false
             ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
           }}
           onPointerMove={(e) => {
             if (!start.current) return
             const base = start.current.expanded ? (window.innerHeight * expandedVh) / 100 : collapsedH
             const h = Math.max(collapsedH, Math.min(window.innerHeight * 0.92, base + (start.current.y - e.clientY)))
-            if (Math.abs(start.current.y - e.clientY) > 6) setDrag(h)
+            if (Math.abs(start.current.y - e.clientY) > 6) {
+              dragged.current = true
+              setDrag(h)
+            }
           }}
           onPointerUp={() => {
             if (drag !== null) setExpanded(drag > window.innerHeight * 0.35)
