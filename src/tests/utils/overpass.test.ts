@@ -53,3 +53,39 @@ describe('consulta escalonada', () => {
     vi.useRealTimers()
   })
 })
+
+describe('consultas repetidas en curso', () => {
+  // Módulo nuevo en cada test: el limitador no arrastra el reloj simulado de otros tests.
+  const fresh = async () => {
+    vi.resetModules()
+    return (await import('@/features/osm/overpassService')).queryOverpass
+  }
+  it('dos peticiones iguales simultáneas (precarga + ruta) hacen una sola descarga', async () => {
+    let hits = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      hits++
+      await new Promise((r) => setTimeout(r, 20))
+      return Response.json({ elements: [{ id: 9 }] })
+    }))
+    const ql = `[out:json];way(${Math.random()});out;`
+    const query = await fresh()
+    const [a, b] = await Promise.all([query(ql), query(ql)])
+    expect(a).toEqual(b)
+    expect(hits).toBe(1)
+  })
+
+  it('cancelar a un interesado no cancela la descarga compartida', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 30))
+      return Response.json({ elements: [{ id: 10 }] })
+    }))
+    const ql = `[out:json];way(${Math.random()});out;`
+    const ctrl = new AbortController()
+    const query = await fresh()
+    const first = query(ql, ctrl.signal)
+    const second = query(ql)
+    ctrl.abort()
+    await expect(first).rejects.toThrow()
+    await expect(second).resolves.toMatchObject({ elements: [{ id: 10 }] })
+  })
+})

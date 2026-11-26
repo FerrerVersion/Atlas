@@ -77,7 +77,7 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 79 tests unitarios y de integración
+npm test             # Vitest: 81 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
 npm run test:e2e     # Playwright: 44 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint
@@ -86,6 +86,26 @@ npm run lint         # oxlint
 > En macOS, si la pantalla entra en reposo Chromium deja de emitir `requestAnimationFrame` y los e2e se ralentizan o fallan. Ejecútalos con `caffeinate -dis npm run test:e2e`.
 
 Cobertura de los tests: A* (ruta directa, varios tramos, óptima frente a alternativa, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo, reconstrucción, ausencia de ciclos), construcción del grafo desde OSM, instrucciones (giros, rotondas, autopistas), multi-parada, progreso de navegación, planificación de descargas, búsqueda y normalización, adaptadores Photon/Nominatim, temas, store (cambiar tema no borra ruta), persistencia, calibración de imágenes, limitador de peticiones y componentes de UI.
+
+## Rendimiento
+
+Medido con la versión de producción, servida comprimida como en un hosting real:
+
+| | Antes | Ahora |
+|---|---|---|
+| Ruta Valencia → Buñol (servidor de calles con 3 s de respuesta) | 16,5 s tras elegir destino | **7,9 s** |
+| 2.ª visita, móvil 4G lento + CPU ×4 (todo cargado) | 5,8 s | **0,6 s** |
+| 2.ª visita, primera tesela del mapa | 2,4 s | **0,15 s** |
+
+Cómo:
+- **Descargas en paralelo**: los trozos de red viaria (corredor, calles cercanas, anillos de acceso) se piden de 2 en 2, el más pesado primero.
+- **Precarga**: al elegir una parada se empiezan a bajar sus calles antes de tener la ruta.
+- **Sin duplicados**: si la misma consulta ya está en curso, se reutiliza.
+- **PWA / service worker**: la app y las teselas ya vistas se guardan en el dispositivo (14 días). La web se puede instalar como app y el mapa ya visitado funciona sin conexión.
+- **Librerías en paquetes propios** (React, Leaflet, router), que se cachean entre versiones; **conexiones anticipadas** (*preconnect*) a los servidores de teselas y búsqueda.
+- **Menos esperas**: buscador 220 ms, carga de calles y POIs 400 ms.
+
+Construir el grafo y calcular A* no es el cuello de botella: con 15 000 vías reales tarda unos 100 ms.
 
 ## Arquitectura
 
@@ -137,7 +157,7 @@ Si no hay datos de carreteras, **no se inventa una ruta**: se informa del motivo
 
 | Uso | Servicio | Notas |
 |---|---|---|
-| Autocompletado | [Photon](https://photon.komoot.io) (komoot, datos OSM) | Diseñado para búsqueda mientras se escribe. Antirrebote 350 ms, mín. 3 letras, caché. |
+| Autocompletado | [Photon](https://photon.komoot.io) (komoot, datos OSM) | Diseñado para búsqueda mientras se escribe. Antirrebote 220 ms, mín. 3 letras, caché. |
 | Búsqueda completa y geocodificación inversa | [Nominatim](https://nominatim.org) (OSMF) | [Política](https://operations.osmfoundation.org/policies/nominatim/): **máx. 1 petición/s**, sin autocompletado → solo al pulsar Enter o elegir un punto del mapa. |
 | Red viaria y POIs | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) | Peticiones espaciadas ≥ 1,2 s, caché IndexedDB de 7 días, zonas acotadas. Si un espejo no responde en 12 s se prueba el siguiente en paralelo (gana el primero y se cancela el resto); los errores 429/5xx se reintentan una vez. |
 | Teselas | OpenStreetMap estándar, Esri (World Imagery, Light/Dark Gray Canvas), OpenTopoMap | Ninguna requiere clave API. Los basemaps de CARTO pasaron a exigir clave y no se usan. |
@@ -230,7 +250,7 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 - Las capas Esri Canvas tienen detalle nativo hasta zoom 16; por encima, las calles se dibujan en vectorial a partir de OSM.
 - Los colores de agua/parques/edificios de cada tema se aplican mediante filtros sobre teselas ráster (no hay teselas vectoriales).
 - Rotación del mapa no implementada (Leaflet no la soporta de forma nativa).
-- El bundle principal (~620 kB, ~196 kB comprimido) podría dividirse más.
+- La primera visita depende de descargar las teselas del mapa (~660 kB de imágenes); las siguientes salen de la caché local.
 
 ## Próximas mejoras
 
@@ -239,4 +259,3 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 - Web Worker para construir el grafo y ejecutar A* en zonas grandes.
 - Superponer mapas personalizados calibrados sobre el mapa real.
 - Importación de archivos `.osm`/`.pbf` y GeoJSON arbitrarios.
-- PWA con caché offline de teselas.

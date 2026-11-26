@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { networkStore } from '@/features/osm/networkStore'
 import { OverpassError } from '@/features/osm/overpassService'
-import { computeMultiRoute, RouteError } from '@/features/routing/routeService'
+import { computeMultiRoute, prefetchAround, RouteError } from '@/features/routing/routeService'
 import { isAbortError } from '@/utils/http'
 import { filledWaypoints, useAppStore } from '@/store/useAppStore'
 
@@ -17,6 +17,18 @@ export function useRouteComputation() {
     pts: waypoints.map((w) => (w.place ? [w.place.lat.toFixed(6), w.place.lng.toFixed(6)] : null)),
     p: [navPrefs.profile, navPrefs.cost, navPrefs.avoidHighways],
   })
+
+  // Precarga: en cuanto se elige una parada se empiezan a bajar sus calles, sin
+  // esperar a tener la ruta completa (el cálculo luego las encuentra listas).
+  const pointsKey = waypoints.map((w) => (w.place ? `${w.place.lat.toFixed(5)},${w.place.lng.toFixed(5)}` : '')).join('|')
+  useEffect(() => {
+    const controller = new AbortController()
+    const { navPrefs } = useAppStore.getState()
+    for (const p of filledWaypoints(useAppStore.getState().waypoints)) {
+      prefetchAround(p, navPrefs.profile, controller.signal).catch(() => undefined)
+    }
+    return () => controller.abort()
+  }, [pointsKey])
 
   useEffect(() => {
     const { setRoute, requestFitRoute, notify } = useAppStore.getState()
@@ -53,7 +65,7 @@ export function useRouteComputation() {
         if (!(e instanceof RouteError) && !(e instanceof OverpassError)) console.error(e)
         setRoute(null, 'error', msg)
       }
-    }, 250)
+    }, 120)
     return () => {
       clearTimeout(timer)
       controller.abort()

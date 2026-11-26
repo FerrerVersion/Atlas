@@ -5,7 +5,7 @@ import { isAbortError } from '@/utils/http'
 import { useAppStore } from '@/store/useAppStore'
 
 /**
- * Autocompletado con antirrebote (350 ms), cancelación de peticiones obsoletas
+ * Autocompletado con antirrebote (220 ms), cancelación de peticiones obsoletas
  * y sesgo hacia el centro del mapa. `submitNonce` fuerza una búsqueda completa.
  */
 export function useSearch(query: string, submitNonce = 0) {
@@ -38,7 +38,7 @@ export function useSearch(query: string, submitNonce = 0) {
           setError('El servicio de búsqueda no responde. Revisa la conexión e inténtalo de nuevo.')
         }
       },
-      submit ? 0 : 350,
+      submit ? 0 : 220,
     )
     return () => {
       clearTimeout(t)

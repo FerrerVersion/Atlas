@@ -73,6 +73,38 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
   }
 }
 
+/** Descargas simultáneas a Overpass (los servidores públicos admiten ~2 por usuario). */
+export const OVERPASS_CONCURRENCY = 2
+
+/** Ejecuta `fn` sobre los elementos con un máximo de `limit` tareas a la vez. */
+export async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
+  let next = 0
+  const worker = async () => {
+    while (next < items.length) await fn(items[next++])
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+}
+
+/** Trozos de detalle y de acceso de un plan (cada uno con su propia caché). */
+function splitPlan(plan: NetworkQueryPlan): NetworkQueryPlan[] {
+  return [
+    ...plan.detail.map((b) => ({ detail: [b], carOnly: plan.carOnly })),
+    ...(plan.access ?? []).map((b) => ({ detail: [], access: [b] })),
+  ]
+}
+
+/**
+ * Precarga las calles alrededor de una parada en cuanto se elige, antes de que
+ * exista la ruta. Usa exactamente las mismas consultas que el cálculo posterior
+ * (radio de trayecto medio), así que este las encuentra en caché o en curso.
+ */
+export async function prefetchAround(point: RoutePoint, profile: TravelProfile, signal?: AbortSignal) {
+  if (profile !== 'car') return
+  // Solo las calles cercanas (ligero); el anillo de acceso se pide si el trayecto es largo.
+  const [part] = splitPlan({ carOnly: true, detail: [bboxAround(point.lat, point.lng, 1000)] })
+  networkStore.addWays(await fetchRoadNetwork(part, signal))
+}
+
 export interface ComputeOptions {
   signal?: AbortSignal
   /** Si es false, solo usa los datos ya cargados (modo offline/demo). */
@@ -97,17 +129,19 @@ export async function computeMultiRoute(
   if (plan) {
     // Descarga por trozos pequeños (cada uno con caché propia): más fiable con
     // servidores Overpass saturados que una única consulta grande.
+    // El corredor (lo más pesado) primero; los trozos se descargan en paralelo.
     const parts: NetworkQueryPlan[] = [
-      ...plan.detail.map((b) => ({ detail: [b], carOnly: plan.carOnly })),
-      ...(plan.access ?? []).map((b) => ({ detail: [], access: [b] })),
       ...(plan.corridor ? [{ detail: [], corridor: plan.corridor }] : []),
+      ...splitPlan({ ...plan, corridor: undefined }),
     ]
-    for (const [i, part] of parts.entries()) {
-      opts.onStatus?.(`Descargando red viaria de OpenStreetMap (${i + 1}/${parts.length})…`)
+    let done = 0
+    opts.onStatus?.(`Descargando red viaria de OpenStreetMap (0/${parts.length})…`)
+    await mapLimit(parts, OVERPASS_CONCURRENCY, async (part) => {
       networkStore.addWays(await fetchRoadNetwork(part, opts.signal, onRetry))
       // Solo cuenta como zona cubierta si se descargaron todas las vías (también peatonales).
       if (!part.carOnly) networkStore.addCoverage(part.detail)
-    }
+      opts.onStatus?.(`Descargando red viaria de OpenStreetMap (${++done}/${parts.length})…`)
+    })
   }
   opts.signal?.throwIfAborted()
 

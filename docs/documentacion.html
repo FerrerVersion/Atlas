@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>79 + 44</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>81 + 44</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -171,7 +171,7 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>79 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm test</code></td><td>81 tests unitarios y de integración (Vitest).</td></tr>
     <tr><td><code>npm run test:e2e</code></td><td>44 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
@@ -434,7 +434,7 @@ npm run dev</pre>
   <h2><span class="num">6</span>Datos reales y servicios</h2>
   <table>
     <tr><th>Uso</th><th>Servicio</th><th>Cómo se usa</th></tr>
-    <tr><td>Autocompletado</td><td>Photon (komoot, datos OSM)</td><td>Pensado para «buscar mientras escribes». Antirrebote de 350 ms, mínimo 3 letras, caché y sesgo hacia la zona visible.</td></tr>
+    <tr><td>Autocompletado</td><td>Photon (komoot, datos OSM)</td><td>Pensado para «buscar mientras escribes». Antirrebote de 220 ms, mínimo 3 letras, caché y sesgo hacia la zona visible.</td></tr>
     <tr><td>Búsqueda completa y «¿qué hay aquí?»</td><td>Nominatim (OSMF)</td><td>Su política prohíbe autocompletar: solo se usa al pulsar Enter o al elegir un punto. Máximo 1 petición por segundo.</td></tr>
     <tr><td>Calles y POIs</td><td>Overpass API (3 servidores)</td><td>Zonas acotadas, caché de 7 días, peticiones espaciadas. Si un servidor no responde en 12 s se prueba el siguiente en paralelo y gana el primero; los errores de saturación se reintentan una vez.</td></tr>
     <tr><td>Imagen del mapa</td><td>OSM, Esri, OpenTopoMap</td><td>Ninguno requiere clave. Los mapas de CARTO pasaron a exigir clave durante el desarrollo y se sustituyeron.</td></tr>
@@ -480,7 +480,7 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>79</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>81</b><span>tests unitarios y de integración</span></div>
     <div class="kpi"><b>44</b><span>pruebas e2e (22 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
@@ -520,6 +520,24 @@ npm run dev</pre>
   </table>
 </section>
 
+<section class="section">
+  <h3>Rendimiento</h3>
+  <p>Medido con la versión de producción servida comprimida, como en un hosting real.</p>
+  <table>
+    <tr><th>Medida</th><th>Antes</th><th>Ahora</th></tr>
+    <tr><td>Ruta Valencia → Buñol (servidor de calles con 3 s de respuesta)</td><td>16,5 s tras elegir el destino</td><td><b>7,9 s</b></td></tr>
+    <tr><td>Segunda visita en móvil (4G lento, CPU ×4): todo cargado</td><td>5,8 s</td><td><b>0,6 s</b></td></tr>
+    <tr><td>Segunda visita: primera imagen del mapa</td><td>2,4 s</td><td><b>0,15 s</b></td></tr>
+    <tr><td>Construir el grafo (15 000 vías) + A*</td><td colspan="2">≈ 100 ms: no es el cuello de botella</td></tr>
+  </table>
+  <ul>
+    <li><b>Descargas en paralelo</b> (de 2 en 2, el corredor primero) y <b>precarga</b> de las calles de cada parada en cuanto se elige.</li>
+    <li><b>Sin duplicados</b>: una consulta ya en curso se reutiliza (p. ej. precarga + ruta).</li>
+    <li><b>PWA</b>: la app y las teselas vistas se guardan en el dispositivo durante 14 días; se puede instalar como app y el mapa visitado funciona sin conexión.</li>
+    <li><b>Librerías en paquetes propios</b> que se cachean entre versiones, <b>conexiones anticipadas</b> a los servidores y <b>menos esperas</b> (buscador 220 ms; calles y POIs 400 ms).</li>
+  </ul>
+</section>
+
 <!-- ============================== 9. LIMITACIONES ============================== -->
 <section class="section">
   <h2><span class="num">9</span>Limitaciones y próximos pasos</h2>
@@ -541,7 +559,6 @@ npm run dev</pre>
     <li>Calcular el grafo y A* en un Web Worker para zonas muy grandes.</li>
     <li>Superponer los mapas personalizados calibrados sobre el mapa real.</li>
     <li>Importar archivos <code>.osm</code>, <code>.pbf</code> y GeoJSON.</li>
-    <li>Instalación como app (PWA) con mapas guardados sin conexión.</li>
   </ul>
 </section>
 
@@ -582,7 +599,7 @@ VITE_NOMINATIM_URL=https://mi-nominatim.example.org
 VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/api/interpreter</pre>
 </section>
 
-<section class="section">
+<section>
   <h3>A.4 Historial de commits</h3>
   <table>
     <tr><th style="width:20mm">Commit</th><th>Descripción</th></tr>
@@ -603,7 +620,8 @@ VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/
     <tr><td class="mono">e306b2e</td><td>fix: teselas en pantallas retina y clics en nodos del editor</td></tr>
     <tr><td class="mono">1cff05d</td><td>docs: documentación en PDF y capturas actualizadas</td></tr>
     <tr><td class="mono">0f72487</td><td>fix: fallos encontrados en pruebas exploratorias (app, buscador, móvil)</td></tr>
-    <tr><td class="mono">—</td><td>fix: casos límite del editor de mapas personalizados</td></tr>
+    <tr><td class="mono">df5a7a9</td><td>fix: casos límite del editor de mapas personalizados</td></tr>
+    <tr><td class="mono">—</td><td>perf: rutas en paralelo con precarga, PWA y caché de teselas</td></tr>
   </table>
 
   <h3>A.5 Glosario</h3>

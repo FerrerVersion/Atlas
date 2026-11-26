@@ -38,12 +38,37 @@ interface OverpassResponse<T> {
 
 export class OverpassError extends Error {}
 
-export async function queryOverpass<T>(
+/** Consultas en curso: si se pide la misma (p. ej. precarga + ruta), se reutiliza. */
+const inFlight = new Map<string, Promise<OverpassResponse<unknown>>>()
+
+export function queryOverpass<T>(
   ql: string,
   signal?: AbortSignal,
   onRetry?: (host: string) => void,
 ): Promise<OverpassResponse<T>> {
   const key = `overpass:${hashKey(ql)}`
+  const pending = inFlight.get(key)
+  if (pending) return abortable(pending as Promise<OverpassResponse<T>>, signal)
+  // La descarga compartida no se cancela si un solo interesado se va: otro puede necesitarla.
+  const shared = runQuery<T>(ql, key, onRetry).finally(() => inFlight.delete(key))
+  inFlight.set(key, shared)
+  return abortable(shared, signal)
+}
+
+function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise
+  signal.throwIfAborted()
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(signal.reason ?? new DOMException('Aborted', 'AbortError'))
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (v) => (signal.removeEventListener('abort', onAbort), resolve(v)),
+      (e) => (signal.removeEventListener('abort', onAbort), reject(e)),
+    )
+  })
+}
+
+async function runQuery<T>(ql: string, key: string, onRetry?: (host: string) => void): Promise<OverpassResponse<T>> {
   const cached = await cacheGet<OverpassResponse<T>>(key, CACHE_TTL)
   if (cached) return cached
 
@@ -65,7 +90,7 @@ export async function queryOverpass<T>(
   // Ronda 1 «escalonada»: si un espejo no contesta en HEDGE_MS se lanza el siguiente
   // en paralelo; gana el primero que responde y se cancelan los demás.
   const hedged = () =>
-    new Promise<OverpassResponse<T> | null>((resolve, reject) => {
+    new Promise<OverpassResponse<T> | null>((resolve) => {
       const controllers: AbortController[] = []
       let next = 0
       let pending = 0
@@ -87,16 +112,10 @@ export async function queryOverpass<T>(
         controllers.push(ctrl)
         pending++
         const timer = setTimeout(launch, HEDGE_MS)
-        attempt(idx, signal ? AbortSignal.any([signal, ctrl.signal]) : ctrl.signal).then(finish, (e) => {
+        attempt(idx, ctrl.signal).then(finish, (e) => {
           pending--
           clearTimeout(timer)
           if (settled) return
-          if (signal?.aborted) {
-            settled = true
-            controllers.forEach((c) => c.abort())
-            reject(e)
-            return
-          }
           lastError = e
           if (e instanceof HttpError && e.status === 400) return finish(null)
           if (e instanceof HttpError && (e.status === 429 || e.status >= 500)) retryable.push(idx)
@@ -112,11 +131,10 @@ export async function queryOverpass<T>(
     // Ronda 2: solo los espejos que respondieron rápido con saturación (429/5xx).
     for (const idx of retryable) {
       onRetry?.(`${new URL(OVERPASS_ENDPOINTS[idx]).host} (reintento)`)
-      await sleep(RETRY_DELAY_MS, signal)
+      await sleep(RETRY_DELAY_MS)
       try {
-        return await attempt(idx, signal)
+        return await attempt(idx)
       } catch (e) {
-        if (signal?.aborted) throw e
         lastError = e
       }
     }

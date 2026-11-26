@@ -44,7 +44,7 @@ export function usePoiLoader() {
         setPois(useAppStore.getState().pois, 'error')
         notify((e as Error).message, 'error')
       }
-    }, 700)
+    }, 400)
     return () => {
       clearTimeout(t)
       controller.abort()

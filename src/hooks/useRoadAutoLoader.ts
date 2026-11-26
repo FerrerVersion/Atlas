@@ -44,7 +44,7 @@ export function useRoadAutoLoader() {
         if (isAbortError(e)) return
         setRoadsStatus('error')
       }
-    }, 900)
+    }, 400)
     return () => {
       clearTimeout(t)
       controller.abort()

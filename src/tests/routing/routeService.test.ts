@@ -16,10 +16,16 @@ const LOCAL_B = way(2, [3, 4], [[39.42, -0.80], [39.42, -0.79]], 'residential')
 const SECONDARY = way(3, [2, 3], [[39.47, -0.37], [39.42, -0.80]], 'secondary')
 
 const calls: NetworkQueryPlan[] = []
+let running = 0
+let maxConcurrent = 0
 vi.mock('@/features/osm/overpassService', async (orig) => ({
   ...(await orig<typeof import('@/features/osm/overpassService')>()),
   fetchRoadNetwork: vi.fn(async (plan: NetworkQueryPlan) => {
     calls.push(plan)
+    running++
+    maxConcurrent = Math.max(maxConcurrent, running)
+    await new Promise((r) => setTimeout(r, 5))
+    running--
     if (plan.corridor) return plan.corridor.level === 'secondary' ? [SECONDARY] : []
     if (plan.access) return []
     const [b] = plan.detail
@@ -32,6 +38,7 @@ const { networkStore } = await import('@/features/osm/networkStore')
 
 afterEach(() => {
   calls.length = 0
+  maxConcurrent = 0
   networkStore.clear()
 })
 
@@ -43,9 +50,13 @@ describe('computeMultiRoute', () => {
       { profile: 'car', cost: 'fastest', avoidHighways: false },
       { onStatus: (s) => status.push(s) },
     )
-    expect(calls.map((c) => c.corridor?.level ?? (c.access ? 'acceso' : 'detalle'))).toEqual([
-      'detalle', 'detalle', 'acceso', 'acceso', 'primary', 'secondary',
-    ])
+    const kinds = calls.map((c) => c.corridor?.level ?? (c.access ? 'acceso' : 'detalle'))
+    // El corredor (lo más pesado) va primero; la ampliación, al final.
+    expect(kinds[0]).toBe('primary')
+    expect(kinds.at(-1)).toBe('secondary')
+    expect([...kinds.slice(1, -1)].sort()).toEqual(['acceso', 'acceso', 'detalle', 'detalle'])
+    expect(maxConcurrent).toBeLessThanOrEqual(2)
+    expect(maxConcurrent).toBe(2)
     expect(route.distance).toBeGreaterThan(30_000)
     expect(status).toContain('Ampliando la red de carreteras para conectar las paradas…')
   })
