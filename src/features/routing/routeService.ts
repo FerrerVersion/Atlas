@@ -37,15 +37,16 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
     if (diag > 25_000) throw new RouteError('A pie solo se calculan rutas de hasta ~25 km con datos en vivo.')
     return { detail: [expandBBox(box, 600)] }
   }
-  if (diag <= 6_000) return { detail: [expandBBox(box, 900)] }
+  if (diag <= 6_000) return { detail: [expandBBox(box, 900)], carOnly: true }
   if (diag > 320_000) {
     throw new RouteError(
       'La distancia entre paradas es demasiado grande para descargar la red en vivo (máx. ~300 km). Importa datos OSM locales para trayectos más largos.',
     )
   }
-  const radius = diag > 60_000 ? 2500 : 1500
+  const radius = diag > 60_000 ? 2000 : 1000
   const level = diag <= 30_000 ? 'tertiary' : diag <= 90_000 ? 'secondary' : diag <= 200_000 ? 'primary' : 'trunk'
   return {
+    carOnly: true,
     detail: points.map((p) => bboxAround(p.lat, p.lng, radius)),
     corridor: { bbox: expandBBox(box, Math.max(3000, diag * 0.12)), level },
   }
@@ -71,9 +72,12 @@ export async function computeMultiRoute(
   if (opts.download !== false && !alreadyLoaded) {
     opts.onStatus?.('Descargando red viaria de OpenStreetMap…')
     const plan = planNetworkQuery(points, prefs.profile)
-    const ways = await fetchRoadNetwork(plan, opts.signal)
+    const ways = await fetchRoadNetwork(plan, opts.signal, (host) =>
+      opts.onStatus?.(`El servidor no responde; probando ${host}…`),
+    )
     networkStore.addWays(ways)
-    networkStore.addCoverage(plan.detail)
+    // Solo cuenta como zona cubierta si se descargaron todas las vías (también peatonales).
+    if (!plan.carOnly) networkStore.addCoverage(plan.detail)
   }
   opts.signal?.throwIfAborted()
 

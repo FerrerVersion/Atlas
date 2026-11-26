@@ -15,7 +15,7 @@ const DEFAULT_ENDPOINTS = [
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ]
 /** Tiempo máximo por servidor antes de probar el siguiente espejo. */
-const ENDPOINT_TIMEOUT_MS = 20_000
+const ENDPOINT_TIMEOUT_MS = 45_000
 
 export const OVERPASS_ENDPOINTS: string[] = (import.meta.env.VITE_OVERPASS_URLS as string | undefined)
   ?.split(',')
@@ -34,15 +34,20 @@ interface OverpassResponse<T> {
 
 export class OverpassError extends Error {}
 
-export async function queryOverpass<T>(ql: string, signal?: AbortSignal): Promise<OverpassResponse<T>> {
+export async function queryOverpass<T>(
+  ql: string,
+  signal?: AbortSignal,
+  onRetry?: (host: string) => void,
+): Promise<OverpassResponse<T>> {
   const key = `overpass:${hashKey(ql)}`
   const cached = await cacheGet<OverpassResponse<T>>(key, CACHE_TTL)
   if (cached) return cached
 
   let lastError: unknown
   const order = OVERPASS_ENDPOINTS.map((_, i) => (preferred + i) % OVERPASS_ENDPOINTS.length)
-  for (const idx of order) {
+  for (const [n, idx] of order.entries()) {
     const endpoint = OVERPASS_ENDPOINTS[idx]
+    if (n > 0) onRetry?.(new URL(endpoint).host)
     try {
       const data = await client.request<OverpassResponse<T>>(endpoint, {
         method: 'POST',
@@ -77,23 +82,34 @@ export const MAJOR_ROADS: Record<'tertiary' | 'secondary' | 'primary' | 'trunk',
   trunk: 'motorway|motorway_link|trunk|trunk_link',
 }
 
+/** Vías transitables en coche (evita descargar aceras y senderos: mucho menos peso). */
+const CAR_ROADS =
+  'motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service'
+
 export interface NetworkQueryPlan {
   /** Zonas con todo el detalle de calles. */
   detail: BBox[]
+  /** Solo vías para coche en las zonas de detalle. */
+  carOnly?: boolean
   /** Corredor con solo vías principales para trayectos largos. */
   corridor?: { bbox: BBox; level: keyof typeof MAJOR_ROADS }
 }
 
 export function buildRoadQuery(plan: NetworkQueryPlan): string {
-  const parts = plan.detail.map((b) => `way["highway"]["highway"!~"^(${EXCLUDED})$"](${bboxToOverpass(b)});`)
+  const detailFilter = plan.carOnly ? `["highway"~"^(${CAR_ROADS})$"]` : `["highway"]["highway"!~"^(${EXCLUDED})$"]`
+  const parts = plan.detail.map((b) => `way${detailFilter}(${bboxToOverpass(b)});`)
   if (plan.corridor) {
     parts.push(`way["highway"~"^(${MAJOR_ROADS[plan.corridor.level]})$"](${bboxToOverpass(plan.corridor.bbox)});`)
   }
   return `[out:json][timeout:90];(${parts.join('')});out body geom qt;`
 }
 
-export async function fetchRoadNetwork(plan: NetworkQueryPlan, signal?: AbortSignal): Promise<OsmWay[]> {
-  const res = await queryOverpass<OsmWay>(buildRoadQuery(plan), signal)
+export async function fetchRoadNetwork(
+  plan: NetworkQueryPlan,
+  signal?: AbortSignal,
+  onRetry?: (host: string) => void,
+): Promise<OsmWay[]> {
+  const res = await queryOverpass<OsmWay>(buildRoadQuery(plan), signal, onRetry)
   return res.elements.filter((e) => e.type === 'way' && Array.isArray(e.geometry) && Array.isArray(e.nodes))
 }
 
