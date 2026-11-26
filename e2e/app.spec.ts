@@ -435,6 +435,35 @@ test.describe('medición en tiempo real con el GPS', () => {
     const speed = Number((await page.getByTestId('live-speed').innerText()).replace(/\D/g, '') || 0)
     expect(speed).toBeLessThanOrEqual(250)
 
+    // Fluidez: tras una lectura del GPS (1 s después de la anterior), el mapa acompaña a
+    // la posición de forma continua durante casi todo el segundo, sin quedarse parado.
+    await page.waitForTimeout(1000)
+    const motion = page.evaluate(
+      () =>
+        new Promise<{ changes: number; lastChangeMs: number }>((resolve) => {
+          const pane = document.querySelector('.leaflet-map-pane') as HTMLElement
+          const t0 = performance.now()
+          let prev = pane.style.transform
+          let changes = 0
+          let last = 0
+          const tick = () => {
+            const now = performance.now() - t0
+            if (pane.style.transform !== prev) {
+              changes++
+              last = now
+              prev = pane.style.transform
+            }
+            if (now < 1000) requestAnimationFrame(tick)
+            else resolve({ changes, lastChangeMs: last })
+          }
+          requestAnimationFrame(tick)
+        }),
+    )
+    await at(r.distance * 0.75) // ~60 m en 1 s (como un coche por ciudad)
+    const m = await motion
+    expect(m.changes).toBeGreaterThan(20) // decenas de fotogramas, no un salto
+    expect(m.lastChangeMs).toBeGreaterThan(700) // sigue moviéndose casi hasta la siguiente lectura
+
     // Desvío: ~250 m al norte del punto actual durante más de 6 s → recalcula.
     const [lat, lng] = pointAlong(r.geometry, r.distance * 0.7)
     for (let i = 0; i < 4; i++) {

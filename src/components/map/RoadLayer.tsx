@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMap, useMapEvent } from 'react-leaflet'
+import { useSettledMove } from '@/hooks/useSettledMove'
 import L from 'leaflet'
 import { networkStore, useNetworkVersion } from '@/features/osm/networkStore'
 import { MIN_OVERLAY_ZOOM, NODE_MIN_ZOOM, PANES } from '@/features/map/mapTypes'
@@ -82,8 +83,7 @@ export function RoadLayer({ theme }: { theme: MapTheme }) {
 function GraphNodes({ theme, zoom }: { theme: MapTheme; zoom: number }) {
   const map = useMap()
   const version = useNetworkVersion()
-  const [tick, setTick] = useState(0)
-  useMapEvent('moveend', () => setTick((t) => t + 1))
+  const tick = useSettledMove()
 
   useEffect(() => {
     if (zoom < NODE_MIN_ZOOM || networkStore.size === 0) return

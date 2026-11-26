@@ -5,6 +5,7 @@ import { navigationState } from '@/features/navigation/navigationProgress'
 import { setMapInstance } from '@/features/map/mapInstance'
 import { prefersReducedMotion } from '@/features/map/mapUtils'
 import { useMediaQuery } from '@/hooks/useUiTheme'
+import { smoothProgress } from '@/features/navigation/smoothMotion'
 import { useAppStore } from '@/store/useAppStore'
 
 /** Padding para que el panel lateral/inferior no tape la zona de interés. */
@@ -37,12 +38,17 @@ export function MapSync() {
     return () => setMapInstance(null)
   }, [map, setViewBBox])
 
+  // La vista se guarda cuando el mapa se detiene (en navegación se mueve en cada fotograma).
+  const settle = useRef<ReturnType<typeof setTimeout> | null>(null)
   useMapEvents({
     moveend: () => {
-      const c = map.getCenter()
-      const b = map.getBounds()
-      setLastView({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })
-      setViewBBox({ south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast() })
+      if (settle.current) clearTimeout(settle.current)
+      settle.current = setTimeout(() => {
+        const c = map.getCenter()
+        const b = map.getBounds()
+        setLastView({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })
+        setViewBBox({ south: b.getSouth(), north: b.getNorth(), west: b.getWest(), east: b.getEast() })
+      }, 150)
     },
   })
   return null
@@ -90,9 +96,9 @@ export function FitRouteController() {
 /** Sigue la posición durante la navegación. */
 export function NavigationFollow() {
   const map = useMap()
-  const nav = useAppStore((s) => s.navigation)
+  const active = useAppStore((s) => s.navigation.active)
+  const following = useAppStore((s) => s.navigation.following)
   const route = useAppStore((s) => s.route)
-  const lastPan = useRef(0)
   const setNavFlags = useAppStore((s) => s.setNavFlags)
 
   useMapEvents({
@@ -101,22 +107,26 @@ export function NavigationFollow() {
     },
   })
 
+  // Al empezar a seguir: acerca el mapa a la posición.
   useEffect(() => {
-    if (!nav.active || !nav.following || !route) return
-    const pan = () => {
-      lastPan.current = performance.now()
-      const pos = navigationState(route, useAppStore.getState().navigation.progress).position
-      if (map.getZoom() < 16) map.setView(pos, 17, { animate: true })
-      else map.panTo(pos, { animate: true, duration: 0.25, easeLinearity: 1 })
-    }
-    // Como mucho 4 desplazamientos por segundo, pero la ÚLTIMA posición siempre se aplica.
-    const wait = 250 - (performance.now() - lastPan.current)
-    if (wait <= 0) {
-      pan()
-      return
-    }
-    const t = setTimeout(pan, wait)
-    return () => clearTimeout(t)
-  }, [map, nav.active, nav.following, nav.progress, route])
+    if (!active || !following || !route) return
+    const v = smoothProgress.get()
+    const pos = navigationState(route, v ? v[0] : useAppStore.getState().navigation.progress).position
+    if (map.getZoom() < 16) map.setView(pos, 17, { animate: !prefersReducedMotion() })
+  }, [map, active, following, route])
+
+  // Después, el mapa acompaña a la posición suavizada en cada fotograma (sin tirones).
+  useEffect(() => {
+    if (!active || !following || !route) return
+    return smoothProgress.subscribe(() => {
+      const v = smoothProgress.get()
+      if (!v) return
+      // panBy desplaza el plano unos píxeles (barato); panTo sin animación reiniciaría
+      // toda la vista en cada fotograma.
+      const p = map.latLngToContainerPoint(navigationState(route, v[0]).position)
+      const offset = p.subtract(map.getSize().divideBy(2))
+      if (Math.abs(offset.x) + Math.abs(offset.y) >= 0.5) map.panBy(offset, { animate: false })
+    })
+  }, [map, active, following, route])
   return null
 }

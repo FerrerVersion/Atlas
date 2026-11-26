@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
-import { useMap, useMapEvent } from 'react-leaflet'
+import { useEffect } from 'react'
+import { useMap } from 'react-leaflet'
+import { useSettledMove } from '@/hooks/useSettledMove'
 import L from 'leaflet'
 import { networkStore, useNetworkVersion } from '@/features/osm/networkStore'
 import { PANES, STREET_LABEL_MIN_ZOOM } from '@/features/map/mapTypes'
@@ -22,8 +23,7 @@ const overlaps = (a: Rect, b: Rect) =>
 export function StreetLabels({ theme }: { theme: MapTheme }) {
   const map = useMap()
   const version = useNetworkVersion()
-  const [tick, setTick] = useState(0)
-  useMapEvent('moveend', () => setTick((t) => t + 1))
+  const tick = useSettledMove()
 
   useEffect(() => {
     if (!theme.overlay.customLabels || map.getZoom() < STREET_LABEL_MIN_ZOOM || networkStore.size === 0) return

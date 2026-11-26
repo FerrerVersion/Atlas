@@ -3,6 +3,7 @@ import { announce, navigationState } from '@/features/navigation/navigationProgr
 import { formatDistance } from '@/utils/distance'
 import { updateTracker } from '@/features/navigation/liveTracking'
 import { startTracking } from './useGeolocation'
+import { smoothLocation, smoothProgress } from '@/features/navigation/smoothMotion'
 import { useAppStore } from '@/store/useAppStore'
 
 /** Velocidad de la simulación (multiplicador sobre el tiempo real estimado). */
@@ -114,6 +115,19 @@ export function useNavigationRunner() {
       lock?.release().catch(() => undefined)
     }
   }, [active])
+
+  // Movimiento fluido: el avance mostrado se anima entre lecturas (ver smoothMotion.ts).
+  useEffect(() => {
+    // Ruta nueva o inicio/fin de la navegación: se coloca sin animar.
+    smoothProgress.reset(active && route ? [useAppStore.getState().navigation.progress] : null)
+  }, [active, route])
+  useEffect(() => {
+    if (active && route) smoothProgress.setTarget([progress])
+  }, [active, route, progress])
+  useEffect(() => {
+    if (user) smoothLocation.setTarget([user.lat, user.lng])
+    else smoothLocation.reset(null)
+  }, [user])
 
   // Voz
   useEffect(() => {
