@@ -21,7 +21,18 @@ La originalidad está en la interfaz, los estilos y las funcionalidades. **Ning�
 - **Demo offline**: extracto real de OSM (Buñol) incluido en el repositorio.
 - Diseño responsive: panel lateral en escritorio, buscador superior y panel inferior deslizable en móvil.
 
+## Documentación
+
+- **[docs/Atlas-Navegacion.pdf](docs/Atlas-Navegacion.pdf)**: guía completa en PDF (uso, estilos, arquitectura, motor A*, datos, pruebas, limitaciones). Se regenera con `npm run docs:pdf` a partir de `docs/documentacion.html`.
+
 ## Capturas
+
+![Ruta real Valencia → Buñol](docs/img/ruta-valencia-bunol.jpg)
+
+| Ruta con parada | Navegación (Cyberpunk) | Blueprint |
+|---|---|---|
+| ![](docs/img/ruta.jpg) | ![](docs/img/navegacion.jpg) | ![](docs/img/ruta-blueprint.jpg) |
+
 
 Las capturas se pueden regenerar con `node e2e/visual-themes.mjs <carpeta>` (requiere `npx vite preview --port 4173` en marcha): genera una imagen por estilo con teselas reales y una ruta de ejemplo en Buñol.
 
@@ -68,7 +79,7 @@ npm run preview
 ```bash
 npm test             # Vitest: 72 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: escritorio y móvil, sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 24 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 

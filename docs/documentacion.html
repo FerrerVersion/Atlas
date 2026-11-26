@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<title>Atlas · Navegación — Documentación</title>
+<style>
+  @font-face { font-family: 'Inter'; src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Inter'; src: url('../node_modules/@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2') format('woff2'); font-weight: 100 900; unicode-range: U+0100-024F, U+1E00-1EFF; }
+  @font-face { font-family: 'JetBrains Mono'; src: url('../node_modules/@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2') format('woff2'); }
+  @page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+  @page :first { margin: 0; }
+  :root { --ink: #0f172a; --muted: #475569; --soft: #64748b; --line: #e2e8f0; --accent: #2563eb; --accent2: #0891b2; --bg: #f8fafc; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'Inter', system-ui, sans-serif; color: var(--ink); font-size: 9.6pt; line-height: 1.5; margin: 0; }
+  h1, h2, h3, h4 { line-height: 1.2; margin: 0; }
+  h2 { font-size: 20pt; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 4mm; }
+  h2 .num { color: var(--accent); margin-right: 3mm; }
+  h3 { font-size: 12pt; font-weight: 700; margin: 4.5mm 0 1.8mm; }
+  h4 { font-size: 10.5pt; font-weight: 700; margin: 4mm 0 1mm; }
+  p { margin: 0 0 2.6mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1mm; }
+  code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 8.8pt; background: #eef2ff; color: #1e3a8a; padding: 0.2mm 1.2mm; border-radius: 1mm; }
+  pre { font-family: 'JetBrains Mono', monospace; font-size: 8.6pt; background: #0f172a; color: #e2e8f0; padding: 3.5mm 4mm; border-radius: 2.5mm; margin: 0 0 3mm; white-space: pre-wrap; break-inside: avoid; }
+  pre .c { color: #7dd3fc; }
+  .section { break-before: page; }
+  .lead { font-size: 10.6pt; color: var(--muted); margin-bottom: 4mm; }
+  .muted { color: var(--soft); }
+  .small { font-size: 8.8pt; }
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 4mm; font-size: 9pt; }
+  tr { break-inside: avoid; }
+  tr:first-child, tr:nth-child(2) { break-after: avoid; }
+  th { text-align: left; font-weight: 700; color: var(--soft); text-transform: uppercase; font-size: 7.6pt; letter-spacing: 0.08em; border-bottom: 1.5px solid var(--ink); padding: 1.6mm 2mm; }
+  td { border-bottom: 1px solid var(--line); padding: 1.8mm 2mm; vertical-align: top; }
+  td:first-child { font-weight: 600; }
+  td code { white-space: nowrap; }
+  h3, h4 { break-after: avoid; }
+  figure { margin: 2mm 0 5mm; break-inside: avoid; }
+  figure img { width: 100%; max-height: 84mm; object-fit: contain; border-radius: 2.5mm; display: block; }
+  figcaption { font-size: 8.6pt; color: var(--soft); margin-top: 1.5mm; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+  .card { border: 1px solid var(--line); border-radius: 3mm; padding: 3.5mm 4mm; background: #fff; break-inside: avoid; }
+  .card h4 { margin-top: 0; }
+  .callout { border-left: 3px solid var(--accent); background: #eff6ff; padding: 3mm 4mm; border-radius: 0 2.5mm 2.5mm 0; margin: 2mm 0 4mm; break-inside: avoid; }
+  .callout.warn { border-color: #d97706; background: #fffbeb; }
+  .callout.ok { border-color: #059669; background: #ecfdf5; }
+  .callout strong:first-child { display: block; margin-bottom: 1mm; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 4mm 0 5mm; }
+  .kpi { background: var(--bg); border: 1px solid var(--line); border-radius: 3mm; padding: 3mm; }
+  .kpi b { display: block; font-size: 17pt; font-weight: 800; letter-spacing: -0.02em; color: var(--accent); }
+  .kpi span { font-size: 8.4pt; color: var(--soft); }
+  .flow { display: flex; flex-wrap: wrap; gap: 2mm; align-items: stretch; margin: 2mm 0 4mm; }
+  .flow .step { flex: 1 1 22%; background: var(--bg); border: 1px solid var(--line); border-radius: 2.5mm; padding: 2.5mm 3mm; font-size: 8.8pt; position: relative; }
+  .flow .step b { display: block; color: var(--accent); font-size: 8pt; text-transform: uppercase; letter-spacing: 0.06em; }
+  .layers { display: grid; gap: 2mm; margin: 2mm 0 5mm; }
+  .layer { display: grid; grid-template-columns: 34mm 1fr; gap: 3mm; align-items: center; border-radius: 2.5mm; padding: 2.5mm 3.5mm; font-size: 9pt; }
+  .layer b { font-size: 9.4pt; }
+  .l1 { background: #eff6ff; border: 1px solid #bfdbfe; }
+  .l2 { background: #f5f3ff; border: 1px solid #ddd6fe; }
+  .l3 { background: #ecfeff; border: 1px solid #a5f3fc; }
+  .l4 { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .l5 { background: #fff7ed; border: 1px solid #fed7aa; }
+  .tag { display: inline-block; font-size: 7.6pt; font-weight: 700; padding: 0.4mm 1.8mm; border-radius: 10mm; background: #e0e7ff; color: #3730a3; margin-right: 1mm; }
+  .tag.fix { background: #dcfce7; color: #166534; }
+  .tag.perf { background: #fef3c7; color: #92400e; }
+  .themes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; }
+  .themes figure { margin: 0; }
+  .themes img { height: 31mm; max-height: 31mm; object-fit: cover; object-position: 60% 50%; border: 1px solid var(--line); }
+  .themes figcaption { margin-top: 0.8mm; font-size: 7.8pt; line-height: 1.3; }
+  .themes figcaption b { color: var(--ink); }
+  .phone { display: flex; gap: 6mm; justify-content: center; }
+  .phone img { height: 78mm; width: auto; border-radius: 4mm; border: 1px solid var(--line); }
+  .toc { columns: 2; column-gap: 10mm; margin-top: 4mm; }
+  .toc div { break-inside: avoid; padding: 1.4mm 0; border-bottom: 1px dotted var(--line); font-size: 10pt; }
+  .toc span { color: var(--accent); font-weight: 700; margin-right: 2mm; }
+
+  /* Portada */
+  .cover { height: 297mm; width: 210mm; position: relative; color: #fff; overflow: hidden;
+    background: radial-gradient(circle at 80% 20%, #1e40af 0%, transparent 45%), radial-gradient(circle at 10% 90%, #0e7490 0%, transparent 45%), #070a12; }
+  .cover .bgmap { position: absolute; inset: 0; background: url('img/temas/blueprint.jpg') center/cover; opacity: 0.18; }
+  .cover .inner { position: absolute; left: 20mm; right: 20mm; bottom: 38mm; }
+  .cover .logo { position: absolute; left: 20mm; top: 22mm; display: flex; align-items: center; gap: 4mm; font-weight: 800; font-size: 14pt; letter-spacing: 0.02em; }
+  .cover .logo i { width: 12mm; height: 12mm; border-radius: 3mm; background: linear-gradient(135deg, #22d3ee, #a855f7); display: block; }
+  .cover h1 { font-size: 40pt; font-weight: 900; letter-spacing: -0.035em; line-height: 1.02; }
+  .cover h1 em { font-style: normal; background: linear-gradient(90deg, #22d3ee, #a855f7); -webkit-background-clip: text; color: transparent; }
+  .cover p { font-size: 13pt; color: #cbd5e1; max-width: 150mm; margin-top: 6mm; }
+  .cover .meta { margin-top: 12mm; display: flex; gap: 10mm; font-size: 9pt; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.12em; }
+  .cover .meta b { display: block; color: #fff; font-size: 11pt; letter-spacing: 0; text-transform: none; margin-top: 1mm; }
+</style>
+</head>
+<body>
+
+<!-- ============================== PORTADA ============================== -->
+<section class="cover">
+  <div class="bgmap"></div>
+  <div class="logo"><i></i> ATLAS</div>
+  <div class="inner">
+    <h1>Atlas · Navegación<br /><em>Documentación completa</em></h1>
+    <p>Aplicación web de navegación con ubicaciones y nombres reales de OpenStreetMap, motor de rutas A* propio, navegación paso a paso y 15 estilos visuales de mapa.</p>
+    <div class="meta">
+      <div>Versión<b>noviembre 2026</b></div>
+      <div>Stack<b>React · TypeScript · Leaflet</b></div>
+      <div>Datos<b>© OpenStreetMap (ODbL)</b></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== ÍNDICE + RESUMEN ============================== -->
+<section>
+  <h2>Resumen</h2>
+  <p class="lead">Atlas es una web de navegación inspirada funcionalmente en Google Maps, pero con identidad visual propia. Busca cualquier lugar real, calcula rutas por las calles reales con un algoritmo A* escrito para el proyecto, te guía paso a paso y permite cambiar por completo el aspecto del mapa: de clásico a cyberpunk, plano técnico, videojuego retro o pergamino de fantasía.</p>
+
+  <div class="kpis">
+    <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
+    <div class="kpi"><b>72 + 24</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
+    <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
+  </div>
+
+  <div class="callout">
+    <strong>La regla central del proyecto</strong>
+    Ningún nombre de ciudad, calle, barrio o establecimiento se inventa. Todo procede de OpenStreetMap. Si un punto no tiene nombre en OSM se muestran sus coordenadas o «(sin nombre en OSM)». Solo en el editor de <em>mapas personalizados</em> puedes nombrar libremente tus propios lugares.
+  </div>
+
+  <h3>Contenido</h3>
+  <div class="toc">
+    <div><span>1</span>Cómo ponerlo en marcha</div>
+    <div><span>2</span>Guía de uso</div>
+    <div><span>3</span>Los 15 estilos de mapa</div>
+    <div><span>4</span>Cómo funciona por dentro</div>
+    <div><span>5</span>El motor de rutas A*</div>
+    <div><span>6</span>Datos reales y servicios</div>
+    <div><span>7</span>Mapas personalizados</div>
+    <div><span>8</span>Calidad, pruebas y revisión</div>
+    <div><span>9</span>Limitaciones y próximos pasos</div>
+    <div><span>A</span>Anexos: estructura, comandos, historial</div>
+  </div>
+
+  <h3>Qué puede hacer</h3>
+  <div class="grid3">
+    <div class="card"><h4>Buscar lugares reales</h4>Ciudades, municipios, barrios, calles, establecimientos, categorías («gasolineras») y coordenadas. Autocompletado que ignora tildes y mayúsculas.</div>
+    <div class="card"><h4>Calcular rutas</h4>A* sobre la red viaria real: sentidos únicos, rotondas, límites de velocidad; en coche o a pie; más rápida o más corta; evitar autopistas.</div>
+    <div class="card"><h4>Guiar paso a paso</h4>Giros, rotondas («toma la 2.ª salida»), entradas y salidas de autovía, paradas. Modo navegación con simulación, GPS y voz.</div>
+    <div class="card"><h4>Varias paradas</h4>Añadir, quitar, reordenar e invertir. Marcadores arrastrables. Cálculo por tramos.</div>
+    <div class="card"><h4>Tu ubicación</h4>Al abrir la web pide permiso y centra el mapa donde estás; el punto azul se mantiene actualizado.</div>
+    <div class="card"><h4>Personalizar</h4>15 estilos, modo noche, favoritos, historial y un editor para crear mapas propios a partir de una imagen.</div>
+  </div>
+</section>
+
+<!-- ============================== 1. ARRANQUE ============================== -->
+<section class="section">
+  <h2><span class="num">1</span>Cómo ponerlo en marcha</h2>
+  <p class="lead">Requisitos: Node.js 20 o superior (probado con Node 24) y conexión a Internet para mapas, búsquedas y calles. Existe una demo sin conexión con datos reales de Buñol.</p>
+
+  <h3>En el ordenador</h3>
+<pre><span class="c"># instalar dependencias (solo la primera vez)</span>
+npm install
+<span class="c"># arrancar en modo desarrollo → http://localhost:5173</span>
+npm run dev</pre>
+
+  <h3>En el móvil (con GPS)</h3>
+  <p>Los navegadores solo entregan la ubicación en páginas <b>HTTPS</b> o en <code>localhost</code>. Para probar desde el móvil en la misma wifi:</p>
+<pre>npm run dev:movil
+<span class="c"># ➜ Network: https://192.168.x.x:5173/   ← abre esta dirección en el móvil</span></pre>
+  <p>El certificado es autofirmado: acepta el aviso del navegador («Avanzado → Continuar») y después el permiso de ubicación.</p>
+
+  <h3>Producción, pruebas y calidad</h3>
+  <table>
+    <tr><th>Comando</th><th>Qué hace</th></tr>
+    <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
+    <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
+    <tr><td><code>npm test</code></td><td>72 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm run test:e2e</code></td><td>24 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
+    <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
+    <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
+  </table>
+
+  <div class="callout warn">
+    <strong>Consejo para macOS</strong>
+    Con la pantalla en reposo Chromium deja de dibujar y las pruebas e2e fallan: usa <code>caffeinate -dis npm run test:e2e</code>. El proyecto está en el Escritorio sincronizado con iCloud, que carga mucho la CPU al sincronizar <code>node_modules</code>: conviene moverlo fuera de iCloud.
+  </div>
+
+</section>
+
+<!-- ============================== 2. GUÍA DE USO ============================== -->
+<section class="section">
+  <h2><span class="num">2</span>Guía de uso</h2>
+  <p class="lead">En el ordenador, el mapa ocupa la pantalla y a la izquierda hay un panel con el buscador y cinco pestañas: <b>Explorar, Ruta, Estilos, Guardado y Ajustes</b>. A la derecha, los controles flotantes.</p>
+
+  <h3>2.1 Explorar y buscar</h3>
+  <figure>
+    <img src="img/explorar.jpg" />
+    <figcaption>Búsqueda de «Buñol»: ficha con el nombre real (Municipio · La Hoya de Buñol, Comunitat Valenciana, España), acciones rápidas y restaurantes y tiendas reales de OSM en el mapa.</figcaption>
+  </figure>
+  <ul>
+    <li><b>Buscador</b>: escribe y aparecen sugerencias con nombre, tipo, dirección y distancia. Con las flechas y Enter eliges; Enter sin elegir lanza una búsqueda completa.</li>
+    <li><b>Categorías</b>: escribir «gasolineras», «restaurantes cerca» o «hospital» ofrece buscar esa categoría en la zona visible.</li>
+    <li><b>Coordenadas</b>: <code>39.4699, -0.3763</code> lleva directamente a ese punto.</li>
+    <li><b>Ficha del lugar</b>: «Ir aquí», «Desde aquí», «Añadir parada», «Cargar calles», guardar en favoritos y copiar coordenadas.</li>
+    <li><b>Puntos de interés</b>: 12 filtros (gasolineras, talleres, garajes, tiendas, restaurantes, aparcamientos, aeropuertos, puertos, lugares emblemáticos, hospitales, comisarías y barrios). Se descargan reales de OSM para la zona visible.</li>
+    <li><b>Pulsar en el mapa</b> abre un menú: «Ruta desde aquí», «Ruta hasta aquí», «Añadir como parada» y «¿Qué hay aquí?» (nombre real vía geocodificación inversa).</li>
+  </ul>
+
+  <h3>2.2 Controles del mapa</h3>
+  <table>
+    <tr><th>Control</th><th>Función</th></tr>
+    <tr><td>Capas</td><td>Selector rápido de estilo con miniaturas.</td></tr>
+    <tr><td>+ / −</td><td>Zoom (también rueda del ratón y pellizco en el móvil; arrastrar para desplazar).</td></tr>
+    <tr><td>Diana</td><td>Mi ubicación. Resaltada cuando el seguimiento GPS está activo.</td></tr>
+    <tr><td>Punto de mira</td><td>Volver al lugar seleccionado.</td></tr>
+    <tr><td>Expandir</td><td>Ajustar el zoom para ver la ruta completa.</td></tr>
+    <tr><td>Descargar</td><td>Cargar las calles reales de la zona visible. También se hace solo al acercarse (zoom ≥ 15).</td></tr>
+  </table>
+</section>
+
+<section>
+  <h3>2.3 Rutas y paradas</h3>
+  <figure>
+    <img src="img/ruta.jpg" />
+    <figcaption>Ruta con una parada intermedia en Buñol: resumen (tiempo, distancia, hora de llegada, tramos) e indicaciones generadas a partir de la geometría.</figcaption>
+  </figure>
+  <ul>
+    <li>Rellena <b>Origen</b> y <b>Destino</b> con el buscador, desde la ficha de un lugar o pulsando en el mapa. El icono de diana junto a Origen usa tu ubicación.</li>
+    <li><b>Añadir parada</b> inserta paradas intermedias. Se reordenan con las flechas o arrastrando, y <b>Invertir</b> intercambia el sentido.</li>
+    <li>Los marcadores A, 1, 2…, B se pueden <b>arrastrar</b> en el mapa: la ruta se recalcula y el punto toma el nombre real del lugar.</li>
+    <li>Opciones: <b>Coche</b> o <b>A pie</b>, <b>Más rápida</b> o <b>Más corta</b>, y <b>Evitar autopistas y autovías</b>.</li>
+    <li>La ruta se recalcula sola al cambiar cualquier parada u opción. Si no se puede calcular, se explica el motivo: nunca se dibuja una ruta inventada.</li>
+    <li>Una línea punteada corta une el punto elegido con la calle más cercana cuando no coinciden exactamente.</li>
+  </ul>
+
+  <figure>
+    <img src="img/ruta-valencia-bunol.jpg" />
+    <figcaption>Ruta real Valencia → Buñol calculada en vivo con los servicios de OpenStreetMap: 40 km y 29 min por la A-3 y la CV-425, como en la realidad.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h3>2.4 Modo navegación</h3>
+  <div class="grid2">
+    <figure style="margin:0"><img src="img/navegacion.jpg" style="max-height:none" /><figcaption>Navegación con el estilo Cyberpunk: próxima maniobra arriba y tiempo/distancia restantes abajo.</figcaption></figure>
+    <div>
+      <p>Al pulsar <b>Iniciar</b>:</p>
+      <ul>
+        <li><b>Arriba</b>: icono de la próxima maniobra, distancia hasta ella, texto («Gira a la izquierda por Calle Miguel de Molina») y la calle actual.</li>
+        <li><b>Abajo</b>: tiempo y distancia restantes y hora de llegada.</li>
+        <li><b>◀ ▶</b>: saltar a la maniobra anterior o siguiente.</li>
+        <li><b>▶ Simular</b>: recorre la ruta automáticamente (útil para probar sin moverse).</li>
+        <li><b>Diana</b>: seguir tu GPS real; la posición se proyecta sobre la ruta y avisa una vez si te desvías.</li>
+        <li><b>Altavoz</b>: indicaciones por voz con la síntesis del propio navegador.</li>
+        <li>El tramo ya recorrido se atenúa y el mapa sigue tu posición; si arrastras el mapa deja de seguirla.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>2.5 Ubicación del dispositivo</h3>
+  <p>Al abrir la web se pide permiso de ubicación. Si lo concedes, el mapa se centra donde estás y el punto azul (con su círculo de precisión) se actualiza mientras la página esté abierta. Detalles:</p>
+  <ul>
+    <li>Si buscas otro lugar antes de que llegue tu posición, no se te mueve el mapa.</li>
+    <li>Si lo deniegas, no se insiste ni aparecen errores. En <i>Ajustes → Ubicación</i> se explica cómo reactivarla.</li>
+    <li>Se puede desactivar con «Usar mi ubicación al abrir».</li>
+    <li>Toda la app comparte un único seguimiento GPS. La posición nunca se envía a ningún servidor.</li>
+  </ul>
+
+  <h3>2.6 En el móvil</h3>
+  <div class="phone">
+    <img src="img/movil-mapa.jpg" />
+    <img src="img/movil-panel.jpg" />
+  </div>
+  <p class="small muted" style="text-align:center;margin-top:2mm">Móvil con el estilo Oscuro Premium: buscador arriba, mapa a pantalla completa y panel inferior deslizable (arrástralo o pulsa el asa).</p>
+</section>
+
+<section>
+  <h3>2.7 Guardado y ajustes</h3>
+  <div class="grid2">
+    <div class="card"><h4>Guardado</h4>
+      <ul>
+        <li><b>Favoritos</b>: estrella en la ficha del lugar. Desde la lista puedes ir a ellos o fijarlos como destino.</li>
+        <li><b>Historial</b>: últimas 25 búsquedas, sin duplicados; se puede borrar.</li>
+      </ul>
+      Se guardan en el navegador (LocalStorage) y sobreviven al cerrar la web.</div>
+    <div class="card"><h4>Ajustes</h4>
+      <ul>
+        <li>Interfaz <b>clara, noche o automática</b>, y mapa nocturno automático (20:00-7:00).</li>
+        <li>Mostrar u ocultar etiquetas.</li>
+        <li>Ubicación al abrir.</li>
+        <li>Carga automática de calles al acercarse.</li>
+        <li><b>Demo sin conexión</b> (Buñol) y vaciar la caché de datos.</li>
+        <li>Acceso al editor de mapas personalizados.</li>
+        <li>Fuentes y licencias.</li>
+      </ul></div>
+  </div>
+  <div class="callout ok"><strong>Cambiar de estilo nunca rompe nada</strong>Al cambiar de estilo se conservan la búsqueda, la ruta, las paradas, las coordenadas, los nombres y los datos. Solo cambia la apariencia. Lo comprueban tests automáticos.</div>
+</section>
+
+<!-- ============================== 3. ESTILOS ============================== -->
+<section class="section">
+  <h2><span class="num">3</span>Los 15 estilos de mapa</h2>
+  <p class="lead">Cada estilo cambia mucho más que el fondo: proveedor de imagen, filtros de color, cómo se dibujan las calles (grosor, color, trazos, contornos), etiquetas con su propia tipografía, forma de los marcadores, iconos de POI, estilo de la ruta y efectos de pantalla. La misma ruta de Buñol en todos ellos:</p>
+  <div class="themes">
+    <figure><img src="img/temas/classic.jpg" /><figcaption><b>Clásico</b> · OSM, familiar y legible</figcaption></figure>
+    <figure><img src="img/temas/satellite.jpg" /><figcaption><b>Satélite</b> · imagen aérea Esri + calles OSM</figcaption></figure>
+    <figure><img src="img/temas/dark-premium.jpg" /><figcaption><b>Oscuro Premium</b> · grafito, ruta cian</figcaption></figure>
+    <figure><img src="img/temas/minimal.jpg" /><figcaption><b>Minimalista</b> · gris, sin decoración</figcaption></figure>
+    <figure><img src="img/temas/cyberpunk.jpg" /><figcaption><b>Cyberpunk</b> · neón, ruta animada, Orbitron</figcaption></figure>
+    <figure><img src="img/temas/open-world.jpg" /><figcaption><b>Mundo Abierto</b> · carreteras gruesas, viñeta</figcaption></figure>
+    <figure><img src="img/temas/blueprint.jpg" /><figcaption><b>Blueprint</b> · plano técnico, nodos, rejilla</figcaption></figure>
+    <figure><img src="img/temas/retro-arcade.jpg" /><figcaption><b>Retro Arcade</b> · píxeles y tipografía 8 bits</figcaption></figure>
+    <figure><img src="img/temas/fantasy.jpg" /><figcaption><b>Fantasía</b> · relieve real en sepia, tinta</figcaption></figure>
+    <figure><img src="img/temas/chaos.jpg" /><figcaption><b>Caótico</b> · colores que mutan (opcional)</figcaption></figure>
+    <figure><img src="img/temas/vintage.jpg" /><figcaption><b>Vintage</b> · cartografía de época</figcaption></figure>
+    <figure><img src="img/temas/noir.jpg" /><figcaption><b>Blanco y negro</b> · alto contraste</figcaption></figure>
+    <figure><img src="img/temas/topographic.jpg" /><figcaption><b>Topográfico</b> · curvas de nivel</figcaption></figure>
+    <figure><img src="img/temas/hand-drawn.jpg" /><figcaption><b>Dibujo a mano</b> · trazo a lápiz</figcaption></figure>
+    <figure><img src="img/temas/holographic.jpg" /><figcaption><b>Holográfico</b> · verde azulado translúcido</figcaption></figure>
+  </div>
+  <p class="small muted" style="margin-top:3mm">Las animaciones se desactivan si el sistema tiene activada la opción «reducir movimiento».</p>
+</section>
+
+<section class="section">
+  <h3>Qué define cada estilo</h3>
+  <table>
+    <tr><th>Aspecto</th><th>Ejemplos</th></tr>
+    <tr><td>Imagen base</td><td>OpenStreetMap, Esri gris claro/oscuro, Esri satélite, OpenTopoMap; con filtros CSS (sepia, tono, saturación) y efecto pixelado.</td></tr>
+    <tr><td>Calles propias</td><td>Se dibujan en vectorial a partir de los datos OSM reales: color, grosor, discontinuidad y contorno por tipo (autovía, principal, secundaria, local, camino).</td></tr>
+    <tr><td>Etiquetas</td><td>A partir de zoom 16, los nombres reales de las calles se colocan a lo largo de la vía con la tipografía del estilo (Orbitron, Press Start 2P, JetBrains Mono, Caveat…).</td></tr>
+    <tr><td>Ruta</td><td>Color, contorno, discontinuidad, animación «de energía» y resplandor.</td></tr>
+    <tr><td>Marcadores</td><td>Chincheta, punto, rombo, píxel, brillo, sello de lacre, punto de mira, mancha.</td></tr>
+    <tr><td>Efectos</td><td>Scanlines, rejilla técnica, viñeta, textura de papel, ciclo de color.</td></tr>
+    <tr><td>Nodos</td><td>Blueprint y Holográfico muestran las intersecciones reales del grafo.</td></tr>
+  </table>
+  <figure><img src="img/ruta-blueprint.jpg" style="max-height:70mm" /><figcaption>Blueprint: calles reales como plano técnico, intersecciones del grafo visibles y ruta discontinua.</figcaption></figure>
+
+  <h3>Cómo añadir un estilo nuevo</h3>
+  <ol>
+    <li>Crea <code>src/features/themes/themes/miTema.ts</code> con <code>defineTheme({…})</code>, usando otro estilo como plantilla.</li>
+    <li>Añádelo a la lista <code>THEMES</code> de <code>themeRegistry.ts</code>.</li>
+    <li>Ejecuta <code>npm test</code>: valida automáticamente que el id sea único, que los colores sean correctos, que el proveedor exista y que el estilo sea distinto de los demás.</li>
+  </ol>
+</section>
+
+<!-- ============================== 4. ARQUITECTURA ============================== -->
+<section class="section">
+  <h2><span class="num">4</span>Cómo funciona por dentro</h2>
+  <p class="lead">El código está organizado en capas. La interfaz no contiene lógica de negocio, y el motor de rutas es puro: no sabe nada de React ni del aspecto del mapa, y está cubierto por tests.</p>
+
+  <div class="layers">
+    <div class="layer l1"><b>Interfaz</b><span><code>components/</code> — mapa, buscador, panel de rutas, navegación, estilos, ajustes, editor. React + Tailwind + Leaflet.</span></div>
+    <div class="layer l2"><b>Estado</b><span><code>store/</code> — Zustand. Guarda en el navegador solo las preferencias (estilo, favoritos, historial…), nunca la ruta.</span></div>
+    <div class="layer l3"><b>Orquestación</b><span><code>hooks/</code> — calcular la ruta al cambiar paradas, cargar POIs y calles, GPS, simulación, búsqueda con antirrebote.</span></div>
+    <div class="layer l4"><b>Lógica</b><span><code>features/</code> — <code>routing</code> (grafo, A*, instrucciones), <code>osm</code> (Overpass y red en memoria), <code>geocoding</code>, <code>search</code>, <code>poi</code>, <code>themes</code>, <code>customMap</code>.</span></div>
+    <div class="layer l5"><b>Servicios</b><span>OpenStreetMap: Photon y Nominatim (búsqueda), Overpass (calles y POIs), teselas OSM/Esri/OpenTopoMap. Caché en IndexedDB.</span></div>
+  </div>
+
+  <h3>Qué pasa cuando pides una ruta</h3>
+  <div class="flow">
+    <div class="step"><b>1 · Paradas</b>Origen, paradas y destino con coordenadas reales.</div>
+    <div class="step"><b>2 · Plan</b>Decide qué zonas descargar según la distancia.</div>
+    <div class="step"><b>3 · Descarga</b>Overpass por trozos, con caché de 7 días.</div>
+    <div class="step"><b>4 · Grafo</b>Vías OSM → nodos (cruces) y aristas dirigidas.</div>
+    <div class="step"><b>5 · Ajuste</b>Cada parada se ajusta al cruce más cercano.</div>
+    <div class="step"><b>6 · A*</b>Ruta óptima para cada tramo entre paradas.</div>
+    <div class="step"><b>7 · Indicaciones</b>Giros, rotondas y autovías a partir de la geometría.</div>
+    <div class="step"><b>8 · Dibujo</b>Línea sobre la geometría exacta de las calles.</div>
+  </div>
+
+  <h3>Decisiones de diseño importantes</h3>
+  <ul>
+    <li><b>Proveedores intercambiables</b>: geocodificación, Overpass y teselas se configuran en un solo sitio. Se pueden usar instancias propias sin tocar la interfaz.</li>
+    <li><b>Red en memoria independiente del estilo</b>: las calles descargadas se guardan una vez y sirven tanto para dibujar como para calcular rutas.</li>
+    <li><b>Peticiones responsables</b>: Nominatim, máximo 1 por segundo y solo al confirmar; Photon, para autocompletar con antirrebote; Overpass, peticiones espaciadas, zonas acotadas y caché. Si una zona ya está cargada no se vuelve a pedir.</li>
+    <li><b>Código dividido</b>: el editor de mapas y la demo sin conexión se descargan solo cuando se usan.</li>
+  </ul>
+</section>
+
+<!-- ============================== 5. A* ============================== -->
+<section class="section">
+  <h2><span class="num">5</span>El motor de rutas A*</h2>
+
+  <h3>5.1 Del mapa al grafo</h3>
+  <p>Cada vía de OpenStreetMap (<code>highway=*</code>) se corta en los puntos donde se cruza con otra. Esos cruces son los <b>nodos</b>; los tramos entre ellos, las <b>aristas</b>. Cada arista conserva:</p>
+  <ul>
+    <li>La <b>geometría completa</b> (todas las curvas), de modo que la ruta nunca es una línea recta artificial.</li>
+    <li>El <b>nombre o referencia reales</b> («Avenida del Cid», «A-3») y el tipo de vía.</li>
+    <li>La <b>velocidad</b>: la etiqueta <code>maxspeed</code> o, si falta, un valor por tipo (autovía 110, residencial 30…).</li>
+    <li>El <b>sentido</b>: una calle de doble sentido produce dos aristas; <code>oneway=yes/-1</code>, rotondas y autovías, solo una.</li>
+  </ul>
+  <p>En coche se excluyen aceras y senderos; a pie se ignoran los sentidos únicos y se excluyen autovías. Los tramos muy largos se cortan cada ~250 m para ajustar mejor las paradas.</p>
+
+  <h3>5.2 La búsqueda</h3>
+  <p>A* explora el grafo desde el origen eligiendo siempre el nodo con menor <b>f = g + h</b>:</p>
+  <ul>
+    <li><b>g</b>: coste real acumulado desde el origen (tiempo = distancia ÷ velocidad, o distancia en modo «más corta»).</li>
+    <li><b>h</b>: estimación optimista hasta el destino: distancia en línea recta, dividida por la velocidad máxima del grafo en modo «más rápida».</li>
+  </ul>
+  <p>Como <b>h</b> nunca sobreestima, la primera vez que se extrae el destino la ruta es <b>óptima</b>. Usa una cola de prioridad (montículo binario), descarta entradas obsoletas y marca los nodos cerrados, así que nunca entra en bucles. Devuelve nodos, aristas, distancia, tiempo y geometría, o un error claro: grafo vacío, nodo inexistente, destino inalcanzable o límite superado.</p>
+
+  <h3>5.3 Indicaciones paso a paso</h3>
+  <p>En cada cruce de la ruta se compara el rumbo de llegada con el de salida, medidos a 20 m del cruce para ignorar pequeños quiebros, y se clasifica el giro:</p>
+  <table>
+    <tr><th>Ángulo</th><th>Indicación</th></tr>
+    <tr><td>&lt; 25°</td><td>Continúa (solo se anuncia si cambia el nombre de la vía)</td></tr>
+    <tr><td>25-50°</td><td>Gira ligeramente a la izquierda/derecha</td></tr>
+    <tr><td>50-125°</td><td>Gira a la izquierda/derecha</td></tr>
+    <tr><td>125-165°</td><td>Gira bruscamente</td></tr>
+    <tr><td>&gt; 165°</td><td>Cambia de sentido</td></tr>
+  </table>
+  <p>Además, las rotondas se agrupan en «toma la N.ª salida», contando las salidas reales. Se detectan la incorporación y la salida de autovías, y si el cruce no ofrece alternativa no se emite un giro innecesario. Todo sale de los datos; no hay texto aleatorio.</p>
+</section>
+
+<section>
+  <h3>5.4 Rutas largas: qué se descarga</h3>
+  <p>Descargar todas las calles entre Valencia y Buñol pesaría decenas de MB. Por eso se descarga por niveles, en trozos con caché propia:</p>
+  <table>
+    <tr><th>Trozo</th><th>Contenido</th><th>Para qué</th></tr>
+    <tr><td>Detalle</td><td>Todas las calles de coche a 1 km de cada parada</td><td>Salir y llegar por las calles exactas.</td></tr>
+    <tr><td>Anillo de acceso</td><td>Carreteras secundarias, terciarias y sin clasificar a 5 km</td><td>Unir cada pueblo o barrio con las grandes vías.</td></tr>
+    <tr><td>Corredor</td><td>Autovías y carreteras principales entre las paradas</td><td>El grueso del viaje.</td></tr>
+  </table>
+  <p>Si aun así las paradas no quedan conectadas, el corredor se amplía un nivel automáticamente. Los trayectos cortos (menos de 6 km) descargan todas las calles de la zona.</p>
+
+  <div class="callout">
+    <strong>Un caso real que motivó el anillo de acceso</strong>
+    Buñol solo enlaza con la A-3 por la <b>CV-425</b>, que llega a la autovía a ~2,7 km del centro. Sin el anillo, el motor no veía ese enlace y la ruta Valencia→Buñol daba un rodeo de 46 km por Chiva. Con el anillo sale la ruta real: <b>40 km y 29 min por A-3 → CV-425</b>. Se diagnosticó reproduciendo el cálculo con los datos reales descargados y analizando la conectividad dirigida del grafo.
+  </div>
+
+  <h3>5.5 Varias paradas</h3>
+  <p>Se calcula un A* por cada tramo (A→1, 1→2, …→B). Las geometrías se unen sin duplicar el punto de unión, la distancia y el tiempo se suman, y las indicaciones de cada tramo terminan en «Has llegado a la parada N». El orden de las paradas se respeta siempre.</p>
+</section>
+
+<!-- ============================== 6. DATOS ============================== -->
+<section class="section">
+  <h2><span class="num">6</span>Datos reales y servicios</h2>
+  <table>
+    <tr><th>Uso</th><th>Servicio</th><th>Cómo se usa</th></tr>
+    <tr><td>Autocompletado</td><td>Photon (komoot, datos OSM)</td><td>Pensado para «buscar mientras escribes». Antirrebote de 350 ms, mínimo 3 letras, caché y sesgo hacia la zona visible.</td></tr>
+    <tr><td>Búsqueda completa y «¿qué hay aquí?»</td><td>Nominatim (OSMF)</td><td>Su política prohíbe autocompletar: solo se usa al pulsar Enter o al elegir un punto. Máximo 1 petición por segundo.</td></tr>
+    <tr><td>Calles y POIs</td><td>Overpass API (3 servidores)</td><td>Zonas acotadas, caché de 7 días, peticiones espaciadas. Si un servidor no responde en 12 s se prueba el siguiente en paralelo y gana el primero; los errores de saturación se reintentan una vez.</td></tr>
+    <tr><td>Imagen del mapa</td><td>OSM, Esri, OpenTopoMap</td><td>Ninguno requiere clave. Los mapas de CARTO pasaron a exigir clave durante el desarrollo y se sustituyeron.</td></tr>
+  </table>
+
+  <h3>Licencias y atribuciones</h3>
+  <ul>
+    <li><b>Datos</b>: © OpenStreetMap contributors, licencia ODbL 1.0. El extracto de Buñol incluido en el repositorio también es ODbL.</li>
+    <li><b>Teselas</b>: OSM (política de uso: tráfico ligero y atribución); Esri y sus proveedores (Maxar, Earthstar Geographics, HERE, Garmin); OpenTopoMap (CC-BY-SA).</li>
+    <li><b>Geocodificación</b>: Photon © komoot; Nominatim © OSMF.</li>
+    <li><b>Tipografías</b> (SIL OFL): se sirven desde la propia app, sin peticiones a Google Fonts.</li>
+  </ul>
+  <p>La atribución se muestra siempre en la esquina del mapa y en <i>Ajustes → Fuentes y licencias</i>.</p>
+
+  <h3>Privacidad</h3>
+  <ul>
+    <li>La ubicación GPS y las imágenes de los mapas personalizados <b>nunca salen del navegador</b>.</li>
+    <li>Las búsquedas se envían a Photon y Nominatim; las coordenadas de la zona, a Overpass. No se envían datos personales.</li>
+    <li>Preferencias, favoritos, historial y caché se guardan solo en el navegador.</li>
+  </ul>
+
+  <h3>Sin conexión</h3>
+  <p><i>Ajustes → Cargar demo offline</i> carga un extracto real de OSM de Buñol (541 vías, 161 calles con nombre, 44 POIs). Si Overpass falla y ya hay datos cargados, la app los usa y lo avisa.</p>
+</section>
+
+<!-- ============================== 7. MAPAS PERSONALIZADOS ============================== -->
+<section class="section">
+  <h2><span class="num">7</span>Mapas personalizados</h2>
+  <p class="lead">En <code>/custom</code> (o <i>Ajustes → Abrir editor de mapas</i>) puedes crear tu propio mapa navegable a partir de una imagen: un plano, un mapa de un juego o un dibujo. Aquí sí puedes poner los nombres que quieras.</p>
+  <figure><img src="img/mapa-personalizado.jpg" /><figcaption>Isla de ejemplo (ficticia): 5 nodos con nombre, 3 vías y la ruta A* «Puerta Oeste → Muelle» con sus indicaciones.</figcaption></figure>
+  <ol>
+    <li><b>Cargar imagen</b> PNG, JPG o WebP. Se lee en el navegador y no se sube a ningún servidor.</li>
+    <li><b>Calibrar</b>: pulsa puntos reconocibles y escribe sus coordenadas reales. Con 2 puntos se calculan escala, rotación y posición; con 3 o más, una transformación afín por mínimos cuadrados con su error medio. Sin referencias, puedes fijar escala (m/píxel) y rotación a mano.</li>
+    <li><b>Nodos</b>: clic para crear cruces y ponerles nombre.</li>
+    <li><b>Vías</b>: pulsa dos nodos para unirlos (nombre, tipo, velocidad, sentido único). Los tramos se pueden encadenar; volver a pulsar el mismo nodo cancela.</li>
+    <li><b>Ruta</b>: elige origen y destino y se calcula con el mismo A* que los mapas reales, con indicaciones.</li>
+    <li><b>Exportar/Importar JSON</b>, con o sin la imagen. Además se guarda solo en el navegador.</li>
+  </ol>
+  <div class="callout warn"><strong>Limitaciones del editor</strong>La calibración asume una proyección plana local (precisa para zonas de pocos km). Las vías son tramos rectos entre nodos. La imagen calibrada todavía no se puede superponer sobre el mapa real.</div>
+</section>
+
+<!-- ============================== 8. CALIDAD ============================== -->
+<section class="section">
+  <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
+  <div class="kpis">
+    <div class="kpi"><b>72</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>24</b><span>pruebas e2e (12 escenarios × escritorio y móvil)</span></div>
+    <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
+    <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
+  </div>
+
+  <h3>Qué se prueba</h3>
+  <div class="grid2">
+    <div class="card"><h4>Motor de rutas</h4>Los 12 casos pedidos: ruta directa, varios tramos, óptima frente a alternativa más larga, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo y reconstrucción. Además: sin bucles, evitar autopistas, grafo desde datos OSM reales de Buñol, rotondas, autovías, multi-parada y ampliación del corredor.</div>
+    <div class="card"><h4>Resto de la lógica</h4>Búsqueda (acentos, categorías, coordenadas), adaptadores Photon y Nominatim, 15 estilos (válidos y distintos), estado (cambiar de estilo no borra la ruta; persistencia), calibración de imágenes, progreso de navegación, limitador de peticiones, servidores escalonados y reintentos.</div>
+    <div class="card"><h4>Navegador real (e2e)</h4>Carga del mapa; búsqueda de Buñol con nombre real; cambio de 4 estilos sin perder la ruta (y recordado al recargar); ruta con parada y modo navegación; POIs reales; menú del mapa sin nombres inventados; ubicación al abrir, como origen y denegada; editor de mapas completo; teselas en pantallas retina.</div>
+    <div class="card"><h4>Sin depender de la red</h4>Las pruebas e2e responden a las búsquedas y a Overpass con el extracto real de OSM incluido, así que son reproducibles. La ruta Valencia→Buñol se verificó además en vivo contra los servicios reales.</div>
+  </div>
+</section>
+
+<section>
+  <h3>Problemas encontrados y corregidos</h3>
+  <p>Durante el desarrollo y la revisión final (con pruebas automáticas, capturas de los 15 estilos y pruebas en vivo) aparecieron y se corrigieron estos fallos:</p>
+  <table>
+    <tr><th style="width:40mm">Problema</th><th>Causa y solución</th></tr>
+    <tr><td><span class="tag fix">fix</span> Mapas «API KEY REQUIRED»</td><td>CARTO empezó a exigir clave. Se sustituyó por proveedores libres (OSM, Esri, OpenTopoMap).</td></tr>
+    <tr><td><span class="tag fix">fix</span> Teselas vacías en retina</td><td>En pantallas retina (iPhone, Mac) Leaflet pedía un zoom más del que sirve Esri y aparecía «Map data not yet available». Se ajustó el zoom nativo; hay un test con pantalla retina.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Rodeo Valencia→Buñol</td><td>Faltaba el enlace por la CV-425 (ver 5.4). Se añadió el anillo de acceso: ahora 40 km en lugar de 46.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Búsquedas bloqueadas</td><td>El limitador encadenaba peticiones completas: una respuesta lenta bloqueaba todas. Ahora solo espacia los inicios y cada petición tiene tiempo máximo.</td></tr>
+    <tr><td><span class="tag perf">perf</span> Overpass lento o caído</td><td>Descarga por trozos con caché, consultas más ligeras (11,7 → 5,5 MB), servidores escalonados y reintentos: de 143 s a 64 s en la prueba real.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Menú del mapa que no se cerraba</td><td>Leaflet recibía el clic del botón del menú después de React y lo reabría. Se ignora el clic inmediatamente posterior.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Ruta sin animación</td><td>La clase CSS de la ruta no se aplicaba (react-leaflet solo la lee al crear la capa). Se pasa como propiedad.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Editor: nodos no seleccionables</td><td>Las vías se dibujaban encima de los nodos. Los nodos van ahora en una capa superior; hay un test completo del editor.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Calles duplicadas</td><td>Un mismo nombre salía del servicio remoto y de los datos locales. Se deduplica.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Aviso de desvío repetido</td><td>Con GPS se repetía en cada actualización. Ahora avisa una vez por desvío.</td></tr>
+    <tr><td><span class="tag perf">perf</span> Bundle pesado</td><td>Los iconos usaban <code>react-dom/server</code>. Se sustituyó: 825 → 623 kB (258 → 196 kB comprimido).</td></tr>
+    <tr><td><span class="tag fix">fix</span> GPS en el móvil</td><td>Por red local sin HTTPS el navegador bloquea la ubicación. Se añadió <code>npm run dev:movil</code> (HTTPS) y un aviso claro.</td></tr>
+  </table>
+</section>
+
+<!-- ============================== 9. LIMITACIONES ============================== -->
+<section class="section">
+  <h2><span class="num">9</span>Limitaciones y próximos pasos</h2>
+  <h3>Limitaciones actuales</h3>
+  <ul>
+    <li><b>Servicios públicos</b>: Overpass, Photon y Nominatim son gratuitos y a veces están saturados. La app reintenta y avisa, pero una ruta larga nueva puede tardar alrededor de un minuto. Las zonas ya descargadas son casi instantáneas durante 7 días. Para uso intensivo conviene una instancia propia.</li>
+    <li><b>Alcance</b>: rutas en vivo de hasta ~300 km en coche y ~25 km a pie.</li>
+    <li><b>Sin tráfico real</b>, sin restricciones de giro (<i>turn restrictions</i>) y sin carriles.</li>
+    <li>Cada parada se ajusta al <b>cruce más cercano</b> (puede haber un pequeño tramo de acceso, mostrado con línea punteada).</li>
+    <li>Los colores de agua, parques y edificios de cada estilo se consiguen con filtros sobre imágenes, no con mapas vectoriales.</li>
+    <li>Las imágenes Esri gris tienen detalle hasta zoom 16; a partir de ahí se apoyan en las calles vectoriales propias.</li>
+    <li>El mapa no rota (Leaflet no lo permite de forma nativa).</li>
+    <li>La ubicación por la red local requiere el modo HTTPS con certificado autofirmado.</li>
+  </ul>
+  <h3>Próximas mejoras sugeridas</h3>
+  <ul>
+    <li>Restricciones de giro y perfil de bicicleta.</li>
+    <li>Mapas vectoriales (MapLibre) para recolorear con exactitud y permitir rotación.</li>
+    <li>Calcular el grafo y A* en un Web Worker para zonas muy grandes.</li>
+    <li>Superponer los mapas personalizados calibrados sobre el mapa real.</li>
+    <li>Importar archivos <code>.osm</code>, <code>.pbf</code> y GeoJSON.</li>
+    <li>Instalación como app (PWA) con mapas guardados sin conexión.</li>
+  </ul>
+</section>
+
+<!-- ============================== ANEXOS ============================== -->
+<section class="section">
+  <h2><span class="num">A</span>Anexos</h2>
+  <h3>A.1 Estructura del proyecto</h3>
+<pre>src/
+├── app/          App, rutas (/ y /custom), modo claro/noche
+├── components/   Interfaz: layout, map, search, navigation, explore,
+│                 themes, saved, settings, customMap, ui
+├── features/     Lógica sin interfaz
+│   ├── routing/     graph.ts · astar.ts · routeInstructions.ts · routeService.ts
+│   ├── osm/         overpassService.ts · networkStore.ts · demoData.ts
+│   ├── geocoding/   Photon y Nominatim (intercambiables)
+│   ├── search/      búsqueda combinada, local y por categorías
+│   ├── poi/         12 categorías de puntos de interés
+│   ├── navigation/  progreso de la navegación
+│   ├── map/         proveedores de teselas, iconos, marcadores
+│   ├── themes/      tipos, registro y un archivo por estilo
+│   └── customMap/   calibración, guardado y exportación
+├── data/         extracto OSM real de Buñol (demo sin conexión y tests)
+├── hooks/        rutas, POIs, calles, GPS, navegación, búsqueda
+├── store/        estado global (Zustand)
+├── styles/       globals.css · map.css
+├── utils/        distancias, geometría, HTTP limitado, almacenamiento
+└── tests/        Vitest
+e2e/              Playwright · scripts/  descarga de extractos OSM
+docs/             esta documentación e imágenes</pre>
+  <p class="small muted">Unas 7.800 líneas de código de aplicación y 1.340 de pruebas.</p>
+
+  <h3>A.2 Stack</h3>
+  <p>React 19 · TypeScript estricto · Vite · Tailwind CSS v4 · React Router · Zustand · Lucide · Leaflet y React-Leaflet · idb-keyval (IndexedDB) · Vitest y Testing Library · Playwright · oxlint.</p>
+  <h3>A.3 Configurar otros servidores (opcional)</h3>
+  <p>Crea un archivo <code>.env.local</code> para usar instancias propias de los servicios:</p>
+<pre>VITE_PHOTON_URL=https://mi-photon.example.org
+VITE_NOMINATIM_URL=https://mi-nominatim.example.org
+VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/api/interpreter</pre>
+</section>
+
+<section class="section">
+  <h3>A.4 Historial de commits</h3>
+  <table>
+    <tr><th style="width:20mm">Commit</th><th>Descripción</th></tr>
+    <tr><td class="mono">ecfab6f</td><td>chore: crear estructura inicial del proyecto</td></tr>
+    <tr><td class="mono">ea7c236</td><td>feat: implementar grafo de carreteras y algoritmo A*</td></tr>
+    <tr><td class="mono">0554a5e</td><td>feat: integrar Overpass API y extracto OSM real de Buñol</td></tr>
+    <tr><td class="mono">43a6bc4</td><td>feat: añadir búsqueda geográfica con Photon y Nominatim</td></tr>
+    <tr><td class="mono">c8a2ee8</td><td>feat: implementar sistema de 15 temas visuales de mapa</td></tr>
+    <tr><td class="mono">d442f2a</td><td>feat: añadir mapas personalizados con calibración</td></tr>
+    <tr><td class="mono">11b38df</td><td>feat: interfaz premium, rutas, navegación paso a paso y waypoints</td></tr>
+    <tr><td class="mono">36b9ff1</td><td>test: añadir pruebas de búsqueda, temas, store, calibración y UI</td></tr>
+    <tr><td class="mono">74ff597</td><td>fix: menú contextual, limitador de peticiones y datos ya cargados</td></tr>
+    <tr><td class="mono">987ae22</td><td>perf: aligerar la descarga de red viaria en rutas largas</td></tr>
+    <tr><td class="mono">23d4dfe</td><td>feat: rutas largas más fiables y GPS en el móvil</td></tr>
+    <tr><td class="mono">930982b</td><td>fix: ruta óptima en trayectos largos y descargas más rápidas</td></tr>
+    <tr><td class="mono">da6cb90</td><td>feat: ubicación del dispositivo activa al abrir la web</td></tr>
+    <tr><td class="mono">3a9f0f4</td><td>refactor: revisión general (bundle −200 kB, avisos GPS, caché acotada)</td></tr>
+    <tr><td class="mono">e306b2e</td><td>fix: teselas en pantallas retina y clics en nodos del editor</td></tr>
+    <tr><td class="mono">—</td><td>docs: documentación en PDF y capturas (este documento)</td></tr>
+  </table>
+
+  <h3>A.5 Glosario</h3>
+  <table>
+    <tr><td>A*</td><td>Algoritmo de búsqueda del camino más corto que usa una estimación de la distancia restante para explorar menos.</td></tr>
+    <tr><td>Grafo</td><td>Red de nodos (cruces) unidos por aristas (tramos de calle).</td></tr>
+    <tr><td>OSM</td><td>OpenStreetMap, mapa libre y colaborativo del mundo.</td></tr>
+    <tr><td>Overpass</td><td>Servicio para consultar y descargar elementos concretos de OSM (calles, POIs).</td></tr>
+    <tr><td>Geocodificación</td><td>Convertir un nombre en coordenadas (y la inversa, coordenadas en nombre).</td></tr>
+    <tr><td>Tesela</td><td>Cada una de las imágenes cuadradas que forman el fondo del mapa.</td></tr>
+    <tr><td>POI</td><td>Punto de interés: gasolinera, restaurante, hospital…</td></tr>
+    <tr><td>e2e</td><td>Prueba «de extremo a extremo»: un navegador real usa la app como una persona.</td></tr>
+  </table>
+</section>
+
+</body>
+</html>
