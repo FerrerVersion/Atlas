@@ -47,6 +47,8 @@ export interface AppState {
   autoNightTheme: boolean
   showLabels: boolean
   autoLoadRoads: boolean
+  /** Pedir la ubicación y centrar el mapa al abrir la web. */
+  autoLocate: boolean
   navPrefs: NavPrefs
   favorites: Place[]
   history: Place[]
@@ -67,6 +69,8 @@ export interface AppState {
   selectedPoiId: string | null
   navigation: { active: boolean; progress: number; following: boolean; simulating: boolean }
   userLocation: { lat: number; lng: number; accuracy: number; heading: number | null } | null
+  locationStatus: 'idle' | 'pending' | 'active' | 'denied' | 'unavailable'
+  setLocationStatus: (s: AppState['locationStatus']) => void
   mapTarget: { lat: number; lng: number; zoom?: number; bbox?: Place['bbox']; nonce: number } | null
   fitRouteNonce: number
   toasts: Toast[]
@@ -79,7 +83,7 @@ export interface AppState {
   // Acciones
   setTheme: (id: string) => void
   setUiMode: (m: UiMode) => void
-  setPref: <K extends 'autoNightTheme' | 'showLabels' | 'autoLoadRoads'>(k: K, v: AppState[K]) => void
+  setPref: <K extends 'autoNightTheme' | 'showLabels' | 'autoLoadRoads' | 'autoLocate'>(k: K, v: AppState[K]) => void
   setNavPrefs: (p: Partial<NavPrefs>) => void
   setPanelTab: (t: PanelTab) => void
   setSheetExpanded: (v: boolean) => void
@@ -127,6 +131,7 @@ export const useAppStore = create<AppState>()(
       autoNightTheme: false,
       showLabels: true,
       autoLoadRoads: true,
+      autoLocate: true,
       navPrefs: { profile: 'car', cost: 'fastest', avoidHighways: false, voice: false },
       favorites: [],
       history: [],
@@ -146,6 +151,8 @@ export const useAppStore = create<AppState>()(
       selectedPoiId: null,
       navigation: { active: false, progress: 0, following: true, simulating: false },
       userLocation: null,
+      locationStatus: 'idle',
+      setLocationStatus: (locationStatus) => set({ locationStatus }),
       mapTarget: null,
       fitRouteNonce: 0,
       toasts: [],
@@ -256,6 +263,7 @@ export const useAppStore = create<AppState>()(
         autoNightTheme: s.autoNightTheme,
         showLabels: s.showLabels,
         autoLoadRoads: s.autoLoadRoads,
+        autoLocate: s.autoLocate,
         navPrefs: s.navPrefs,
         favorites: s.favorites,
         history: s.history,

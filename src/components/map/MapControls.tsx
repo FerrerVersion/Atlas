@@ -14,6 +14,7 @@ export function MapControls() {
   const selected = useAppStore((s) => s.selectedPlace)
   const route = useAppStore((s) => s.route)
   const roadsStatus = useAppStore((s) => s.roadsStatus)
+  const locationStatus = useAppStore((s) => s.locationStatus)
 
   const loadRoads = async () => {
     if (!map) return
@@ -49,8 +50,13 @@ export function MapControls() {
         </IconButton>
       </div>
       <div className={group}>
-        <IconButton label="Mi ubicación" onClick={() => locate({ fly: true })}>
-          <LocateFixed className="h-5 w-5" />
+        <IconButton
+          label="Mi ubicación"
+          active={locationStatus === 'active'}
+          aria-busy={locationStatus === 'pending'}
+          onClick={() => locate({ fly: true })}
+        >
+          {locationStatus === 'pending' ? <Spinner /> : <LocateFixed className="h-5 w-5" />}
         </IconButton>
         <IconButton
           label="Volver a la ubicación seleccionada"

@@ -43,7 +43,8 @@ npm run dev          # http://localhost:5173
 
 ### Ubicación del dispositivo (GPS)
 
-- **Mi ubicación** (botón de diana en los controles del mapa): pide permiso, centra el mapa y muestra un punto azul con su precisión.
+- **Al abrir la web** se pide permiso de ubicación; si lo concedes, el mapa se centra donde estás y el punto azul se mantiene actualizado mientras la página esté abierta (un único seguimiento compartido por toda la app). Si lo deniegas, no se insiste. Se puede desactivar en *Ajustes → Ubicación*.
+- **Mi ubicación** (botón de diana en los controles del mapa, resaltado cuando el seguimiento está activo): vuelve a centrar el mapa en tu posición.
 - **Usar mi ubicación como origen** (icono junto al campo *Origen* en la pestaña Ruta).
 - **Seguir mi ubicación GPS** en el modo navegación: la posición se proyecta sobre la ruta para avanzar las indicaciones.
 

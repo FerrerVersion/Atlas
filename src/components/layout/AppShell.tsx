@@ -2,6 +2,7 @@ import { MapControls } from '@/components/map/MapControls'
 import { MapView } from '@/components/map/MapView'
 import { NavigationHUD } from '@/components/navigation/NavigationHUD'
 import { Toasts } from '@/components/ui/Toasts'
+import { useAutoLocation } from '@/hooks/useGeolocation'
 import { useNavigationRunner } from '@/hooks/useNavigationRunner'
 import { usePoiLoader } from '@/hooks/usePoiLoader'
 import { useRoadAutoLoader } from '@/hooks/useRoadAutoLoader'
@@ -20,6 +21,7 @@ export function AppShell() {
   usePoiLoader()
   useRoadAutoLoader()
   useNavigationRunner()
+  useAutoLocation()
 
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ ['--ui-accent' as string]: theme.colors.accent }}>

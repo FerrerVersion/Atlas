@@ -116,6 +116,21 @@ test.describe('ubicación del dispositivo', () => {
   // Posición simulada: Plaça de l'Ajuntament (València).
   test.use({ geolocation: { latitude: 39.46975, longitude: -0.37739, accuracy: 25 }, permissions: ['geolocation'] })
 
+  test('al abrir la web centra el mapa en la ubicación sin pulsar nada y la sigue', async ({ page, context }) => {
+    await page.goto('/')
+    await expect(page.locator('.user-dot')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Mi ubicación' })).toHaveAttribute('aria-pressed', 'true')
+    await expect
+      .poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('atlas-nav:prefs')!).state.lastView.lat))
+      .toBeCloseTo(39.4697, 2)
+    // El seguimiento continúa: al moverse el dispositivo se actualiza el punto.
+    await context.setGeolocation({ latitude: 39.4189, longitude: -0.7909 })
+    await page.getByRole('button', { name: 'Mi ubicación' }).click()
+    await expect
+      .poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('atlas-nav:prefs')!).state.lastView.lng))
+      .toBeCloseTo(-0.7909, 2)
+  })
+
   test('«Mi ubicación» centra el mapa y muestra el punto azul', async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Mi ubicación' }).click()
@@ -138,9 +153,11 @@ test.describe('ubicación del dispositivo', () => {
 
 test.describe('ubicación denegada', () => {
   test.use({ permissions: [] })
-  test('avisa si no hay permiso', async ({ page, context }) => {
+  test('al abrir no molesta si se deniega, y avisa al pulsar el botón', async ({ page, context }) => {
     await context.clearPermissions()
     await page.goto('/')
+    await page.waitForTimeout(800)
+    await expect(page.getByRole('alert')).toHaveCount(0)
     await page.getByRole('button', { name: 'Mi ubicación' }).click()
     await expect(page.getByRole('alert')).toContainText(/ubicación/)
   })

@@ -1,10 +1,23 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 
-/** Comprueba que el navegador puede dar la ubicación; si no, avisa y devuelve false. */
-function geolocationAvailable(): boolean {
-  const { notify } = useAppStore.getState()
+/**
+ * Seguimiento de la ubicación del dispositivo. Hay un único `watchPosition`
+ * compartido por toda la app (botón «Mi ubicación», origen GPS, navegación).
+ * La posición nunca se envía a ningún servidor.
+ */
+let watchId: number | null = null
+let flyOnNextFix = false
+/** `mapTarget.nonce` cuando se pidió centrar: si el usuario busca otra cosa antes del primer dato, no se le mueve el mapa. */
+let targetNonceAtRequest: number | null = null
+
+const WATCH_OPTIONS: PositionOptions = { enableHighAccuracy: true, maximumAge: 10_000, timeout: 30_000 }
+
+/** Comprueba que el navegador puede dar la ubicación; si no, avisa (salvo en modo silencioso). */
+function geolocationAvailable(silent = false): boolean {
+  const { notify, setLocationStatus } = useAppStore.getState()
   if (!window.isSecureContext) {
+    setLocationStatus('unavailable')
     notify(
       'La ubicación solo funciona con HTTPS o en localhost. Desde el móvil abre la app con `npm run dev:movil` (https://…).',
       'error',
@@ -12,35 +25,82 @@ function geolocationAvailable(): boolean {
     return false
   }
   if (!('geolocation' in navigator)) {
-    notify('Tu navegador no permite obtener la ubicación.', 'error')
+    setLocationStatus('unavailable')
+    if (!silent) notify('Tu navegador no permite obtener la ubicación.', 'error')
     return false
   }
   return true
 }
 
-function notifyGeoError(err: GeolocationPositionError) {
-  useAppStore
-    .getState()
-    .notify(
-      err.code === err.PERMISSION_DENIED
-        ? 'Permiso de ubicación denegado. Actívalo en los ajustes del navegador para este sitio.'
-        : 'No se ha podido obtener tu ubicación.',
-      'error',
-    )
+function onPosition(pos: GeolocationPosition) {
+  const s = useAppStore.getState()
+  const { latitude: lat, longitude: lng, accuracy, heading } = pos.coords
+  s.setUserLocation({ lat, lng, accuracy, heading: heading ?? null })
+  s.setLocationStatus('active')
+  if (flyOnNextFix) {
+    flyOnNextFix = false
+    const userMovedOn = targetNonceAtRequest !== (s.mapTarget?.nonce ?? null)
+    if (!userMovedOn) s.flyTo(lat, lng, 16)
+  }
 }
 
-/** Posición actual una sola vez (también la guarda en el store). */
+function errorHandler(silent: boolean) {
+  return (err: GeolocationPositionError) => {
+    const s = useAppStore.getState()
+    if (err.code === err.PERMISSION_DENIED) {
+      stopTracking()
+      s.setLocationStatus('denied')
+      // Al abrir la web, si el usuario dice que no, se respeta sin insistir.
+      if (!silent) s.notify('Permiso de ubicación denegado. Actívalo en los ajustes del navegador para este sitio.', 'error')
+      return
+    }
+    // Sin señal momentánea: el seguimiento continúa y se recuperará solo.
+    if (!silent && !s.userLocation) s.notify('No se ha podido obtener tu ubicación todavía.', 'error')
+  }
+}
+
+/**
+ * Inicia (una sola vez) el seguimiento continuo. `fly` centra el mapa en el
+ * primer dato. `silent` evita avisos si el permiso se deniega al abrir la web.
+ */
+export function startTracking(opts: { fly?: boolean; silent?: boolean } = {}) {
+  if (!geolocationAvailable(opts.silent)) return
+  const s = useAppStore.getState()
+  if (opts.fly) {
+    if (watchId !== null && s.userLocation) {
+      s.flyTo(s.userLocation.lat, s.userLocation.lng, 16)
+      return
+    }
+    flyOnNextFix = true
+    targetNonceAtRequest = s.mapTarget?.nonce ?? null
+  }
+  if (watchId !== null) return
+  s.setLocationStatus('pending')
+  watchId = navigator.geolocation.watchPosition(onPosition, errorHandler(!!opts.silent), WATCH_OPTIONS)
+}
+
+export function stopTracking() {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId)
+  watchId = null
+  flyOnNextFix = false
+}
+
+export const isTracking = () => watchId !== null
+
+/** Posición actual: usa la del seguimiento si existe; si no, la pide una vez. */
 export function requestPosition(): Promise<{ lat: number; lng: number } | null> {
+  const known = useAppStore.getState().userLocation
+  if (known) return Promise.resolve({ lat: known.lat, lng: known.lng })
   if (!geolocationAvailable()) return Promise.resolve(null)
   return new Promise((resolve) =>
     navigator.geolocation.getCurrentPosition(
       (p) => {
-        const { latitude: lat, longitude: lng, accuracy, heading } = p.coords
-        useAppStore.getState().setUserLocation({ lat, lng, accuracy, heading: heading ?? null })
-        resolve({ lat, lng })
+        onPosition(p)
+        resolve({ lat: p.coords.latitude, lng: p.coords.longitude })
+        startTracking({ silent: true })
       },
       (err) => {
-        notifyGeoError(err)
+        errorHandler(false)(err)
         resolve(null)
       },
       { enableHighAccuracy: true, timeout: 15000 },
@@ -48,31 +108,39 @@ export function requestPosition(): Promise<{ lat: number; lng: number } | null> 
   )
 }
 
-/** Ubicación del usuario (solo si concede permiso). Nunca se envía a servidores. */
+/**
+ * Al abrir la web: pide permiso y, si se concede, centra el mapa donde está el
+ * usuario y mantiene la ubicación actualizada mientras la página esté abierta.
+ */
+export function useAutoLocation() {
+  const enabled = useAppStore((s) => s.autoLocate)
+  useEffect(() => {
+    if (!enabled) {
+      stopTracking()
+      return
+    }
+    let cancelled = false
+    const start = () => !cancelled && startTracking({ fly: true, silent: true })
+    // Si el permiso ya estaba denegado, no se vuelve a preguntar (el navegador no lo haría).
+    const perms = navigator.permissions?.query?.({ name: 'geolocation' as PermissionName })
+    if (perms) {
+      perms
+        .then((st) => {
+          if (st.state === 'denied') useAppStore.getState().setLocationStatus('denied')
+          else start()
+        })
+        .catch(start)
+    } else start()
+    return () => {
+      cancelled = true
+    }
+  }, [enabled])
+}
+
+/** API para componentes (botón «Mi ubicación», navegación). */
 export function useGeolocation() {
-  const watchId = useRef<number | null>(null)
-
-  const stop = useCallback(() => {
-    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current)
-    watchId.current = null
-  }, [])
-
   const locate = useCallback((opts: { fly?: boolean; watch?: boolean } = {}) => {
-    const { setUserLocation, flyTo } = useAppStore.getState()
-    if (!geolocationAvailable()) return
-    const onPos = (pos: GeolocationPosition, first: boolean) => {
-      const { latitude: lat, longitude: lng, accuracy, heading } = pos.coords
-      setUserLocation({ lat, lng, accuracy, heading: heading ?? null })
-      if (first && opts.fly !== false) flyTo(lat, lng, 16)
-    }
-    const onErr = notifyGeoError
-    navigator.geolocation.getCurrentPosition((p) => onPos(p, true), onErr, { enableHighAccuracy: true, timeout: 15000 })
-    if (opts.watch) {
-      stop()
-      watchId.current = navigator.geolocation.watchPosition((p) => onPos(p, false), onErr, { enableHighAccuracy: true })
-    }
-  }, [stop])
-
-  useEffect(() => stop, [stop])
-  return { locate, stop }
+    startTracking({ fly: opts.fly !== false })
+  }, [])
+  return { locate, stop: stopTracking }
 }
