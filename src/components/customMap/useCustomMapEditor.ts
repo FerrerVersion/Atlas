@@ -28,6 +28,7 @@ export function useCustomMapEditor() {
   const [routeEnds, setRouteEnds] = useState<string[]>([])
   const [draft, setDraft] = useState<RoadDraft>({ name: '', roadType: 'residential', oneWay: false, speedLimit: 50 })
   const [saved, setSaved] = useState<CustomMap[]>([])
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     listCustomMaps().then(setSaved)
@@ -36,7 +37,16 @@ export function useCustomMapEditor() {
   // Autoguardado local.
   useEffect(() => {
     if (!map.image && map.nodes.length === 0) return
-    const t = setTimeout(() => saveCustomMap(map).then(() => listCustomMaps().then(setSaved)), 600)
+    const t = setTimeout(
+      () =>
+        saveCustomMap(map)
+          .then(() => {
+            setSaveError(null)
+            return listCustomMaps().then(setSaved)
+          })
+          .catch((e: Error) => setSaveError(e.message)),
+      600,
+    )
     return () => clearTimeout(t)
   }, [map])
 
@@ -99,7 +109,7 @@ export function useCustomMapEditor() {
       setPendingNode(null)
       setPendingRef(null)
     },
-    pendingNode, pendingRef, setPendingRef, routeEnds, setRouteEnds, draft, setDraft, saved, setSaved,
+    pendingNode, pendingRef, setPendingRef, routeEnds, setRouteEnds, draft, setDraft, saved, setSaved, saveError,
     graph, transform, calibrated, route, instructions, clickImage, clickNode, addReference, removeNode,
   }
 }

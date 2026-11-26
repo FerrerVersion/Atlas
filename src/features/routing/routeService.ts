@@ -114,6 +114,17 @@ export async function computeMultiRoute(
   opts: ComputeOptions = {},
 ): Promise<MultiRoute> {
   if (points.length < 2) throw new RouteError('Se necesitan al menos un origen y un destino.')
+  // Mientras se calcula, la zona del trayecto no se libera de memoria aunque llegue mucha red.
+  const box = bboxOf(points)
+  const unpin = networkStore.pin([expandBBox(box, Math.max(5_000, bboxDiagonal(box) * 0.15))])
+  try {
+    return await computeWithPinnedArea(points, prefs, opts)
+  } finally {
+    unpin()
+  }
+}
+
+async function computeWithPinnedArea(points: RoutePoint[], prefs: RoutePreferences, opts: ComputeOptions): Promise<MultiRoute> {
 
   // Evita peticiones innecesarias: si la zona ya está cargada se usa directamente.
   const alreadyLoaded = networkStore.covers(expandBBox(bboxOf(points), 300))

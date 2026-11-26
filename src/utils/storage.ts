@@ -1,78 +1,223 @@
 import { createStore, del, get, keys, set, type UseStore } from 'idb-keyval'
 
 /**
- * Caché persistente en IndexedDB para datos geográficos voluminosos
- * (respuestas de Overpass, mapas personalizados). Degrada a memoria si
- * IndexedDB no está disponible (tests, modo privado).
+ * Caché persistente en IndexedDB para datos geográficos voluminosos (respuestas de
+ * Overpass) y para los mapas personalizados.
+ *
+ * - Una sola copia: los datos viven en IndexedDB. La memoria solo se usa como
+ *   respaldo (acotado) cuando IndexedDB no está disponible (modo privado, tests).
+ * - Las entradas con política (p. ej. `overpass:`) tienen caducidad y límites de
+ *   cantidad y tamaño: se borran las caducadas al arrancar y, al pasarse del límite,
+ *   las más antiguas. Un índice guarda fecha y tamaño aproximado de cada una.
+ * - Lo que no tiene política (mapas personalizados) es del usuario: nunca se borra solo.
  */
-const memory = new Map<string, unknown>()
-let store: UseStore | null = null
 
-function getStore(): UseStore | null {
-  if (store) return store
-  if (typeof indexedDB === 'undefined') return null
-  try {
-    store = createStore('atlas-nav', 'kv')
-    return store
-  } catch {
-    return null
-  }
+export interface CachePolicy {
+  prefix: string
+  ttlMs: number
+  maxEntries: number
+  /** Bytes aproximados (tamaño estimado de lo guardado). */
+  maxBytes: number
+}
+
+export const CACHE_POLICIES: CachePolicy[] = [
+  { prefix: 'overpass:', ttlMs: 7 * 24 * 3600 * 1000, maxEntries: 400, maxBytes: 200 * 1024 * 1024 },
+]
+
+/** Entradas máximas en memoria cuando no hay IndexedDB. */
+export const MEMORY_MAX_ENTRIES = 40
+const INDEX_KEY = '__atlas-cache-index__'
+
+/** Almacén clave-valor (IndexedDB en la app; sustituible en los tests). */
+export interface KVBackend {
+  get<T>(key: string): Promise<T | undefined>
+  set(key: string, value: unknown): Promise<void>
+  del(key: string): Promise<void>
+  keys(): Promise<string[]>
 }
 
 interface Entry<T> {
   savedAt: number
   value: T
 }
+type Index = Record<string, { savedAt: number; size: number }>
+
+const policyFor = (key: string) => CACHE_POLICIES.find((p) => key.startsWith(p.prefix))
+
+/* ------------------------------ Almacén ------------------------------ */
+
+let backend: KVBackend | null | undefined
+
+function idbBackend(): KVBackend | null {
+  if (typeof indexedDB === 'undefined') return null
+  try {
+    const store: UseStore = createStore('atlas-nav', 'kv')
+    return {
+      get: (k) => get(k, store),
+      set: (k, v) => set(k, v, store),
+      del: (k) => del(k, store),
+      keys: async () => ((await keys(store)) as unknown[]).filter((k): k is string => typeof k === 'string'),
+    }
+  } catch {
+    return null
+  }
+}
+
+function getBackend(): KVBackend | null {
+  if (backend === undefined) backend = idbBackend()
+  return backend
+}
+
+/** Solo para tests: usa otro almacén (o ninguno, para probar el respaldo en memoria). */
+export function setCacheBackendForTests(b: KVBackend | null) {
+  backend = b
+  memory.clear()
+  indexQueue = Promise.resolve()
+}
+
+/* --------------------- Respaldo en memoria (acotado) -------------------- */
+
+const memory = new Map<string, Entry<unknown>>()
+function memorySet(key: string, entry: Entry<unknown>) {
+  memory.delete(key)
+  memory.set(key, entry)
+  while (memory.size > MEMORY_MAX_ENTRIES) memory.delete(memory.keys().next().value!)
+}
+
+/* ------------------------------- Índice ------------------------------- */
+
+/** Las actualizaciones del índice se encadenan (nunca dos a la vez). */
+let indexQueue: Promise<unknown> = Promise.resolve()
+function withIndex<R>(fn: (b: KVBackend, index: Index) => Promise<R>): Promise<R | undefined> {
+  const b = getBackend()
+  if (!b) return Promise.resolve(undefined)
+  const run = indexQueue.then(async () => {
+    const index = ((await b.get<Index>(INDEX_KEY)) ?? {}) as Index
+    const result = await fn(b, index)
+    await b.set(INDEX_KEY, index)
+    return result
+  })
+  indexQueue = run.catch(() => undefined)
+  return run.catch(() => undefined)
+}
+
+/** Borra lo que sobra de una política: primero lo caducado y después lo más antiguo. */
+async function enforce(b: KVBackend, index: Index, policy: CachePolicy, now = Date.now()) {
+  const items = Object.entries(index)
+    .filter(([k]) => k.startsWith(policy.prefix))
+    .sort((a, b2) => a[1].savedAt - b2[1].savedAt)
+  let bytes = items.reduce((a, [, m]) => a + m.size, 0)
+  let count = items.length
+  for (const [k, meta] of items) {
+    const expired = now - meta.savedAt > policy.ttlMs
+    if (!expired && count <= policy.maxEntries && bytes <= policy.maxBytes) break
+    await b.del(k).catch(() => undefined)
+    delete index[k]
+    count--
+    bytes -= meta.size
+  }
+}
+
+/* --------------------------------- API --------------------------------- */
 
 export async function cacheGet<T>(key: string, maxAgeMs = Infinity): Promise<T | undefined> {
-  const s = getStore()
+  const b = getBackend()
   let entry: Entry<T> | undefined
   try {
-    entry = s ? await get<Entry<T>>(key, s) : (memory.get(key) as Entry<T> | undefined)
+    entry = b ? await b.get<Entry<T>>(key) : (memory.get(key) as Entry<T> | undefined)
   } catch {
     entry = memory.get(key) as Entry<T> | undefined
   }
   if (!entry) return undefined
-  if (Date.now() - entry.savedAt > maxAgeMs) return undefined
+  const ttl = Math.min(maxAgeMs, policyFor(key)?.ttlMs ?? Infinity)
+  if (Date.now() - entry.savedAt > ttl) {
+    void cacheDelete(key)
+    return undefined
+  }
   return entry.value
 }
 
-export async function cacheSet<T>(key: string, value: T): Promise<void> {
+/**
+ * Guarda un valor. `size` = tamaño aproximado en bytes (para el límite de la
+ * política); si no se indica se estima con su JSON.
+ */
+export async function cacheSet<T>(key: string, value: T, opts: { size?: number } = {}): Promise<void> {
   const entry: Entry<T> = { savedAt: Date.now(), value }
-  memory.set(key, entry)
-  const s = getStore()
-  if (!s) return
+  const b = getBackend()
+  if (!b) {
+    memorySet(key, entry)
+    return
+  }
+  const policy = policyFor(key)
+  const size = policy ? (opts.size ?? estimateSize(value)) : 0
   try {
-    await set(key, entry, s)
+    await b.set(key, entry)
   } catch {
-    /* cuota excedida o IDB no disponible: queda en memoria */
+    // Cuota llena: se libera espacio de la caché (nunca de los mapas del usuario) y se
+    // reintenta una vez; si sigue sin caber, se queda solo en memoria.
+    if (!policy) throw new Error('No queda espacio en el navegador para guardar el mapa.')
+    await withIndex(async (bk, index) => enforce(bk, index, { ...policy, maxBytes: 0 }))
+    try {
+      await b.set(key, entry)
+    } catch {
+      memorySet(key, entry)
+      return
+    }
+  }
+  if (policy) {
+    await withIndex(async (bk, index) => {
+      index[key] = { savedAt: entry.savedAt, size }
+      await enforce(bk, index, policy)
+    })
   }
 }
 
 export async function cacheDelete(key: string) {
   memory.delete(key)
-  const s = getStore()
-  if (s) await del(key, s).catch(() => undefined)
+  const b = getBackend()
+  if (!b) return
+  await b.del(key).catch(() => undefined)
+  if (policyFor(key)) {
+    await withIndex(async (_bk, index) => {
+      delete index[key]
+    })
+  }
 }
 
 export async function cacheKeys(prefix: string): Promise<string[]> {
-  const s = getStore()
-  const all = s ? ((await keys(s).catch(() => [])) as string[]) : [...memory.keys()]
-  return all.filter((k) => typeof k === 'string' && k.startsWith(prefix))
+  const b = getBackend()
+  const all = b ? await b.keys().catch(() => [] as string[]) : [...memory.keys()]
+  return all.filter((k) => k !== INDEX_KEY && k.startsWith(prefix))
 }
 
 export async function cacheClear(prefix: string) {
   for (const k of await cacheKeys(prefix)) await cacheDelete(k)
 }
 
-/** Hash FNV-1a corto para claves de caché. */
-export function hashKey(text: string): string {
-  let h = 0x811c9dc5
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
+/**
+ * Limpieza al arrancar: borra lo caducado, lo que pase de los límites y las entradas
+ * de caché sin índice (p. ej. de versiones anteriores con otro formato de clave).
+ */
+export async function purgeCache(now = Date.now()) {
+  const b = getBackend()
+  if (!b) return
+  const stored = await b.keys().catch(() => [] as string[])
+  await withIndex(async (bk, index) => {
+    for (const k of stored) {
+      if (k !== INDEX_KEY && policyFor(k) && !index[k]) await bk.del(k).catch(() => undefined)
+    }
+    for (const k of Object.keys(index)) if (!stored.includes(k)) delete index[k]
+    for (const policy of CACHE_POLICIES) await enforce(bk, index, policy, now)
+  })
+}
+
+/** Tamaño aproximado (bytes) de un valor serializable. */
+export function estimateSize(value: unknown): number {
+  try {
+    return JSON.stringify(value)?.length ?? 0
+  } catch {
+    return 0
   }
-  return (h >>> 0).toString(36)
 }
 
 /** Lectura/escritura segura de LocalStorage (JSON). */

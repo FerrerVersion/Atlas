@@ -45,6 +45,23 @@ describe('servidores saturados', () => {
   })
 })
 
+describe('clave de caché', () => {
+  it('es la consulta completa: dos zonas distintas nunca comparten entrada', async () => {
+    const { cacheKeys } = await import('@/utils/storage')
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
+      const q = new URLSearchParams(String(init.body)).get('data')!
+      return Response.json({ elements: [{ id: q.length }] })
+    }))
+    const a = `[out:json];way(39.40,-0.80,39.41,-0.79);out; ${Math.random()}`
+    const b = `[out:json];way(40.40,-3.71,40.41,-3.70);out; ${Math.random()}`
+    await queryOverpass(a)
+    await queryOverpass(b)
+    const keys = await cacheKeys('overpass:v2:')
+    expect(keys).toContain(`overpass:v2:${a}`)
+    expect(keys).toContain(`overpass:v2:${b}`)
+  })
+})
+
 describe('espejos de uno en uno', () => {
   it('si un espejo falla por tiempo antes del respaldo, pasa al siguiente (nunca dos a la vez)', async () => {
     const hosts: string[] = []

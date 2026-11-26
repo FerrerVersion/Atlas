@@ -5,7 +5,7 @@ import { Button, IconButton } from '@/components/ui/Button'
 import { Section, Segmented, Toggle } from '@/components/ui/Controls'
 import { ManeuverIcon } from '@/components/navigation/ManeuverIcon'
 import {
-  deleteCustomMap, downloadJson, emptyCustomMap, exportCustomMap, importCustomMap, listCustomMaps, readImageFile,
+  deleteCustomMap, downloadJson, emptyCustomMap, exportCustomMap, importCustomMap, listCustomMaps, MAX_JSON_BYTES, readImageFile,
 } from '@/features/customMap/customMapService'
 import type { RoadType } from '@/features/routing/routeTypes'
 import { formatDistance, formatDuration } from '@/utils/distance'
@@ -50,6 +50,7 @@ export default function CustomMapPage() {
   const onJson = async (file?: File) => {
     if (!file) return
     try {
+      if (file.size > MAX_JSON_BYTES) throw new Error('El archivo es demasiado grande (máx. 30 MB).')
       let json: unknown
       try {
         json = JSON.parse(await file.text())
@@ -92,6 +93,7 @@ export default function CustomMapPage() {
           <input ref={jsonRef} type="file" accept="application/json,.json" hidden aria-label="Archivo JSON" onChange={(e) => onJson(e.target.files?.[0])} />
         </div>
         {error && <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p>}
+        {ed.saveError && <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{ed.saveError}</p>}
 
         {map.image && (
           <>

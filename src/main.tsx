@@ -9,6 +9,7 @@ import '@fontsource/caveat/700.css'
 import './styles/globals.css'
 import './styles/map.css'
 import { App } from './app/App'
+import { purgeCache } from './utils/storage'
 
 /** Espera a que las hojas de estilos (cargadas sin bloquear, ver vite.config.ts) estén aplicadas. */
 function stylesReady(): Promise<unknown> {
@@ -26,10 +27,14 @@ function stylesReady(): Promise<unknown> {
   ).then(() => new Promise((r) => requestAnimationFrame(r)))
 }
 
-stylesReady().then(() =>
+stylesReady().then(() => {
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />
     </StrictMode>,
-  ),
-)
+  )
+  // Limpieza de la caché (caducados, límites, claves antiguas) cuando la app está en reposo.
+  const idle = (cb: () => void) =>
+    'requestIdleCallback' in window ? window.requestIdleCallback(cb, { timeout: 10_000 }) : setTimeout(cb, 5_000)
+  idle(() => void purgeCache().catch(() => undefined))
+})

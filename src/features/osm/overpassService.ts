@@ -1,4 +1,4 @@
-import { cacheGet, cacheSet, hashKey } from '@/utils/storage'
+import { cacheGet, cacheSet } from '@/utils/storage'
 import { HttpError, RateLimitedClient, sleep } from '@/utils/http'
 import { bboxToOverpass, type BBox } from '@/utils/geometry'
 import type { OsmWay } from '@/features/routing/graph'
@@ -97,7 +97,8 @@ export function queryOverpass<T>(
   timeoutMs = ENDPOINT_TIMEOUT_MS,
   backupAfterMs = BACKUP_AFTER_MS,
 ): Promise<OverpassResponse<T>> {
-  const key = `overpass:${hashKey(ql)}`
+  // Clave = texto completo de la consulta (sin hash: imposible confundir dos zonas).
+  const key = `overpass:v2:${ql}`
   const pending = inFlight.get(key)
   if (pending) return abortable(pending as Promise<OverpassResponse<T>>, signal)
   // La descarga compartida no se cancela si un solo interesado se va: otro puede necesitarla.
@@ -158,7 +159,7 @@ async function runQuery<T>(
       timeoutMs,
     )
     rememberPreferred(idx)
-    await cacheSet(key, data)
+    await cacheSet(key, data, { size: approxResponseSize(data) })
     return data
   }
 
@@ -237,6 +238,16 @@ async function runQuery<T>(
   throw new OverpassError(
     `No se pudieron descargar datos de OpenStreetMap${status}. El servidor Overpass puede estar saturado: inténtalo en unos segundos o usa los datos demo.`,
   )
+}
+
+/**
+ * Tamaño aproximado de una respuesta (para el límite de la caché) sin serializarla:
+ * ~60 bytes por punto de geometría y ~150 por elemento (medido con datos reales).
+ */
+function approxResponseSize(data: OverpassResponse<unknown>): number {
+  let points = 0
+  for (const e of data.elements as { geometry?: unknown[] }[]) points += Array.isArray(e?.geometry) ? e.geometry.length : 0
+  return points * 60 + data.elements.length * 150
 }
 
 /* -------------------------------- Carreteras ------------------------------- */

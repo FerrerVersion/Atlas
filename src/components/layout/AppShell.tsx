@@ -5,6 +5,7 @@ import { Toasts } from '@/components/ui/Toasts'
 import { NavigationRunner } from '@/hooks/useNavigationRunner'
 import { usePoiLoader } from '@/hooks/usePoiLoader'
 import { useRoadAutoLoader } from '@/hooks/useRoadAutoLoader'
+import { useNetworkKeepAreas } from '@/hooks/useNetworkKeepAreas'
 import { useRouteComputation } from '@/hooks/useRouteComputation'
 import { useMapTheme, useMediaQuery } from '@/hooks/useUiTheme'
 import { useAppStore } from '@/store/useAppStore'
@@ -64,6 +65,7 @@ function PoiLoader() {
 }
 function RoadAutoLoader() {
   useRoadAutoLoader()
+  useNetworkKeepAreas()
   return null
 }
 function Orchestrators() {

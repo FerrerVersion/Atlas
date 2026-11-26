@@ -19,7 +19,7 @@ La originalidad está en la interfaz, los estilos y las funcionalidades. **Ning�
 - **Navegación paso a paso** generada a partir de la geometría: giros (suaves, normales, bruscos), cambios de sentido, rotondas («toma la 2.ª salida»), incorporación y salida de autopista, llegada a paradas y destino. Modo navegación con próxima maniobra, distancia al giro, distancia y tiempo restantes, simulación del recorrido, seguimiento GPS y voz (síntesis local del navegador).
 - **15 estilos de mapa** con selector, vista previa y persistencia. Cambiar de estilo no toca la búsqueda, la ruta, las paradas, las coordenadas, los nombres ni el grafo.
 - **Modo noche** de la interfaz (claro / noche / automático) y mapa nocturno automático opcional.
-- **Favoritos, historial y preferencias** persistidos en LocalStorage; datos geográficos cacheados en IndexedDB.
+- **Favoritos, historial y preferencias** persistidos en LocalStorage; datos geográficos cacheados en IndexedDB con caducidad (7 días) y límites (400 consultas, ~200 MB); lo caducado se borra al abrir la app. La red viaria en memoria tiene un tope (50.000 vías): al superarlo se liberan las zonas alejadas de lo que ves y de tu ruta.
 - **Mapas personalizados**: carga local de PNG/JPG/WebP, calibración por puntos de referencia, nodos, vías, rutas A* y exportación/importación JSON.
 - **Demo offline**: extracto real de OSM (Buñol) incluido en el repositorio.
 - Diseño responsive: panel lateral en escritorio, buscador superior y panel inferior deslizable en móvil.
@@ -81,7 +81,7 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 130 tests unitarios y de integración
+npm test             # Vitest: 150 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
 npm run test:e2e     # Playwright: 52 pruebas (26 en escritorio y 26 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
@@ -262,12 +262,12 @@ Busca cualquier lugar (p. ej. «Valencia», «Buñol», «Madrid», «Barcelona�
 
 Ruta `/custom` (Ajustes → *Abrir editor de mapas*):
 
-1. Carga una imagen PNG/JPG/WebP (se lee con `FileReader`, **nunca sale del navegador**).
+1. Carga una imagen PNG/JPG/WebP (se lee con `FileReader`, **nunca sale del navegador**; máx. 15 MB, 8192 px por lado y 40 megapíxeles).
 2. **Calibrar**: pulsa puntos reconocibles y escribe sus coordenadas. Con 2 puntos se calcula una semejanza (escala + rotación + traslación); con 3 o más, una transformación afín por mínimos cuadrados con su error medio. Sin referencias puedes fijar escala (m/píxel) y rotación manuales.
 3. **Nodos**: clic para crear intersecciones y nómbralas libremente.
 4. **Vías**: pulsa dos nodos para conectarlos (nombre, tipo, velocidad, sentido único).
 5. **Ruta**: elige origen y destino → A* con instrucciones.
-6. **Exportar** a JSON (opcionalmente con la imagen) e importarlo después. Se autoguarda en IndexedDB.
+6. **Exportar** a JSON (opcionalmente con la imagen) e importarlo después. Se autoguarda en IndexedDB (los mapas propios nunca se borran solos). Al importar se valida todo el archivo (máx. 30 MB, 5.000 nodos y 20.000 vías, coordenadas posibles) y la imagen solo se acepta incrustada en el propio archivo (PNG, JPG o WebP), nunca como dirección externa.
 
 Limitaciones: proyección plana local (precisa para zonas de pocos km); las vías son tramos rectos entre nodos; la imagen calibrada no se superpone aún sobre el mapa real.
 

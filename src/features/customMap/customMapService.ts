@@ -1,7 +1,7 @@
-import { addNode, addRoad, createGraph } from '@/features/routing/graph'
-import type { RoadGraph } from '@/features/routing/routeTypes'
+import { addNode, addRoad, createGraph, toRoadType } from '@/features/routing/graph'
+import type { RoadGraph, RoadType } from '@/features/routing/routeTypes'
 import { cacheDelete, cacheGet, cacheKeys, cacheSet } from '@/utils/storage'
-import type { CustomMap } from './customMapTypes'
+import type { CustomMap, CustomNode, CustomRoad, ReferencePoint } from './customMapTypes'
 import { manualTransform, pixelToGeo, solveCalibration } from './imageCalibration'
 
 const PREFIX = 'custom-map:'
@@ -91,25 +91,109 @@ export function exportCustomMap(map: CustomMap, includeImage: boolean) {
   }
 }
 
+/* ------------------------------ Límites de importación ------------------------------ */
+
+/** Tamaño máximo de un archivo JSON importado. */
+export const MAX_JSON_BYTES = 30 * 1024 * 1024
+/** Tamaño máximo de una imagen de mapa (archivo). */
+export const MAX_IMAGE_BYTES = 15 * 1024 * 1024
+/** Lado máximo y megapíxeles máximos de la imagen (memoria del navegador). */
+export const MAX_IMAGE_SIDE = 8192
+export const MAX_IMAGE_PIXELS = 40_000_000
+export const MAX_NODES = 5_000
+export const MAX_ROADS = 20_000
+export const MAX_REFERENCES = 50
+const MAX_NAME = 120
+/** Solo imágenes incrustadas en el propio archivo: nunca URLs externas. */
+const DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+const num = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+const text = (v: unknown, fallback = '') => (typeof v === 'string' ? v.trim().slice(0, MAX_NAME) : fallback)
+const validRoadType = (v: unknown): v is RoadType => typeof v === 'string' && (v === 'custom' || toRoadType(v) !== null)
+
+function imageSizeOk(w: unknown, h: unknown) {
+  return num(w) && num(h) && w > 0 && h > 0 && w <= MAX_IMAGE_SIDE && h <= MAX_IMAGE_SIDE && w * h <= MAX_IMAGE_PIXELS
+}
+
+/**
+ * Lee un mapa exportado por Atlas validando TODO su contenido: tipos, límites de
+ * tamaño, referencias geográficas posibles y que la imagen esté incrustada (data:)
+ * y no sea una dirección externa que el navegador fuese a descargar.
+ */
 export function importCustomMap(json: unknown): CustomMap {
-  const d = json as ReturnType<typeof exportCustomMap>
-  if (!d || d.format !== 'atlas-custom-map') throw new Error('El archivo no es un mapa personalizado de Atlas.')
-  const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
-  const nodesOk = Array.isArray(d.nodes ?? []) && (d.nodes ?? []).every((n) => typeof n?.id === 'string' && num(n.x) && num(n.y))
-  const ids = new Set((d.nodes ?? []).map((n) => n.id))
-  const roadsOk =
-    Array.isArray(d.roads ?? []) &&
-    (d.roads ?? []).every((r) => ids.has(r?.from) && ids.has(r?.to) && num(r.speedLimit) && r.speedLimit > 0)
-  if (!nodesOk || !roadsOk) throw new Error('El mapa está dañado: hay nodos o vías con datos no válidos.')
+  if (!isObj(json) || json.format !== 'atlas-custom-map') throw new Error('El archivo no es un mapa personalizado de Atlas.')
+  const d = json
+  const damaged = (detail: string) => new Error(`El mapa está dañado: ${detail}`)
+
+  const rawNodes = d.nodes ?? []
+  const rawRoads = d.roads ?? []
+  if (!Array.isArray(rawNodes) || !Array.isArray(rawRoads)) throw damaged('hay nodos o vías con datos no válidos.')
+  if (rawNodes.length > MAX_NODES || rawRoads.length > MAX_ROADS) {
+    throw new Error(`El mapa es demasiado grande (máximo ${MAX_NODES} nodos y ${MAX_ROADS} vías).`)
+  }
+
+  const nodes: CustomNode[] = []
+  const ids = new Set<string>()
+  for (const n of rawNodes) {
+    if (!isObj(n) || typeof n.id !== 'string' || !n.id || n.id.length > 100 || ids.has(n.id) || !num(n.x) || !num(n.y)) {
+      throw damaged('hay nodos o vías con datos no válidos.')
+    }
+    ids.add(n.id)
+    nodes.push({ id: n.id, name: text(n.name), x: n.x, y: n.y })
+  }
+
+  const roads: CustomRoad[] = []
+  for (const r of rawRoads) {
+    if (
+      !isObj(r) || typeof r.from !== 'string' || typeof r.to !== 'string' || !ids.has(r.from) || !ids.has(r.to) ||
+      r.from === r.to || !num(r.speedLimit) || r.speedLimit <= 0 || r.speedLimit > 200
+    ) {
+      throw damaged('hay nodos o vías con datos no válidos.')
+    }
+    roads.push({
+      id: typeof r.id === 'string' && r.id ? r.id.slice(0, 100) : `r_${roads.length}`,
+      from: r.from,
+      to: r.to,
+      name: text(r.name),
+      roadType: validRoadType(r.roadType) ? r.roadType : 'custom',
+      oneWay: r.oneWay === true,
+      speedLimit: r.speedLimit,
+    })
+  }
+
+  const calibration = isObj(d.calibration) ? d.calibration : {}
+  const rawRefs = Array.isArray(calibration.references) ? calibration.references : []
+  if (rawRefs.length > MAX_REFERENCES) throw damaged('tiene demasiados puntos de referencia.')
+  const references: ReferencePoint[] = rawRefs.map((p, i) => {
+    if (!isObj(p) || !num(p.x) || !num(p.y) || !num(p.lat) || !num(p.lng) || Math.abs(p.lat) > 90 || Math.abs(p.lng) > 180) {
+      throw damaged('hay puntos de referencia con coordenadas imposibles.')
+    }
+    return { id: typeof p.id === 'string' && p.id ? p.id.slice(0, 100) : `ref_${i}`, x: p.x, y: p.y, lat: p.lat, lng: p.lng }
+  })
+
+  let image: CustomMap['image'] = null
+  if (d.image !== null && d.image !== undefined) {
+    if (!isObj(d.image) || !imageSizeOk(d.image.width, d.image.height)) throw damaged('la imagen no tiene un tamaño válido.')
+    const dataUrl = d.image.dataUrl
+    if (dataUrl !== undefined && dataUrl !== null) {
+      if (typeof dataUrl !== 'string' || !DATA_URL.test(dataUrl)) {
+        throw new Error('La imagen del mapa no es válida: solo se admiten imágenes PNG, JPG o WebP incluidas en el propio archivo.')
+      }
+      if (dataUrl.length > Math.ceil(MAX_IMAGE_BYTES * 1.37)) throw new Error('La imagen del mapa es demasiado grande (máx. 15 MB).')
+      image = { dataUrl, width: d.image.width as number, height: d.image.height as number, fileName: text(d.image.fileName, 'imagen') }
+    }
+  }
+
   return {
     ...emptyCustomMap(),
-    name: d.name ?? 'Mapa importado',
-    image: d.image?.dataUrl ? { ...d.image, dataUrl: d.image.dataUrl } : null,
-    references: d.calibration?.references ?? [],
-    manualScale: d.manualScale ?? 1,
-    manualRotationDeg: d.manualRotationDeg ?? 0,
-    nodes: (d.nodes ?? []).map(({ id, name, x, y }) => ({ id, name: typeof name === 'string' ? name : '', x, y })),
-    roads: d.roads ?? [],
+    name: text(d.name, 'Mapa importado') || 'Mapa importado',
+    image,
+    references,
+    manualScale: num(d.manualScale) && d.manualScale > 0 && d.manualScale <= 10_000 ? d.manualScale : 1,
+    manualRotationDeg: num(d.manualRotationDeg) ? d.manualRotationDeg : 0,
+    nodes,
+    roads,
   }
 }
 
@@ -130,12 +214,22 @@ export function readImageFile(file: File): Promise<NonNullable<CustomMap['image'
       reject(new Error('Formato no admitido. Usa PNG, JPG o WebP.'))
       return
     }
+    if (file.size > MAX_IMAGE_BYTES) {
+      reject(new Error('La imagen es demasiado grande (máx. 15 MB).'))
+      return
+    }
     const reader = new FileReader()
     reader.onerror = () => reject(new Error('No se pudo leer la imagen.'))
     reader.onload = () => {
       const dataUrl = reader.result as string
       const img = new Image()
-      img.onload = () => resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight, fileName: file.name })
+      img.onload = () => {
+        if (!imageSizeOk(img.naturalWidth, img.naturalHeight)) {
+          reject(new Error(`La imagen es demasiado grande (máx. ${MAX_IMAGE_SIDE} px por lado y 40 megapíxeles).`))
+          return
+        }
+        resolve({ dataUrl, width: img.naturalWidth, height: img.naturalHeight, fileName: file.name })
+      }
       img.onerror = () => reject(new Error('La imagen está dañada.'))
       img.src = dataUrl
     }
