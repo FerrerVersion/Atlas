@@ -40,20 +40,26 @@ export function themeFxClasses(theme: MapTheme): string {
     .join(' ')
 }
 
-const iconCache = new Map<string, string>()
-export function iconSvg(name: string): string {
-  let svg = iconCache.get(name)
-  if (!svg) {
-    const Icon = ICONS[name] ?? ICONS.MapPin
-    // Render síncrono en un nodo suelto (evita incluir react-dom/server en el bundle).
+/**
+ * SVG de cada icono, generados UNA vez al cargar el módulo. No se pueden generar
+ * dentro del render de React (flushSync ahí no hace nada y devolvería «»), y los
+ * marcadores los piden justo durante el render (useMemo).
+ */
+const ICON_SVG: Record<string, string> = (() => {
+  const out: Record<string, string> = {}
+  if (typeof document === 'undefined') return out
+  for (const [name, Icon] of Object.entries(ICONS)) {
     const host = document.createElement('div')
     const root = createRoot(host)
     flushSync(() => root.render(createElement(Icon, { strokeWidth: 2.2, 'aria-hidden': true })))
-    svg = host.innerHTML
+    out[name] = host.innerHTML
     root.unmount()
-    iconCache.set(name, svg)
   }
-  return svg
+  return out
+})()
+
+export function iconSvg(name: string): string {
+  return ICON_SVG[name] ?? ICON_SVG.MapPin ?? ''
 }
 
 /** Marcador de parada con la forma propia del tema. */
@@ -79,10 +85,14 @@ export function poiIcon(theme: MapTheme, category: PoiCategory, selected: boolea
   })
 }
 
-export const userIcon = (navigating: boolean) =>
+/** Marcador del usuario; en navegación, una flecha orientada al rumbo (grados, 0 = norte). */
+export const userIcon = (navigating: boolean, heading = 0) =>
   L.divIcon({
     className: 'atlas-marker',
-    html: navigating ? `<div class="nav-puck">${iconSvg('Navigation')}</div>` : '<div class="user-dot pulse"></div>',
+    // El icono «Navigation» de Lucide apunta al noreste (45°): se compensa.
+    html: navigating
+      ? `<div class="nav-puck"><span style="display:grid;transform:rotate(${Math.round(heading - 45)}deg)">${iconSvg('Navigation')}</span></div>`
+      : '<div class="user-dot pulse"></div>',
     iconSize: navigating ? [28, 28] : [20, 20],
     iconAnchor: navigating ? [14, 14] : [10, 10],
   })

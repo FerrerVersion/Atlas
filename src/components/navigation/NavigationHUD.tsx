@@ -5,6 +5,7 @@ import { useGeolocation } from '@/hooks/useGeolocation'
 import { formatDistance, formatDuration } from '@/utils/distance'
 import { useNow } from '@/hooks/useMediaQuery'
 import { useAppStore } from '@/store/useAppStore'
+import { LiveTripStats } from './LiveTripStats'
 import { ManeuverIcon } from './ManeuverIcon'
 
 /** Modo navegación: próxima maniobra, distancia al giro, restante y tiempo. */
@@ -12,6 +13,8 @@ export function NavigationHUD() {
   const nav = useAppStore((s) => s.navigation)
   const route = useAppStore((s) => s.route)
   const voice = useAppStore((s) => s.navPrefs.voice)
+  const live = useAppStore((s) => s.live)
+  const accuracy = useAppStore((s) => s.userLocation?.accuracy ?? null)
   const { locate } = useGeolocation()
   const now = useNow(15_000)
   if (!nav.active || !route) return null
@@ -49,12 +52,15 @@ export function NavigationHUD() {
       </div>
       <div className="pointer-events-auto fixed inset-x-3 bottom-3 z-[1000] mx-auto max-w-xl animate-slide-up md:bottom-6">
         {/* En pantallas estrechas: datos en una fila y botones en otra. */}
-        <div className="glass-strong flex flex-wrap items-center gap-x-2 gap-y-1 rounded-3xl p-3 sm:flex-nowrap">
+        <div className="glass-strong flex flex-wrap items-center gap-x-2 gap-y-1 rounded-3xl p-3">
           <div className="flex min-w-0 basis-full items-baseline gap-3 px-1 sm:block sm:flex-1 sm:basis-auto">
             <p className="text-lg font-bold whitespace-nowrap tabular-nums">{formatDuration(st.remainingTime)}</p>
             <p className="text-xs whitespace-nowrap text-slate-500 dark:text-slate-400">
               {formatDistance(st.remainingDistance)} · {eta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </p>
+          </div>
+          <div className="order-last basis-full border-t border-slate-200/60 pt-1.5 dark:border-white/10">
+            <LiveTripStats live={live} simulating={nav.simulating} accuracy={accuracy} />
           </div>
           <div className="flex w-full items-center justify-between sm:w-auto sm:justify-end sm:gap-1">
           <IconButton label="Maniobra anterior" onClick={() => jump(-1)}>

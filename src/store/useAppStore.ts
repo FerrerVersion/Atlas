@@ -6,6 +6,7 @@ import type { CostMode, MultiRoute, TravelProfile } from '@/features/routing/rou
 import { DEFAULT_THEME_ID, hasTheme } from '@/features/themes/themeRegistry'
 import type { BBox } from '@/utils/geometry'
 import { sanitizePrefs } from './sanitizePrefs'
+import { initialTracker, remainingStopIndices, type TrackerState } from '@/features/navigation/liveTracking'
 
 export interface Waypoint {
   id: string
@@ -69,7 +70,20 @@ export interface AppState {
   poiStatus: 'idle' | 'loading' | 'error'
   selectedPoiId: string | null
   navigation: { active: boolean; progress: number; following: boolean; simulating: boolean }
-  userLocation: { lat: number; lng: number; accuracy: number; heading: number | null } | null
+  userLocation: {
+    lat: number
+    lng: number
+    accuracy: number
+    heading: number | null
+    /** m/s según el dispositivo. */
+    speed?: number | null
+    timestamp?: number
+  } | null
+  /** Medición en tiempo real de la ruta con el GPS (progreso, recorrido, velocidad, estado). */
+  live: TrackerState
+  setLive: (t: TrackerState) => void
+  /** Recalcula desde un punto (p. ej. la posición GPS) manteniendo las paradas pendientes. */
+  rerouteFrom: (origin: Place) => void
   locationStatus: 'idle' | 'pending' | 'active' | 'denied' | 'unavailable'
   setLocationStatus: (s: AppState['locationStatus']) => void
   mapTarget: { lat: number; lng: number; zoom?: number; bbox?: Place['bbox']; nonce: number } | null
@@ -152,6 +166,16 @@ export const useAppStore = create<AppState>()(
       selectedPoiId: null,
       navigation: { active: false, progress: 0, following: true, simulating: false },
       userLocation: null,
+      live: initialTracker(),
+      setLive: (live) => set({ live }),
+      rerouteFrom: (origin) =>
+        set((s) => {
+          const filled = s.waypoints.filter((w) => w.place)
+          const legs = s.route?.legs.map((l) => l.result.distance) ?? []
+          const pending = remainingStopIndices(legs, s.live.progress).map((i) => filled[i]).filter(Boolean)
+          if (pending.length === 0) return {}
+          return { waypoints: [{ id: newId(), place: origin }, ...pending] }
+        }),
       locationStatus: 'idle',
       setLocationStatus: (locationStatus) => set({ locationStatus }),
       mapTarget: null,
@@ -219,7 +243,21 @@ export const useAppStore = create<AppState>()(
           routeMessage: null,
           navigation: { active: false, progress: 0, following: true, simulating: false },
         }),
-      setRoute: (route, routeStatus, routeMessage = null) => set({ route, routeStatus, routeMessage }),
+      setRoute: (route, routeStatus, routeMessage = null) =>
+        set((s) => {
+          // Ruta nueva (p. ej. recalculada al desviarse): el avance vuelve a 0, pero se
+          // conservan el recorrido y el tiempo del viaje en curso.
+          if (route && route !== s.route) {
+            return {
+              route,
+              routeStatus,
+              routeMessage,
+              navigation: { ...s.navigation, progress: 0 },
+              live: { ...s.live, progress: 0, status: 'waiting', offRouteFixes: 0, offRouteSince: null },
+            }
+          }
+          return { route, routeStatus, routeMessage }
+        }),
       requestFitRoute: () => set((s) => ({ fitRouteNonce: s.fitRouteNonce + 1 })),
 
       toggleCategory: (c) =>
@@ -232,7 +270,12 @@ export const useAppStore = create<AppState>()(
       selectPoi: (selectedPoiId) => set({ selectedPoiId }),
 
       startNavigation: () =>
-        set({ navigation: { active: true, progress: 0, following: true, simulating: false }, sheetExpanded: false }),
+        set((s) => ({
+          navigation: { active: true, progress: s.live.status === 'tracking' ? s.live.progress : 0, following: true, simulating: false },
+          // Al iniciar se mide el viaje desde cero (recorrido y tiempo).
+          live: { ...initialTracker(), progress: s.live.progress, status: s.live.status },
+          sheetExpanded: false,
+        })),
       stopNavigation: () => set((s) => ({ navigation: { ...s.navigation, active: false, simulating: false } })),
       setNavProgress: (progress) => set((s) => ({ navigation: { ...s.navigation, progress } })),
       setNavFlags: (f) => set((s) => ({ navigation: { ...s.navigation, ...f } })),

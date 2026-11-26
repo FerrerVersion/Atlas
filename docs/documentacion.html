@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>81 + 44</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>96 + 46</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -171,8 +171,8 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>81 tests unitarios y de integración (Vitest).</td></tr>
-    <tr><td><code>npm run test:e2e</code></td><td>44 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
+    <tr><td><code>npm test</code></td><td>96 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm run test:e2e</code></td><td>46 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
   </table>
@@ -239,7 +239,7 @@ npm run dev</pre>
 <section>
   <h3>2.4 Modo navegación</h3>
   <div class="grid2">
-    <figure style="margin:0"><img src="img/navegacion.jpg" style="max-height:none" /><figcaption>Navegación con el estilo Cyberpunk: próxima maniobra arriba y tiempo/distancia restantes abajo.</figcaption></figure>
+    <figure style="margin:0"><img src="img/navegacion.jpg" style="max-height:none" /><figcaption>Navegación midiendo con el GPS en tiempo real: próxima maniobra arriba; abajo, lo que queda y la fila en vivo (velocidad, recorrido, tiempo de viaje y señal GPS).</figcaption></figure>
     <div>
       <p>Al pulsar <b>Iniciar</b>:</p>
       <ul>
@@ -247,12 +247,16 @@ npm run dev</pre>
         <li><b>Abajo</b>: tiempo y distancia restantes y hora de llegada.</li>
         <li><b>◀ ▶</b>: saltar a la maniobra anterior o siguiente.</li>
         <li><b>▶ Simular</b>: recorre la ruta automáticamente (útil para probar sin moverse).</li>
-        <li><b>Diana</b>: seguir tu GPS real; la posición se proyecta sobre la ruta y avisa una vez si te desvías.</li>
+        <li><b>Diana</b>: seguir tu GPS real (activo por defecto al iniciar).</li>
+        <li><b>Medición en vivo</b>: velocidad, distancia recorrida, tiempo de viaje y estado de la señal GPS (precisión, señal débil, fuera de ruta).</li>
+        <li><b>Recálculo automático</b>: si te sales de la ruta durante más de unos segundos, se calcula una nueva desde tu posición conservando las paradas pendientes.</li>
         <li><b>Altavoz</b>: indicaciones por voz con la síntesis del propio navegador.</li>
         <li>El tramo ya recorrido se atenúa y el mapa sigue tu posición; si arrastras el mapa deja de seguirla.</li>
       </ul>
     </div>
   </div>
+
+  <div class="callout"><strong>Medición en tiempo real</strong>En cuanto eliges una ruta, cada lectura del GPS se sitúa sobre ella (dando prioridad al tramo por el que vas, para no «saltar» si la ruta pasa dos veces por la misma calle). Se descartan lecturas con señal débil y los saltos imposibles (más de 250 km/h entre dos lecturas). Aunque no pulses «Iniciar», el resumen muestra «En ruta ahora: quedan X · llegada hh:mm». Durante la navegación la pantalla del móvil se mantiene encendida.</div>
 
   <h3>2.5 Ubicación del dispositivo</h3>
   <p>Al abrir la web se pide permiso de ubicación. Si lo concedes, el mapa se centra donde estás y el punto azul (con su círculo de precisión) se actualiza mientras la página esté abierta. Detalles:</p>
@@ -480,8 +484,8 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>81</b><span>tests unitarios y de integración</span></div>
-    <div class="kpi"><b>44</b><span>pruebas e2e (22 escenarios × escritorio y móvil)</span></div>
+    <div class="kpi"><b>96</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>46</b><span>pruebas e2e (23 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
   </div>
@@ -516,6 +520,8 @@ npm run dev</pre>
     <tr><td><span class="tag fix">fix</span> Mismo origen y destino</td><td>Se mostraba una ruta de «0 m · 1 min» que se podía «iniciar». Ahora sale un aviso claro.</td></tr>
     <tr><td><span class="tag fix">fix</span> Móvil pequeño</td><td>El desplegable de búsqueda quedaba tapado por los botones del mapa; la barra de navegación se partía palabra a palabra y el botón «Salir» quedaba inaccesible; un arrastre corto del asa expandía el panel.</td></tr>
     <tr><td><span class="tag fix">fix</span> Editor: casos límite</td><td>JSON roto mostraba un error técnico en inglés; se aceptaban coordenadas imposibles; no se avisaba de referencias que no permiten calibrar; borrar un nodo elegido para la ruta daba un error técnico; un mapa importado sin imagen no se podía recuperar.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Iconos de marcadores vacíos</td><td>Regresión de la optimización del bundle: los iconos se generaban durante el render de React, donde no se puede, y salían vacíos (gasolineras, restaurantes, flecha de navegación). Ahora se generan una vez al cargar. Test unitario y e2e.</td></tr>
+    <tr><td><span class="tag fix">fix</span> El mapa no seguía al GPS</td><td>Con lecturas muy seguidas se descartaba la última posición y el marcador podía quedar fuera de pantalla. Ahora siempre se aplica la última.</td></tr>
     <tr><td><span class="tag fix">fix</span> GPS en el móvil</td><td>Por red local sin HTTPS el navegador bloquea la ubicación. Se añadió <code>npm run dev:movil</code> (HTTPS) y un aviso claro.</td></tr>
   </table>
 </section>
@@ -621,7 +627,8 @@ VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/
     <tr><td class="mono">1cff05d</td><td>docs: documentación en PDF y capturas actualizadas</td></tr>
     <tr><td class="mono">0f72487</td><td>fix: fallos encontrados en pruebas exploratorias (app, buscador, móvil)</td></tr>
     <tr><td class="mono">df5a7a9</td><td>fix: casos límite del editor de mapas personalizados</td></tr>
-    <tr><td class="mono">—</td><td>perf: rutas en paralelo con precarga, PWA y caché de teselas</td></tr>
+    <tr><td class="mono">3856c86</td><td>perf: rutas en paralelo con precarga, PWA y caché de teselas</td></tr>
+    <tr><td class="mono">—</td><td>feat: medición de la ruta en tiempo real con el GPS y recálculo al desviarse</td></tr>
   </table>
 
   <h3>A.5 Glosario</h3>

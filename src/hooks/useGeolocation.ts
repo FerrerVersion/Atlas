@@ -11,7 +11,8 @@ let flyOnNextFix = false
 /** `mapTarget.nonce` cuando se pidió centrar: si el usuario busca otra cosa antes del primer dato, no se le mueve el mapa. */
 let targetNonceAtRequest: number | null = null
 
-const WATCH_OPTIONS: PositionOptions = { enableHighAccuracy: true, maximumAge: 10_000, timeout: 30_000 }
+// Lecturas frescas (≤ 1 s) para medir la ruta en tiempo real.
+const WATCH_OPTIONS: PositionOptions = { enableHighAccuracy: true, maximumAge: 1_000, timeout: 30_000 }
 
 /** Comprueba que el navegador puede dar la ubicación; si no, avisa (salvo en modo silencioso). */
 function geolocationAvailable(silent = false): boolean {
@@ -34,8 +35,8 @@ function geolocationAvailable(silent = false): boolean {
 
 function onPosition(pos: GeolocationPosition) {
   const s = useAppStore.getState()
-  const { latitude: lat, longitude: lng, accuracy, heading } = pos.coords
-  s.setUserLocation({ lat, lng, accuracy, heading: heading ?? null })
+  const { latitude: lat, longitude: lng, accuracy, heading, speed } = pos.coords
+  s.setUserLocation({ lat, lng, accuracy, heading: heading ?? null, speed: speed ?? null, timestamp: pos.timestamp || Date.now() })
   s.setLocationStatus('active')
   if (flyOnNextFix) {
     flyOnNextFix = false

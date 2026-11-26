@@ -2,12 +2,17 @@ import { Clock, Gauge, Milestone, Navigation, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { formatDistance, formatDuration } from '@/utils/distance'
 import { useNow } from '@/hooks/useMediaQuery'
+import { navigationState } from '@/features/navigation/navigationProgress'
 import { useAppStore } from '@/store/useAppStore'
 
 export function RouteSummary() {
   const route = useAppStore((s) => s.route)
+  const live = useAppStore((s) => s.live)
   const now = useNow()
   if (!route) return null
+  // Si el GPS te sitúa ya sobre la ruta, se muestra lo que queda en tiempo real.
+  const onRoute = live.status === 'tracking' && live.progress > 0
+  const liveState = onRoute ? navigationState(route, live.progress) : null
   const eta = new Date(now + route.duration * 1000)
   const avg = route.duration > 0 ? (route.distance / route.duration) * 3.6 : 0
   return (
@@ -25,6 +30,14 @@ export function RouteSummary() {
           Iniciar
         </Button>
       </div>
+      {liveState && (
+        <p className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300" data-testid="live-summary">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+          En ruta ahora: quedan {formatDistance(liveState.remainingDistance)} ·{' '}
+          {formatDuration(liveState.remainingTime)} · llegada{' '}
+          {new Date(now + liveState.remainingTime * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+        </p>
+      )}
       <dl className="grid grid-cols-3 gap-2 text-center text-[11px] text-slate-500 dark:text-slate-400">
         <div className="rounded-xl bg-white/50 p-2 dark:bg-white/5">
           <Milestone className="mx-auto mb-0.5 h-3.5 w-3.5" />

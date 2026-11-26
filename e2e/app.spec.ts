@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { mockServices } from './fixtures.ts'
 
@@ -94,6 +95,8 @@ test('filtro de POIs muestra establecimientos reales', async ({ page }) => {
   await openTab(page, 'Explorar')
   await page.getByRole('button', { name: 'Restaurantes' }).click()
   await expect(page.getByText('Mesón del Castillo').first()).toBeVisible({ timeout: 10_000 })
+  // Cada marcador de POI lleva su icono dentro.
+  await expect(page.locator('.poi svg').first()).toBeVisible()
 })
 
 test('editor de mapas personalizados: nodos, vías y ruta A*', async ({ page }) => {
@@ -358,5 +361,86 @@ test.describe('editor de mapas: casos límite', () => {
     await page.getByRole('radio', { name: 'Nodos' }).click()
     await expect(page.getByRole('textbox', { name: 'Nombre del nodo 1' })).toHaveValue('Alfa')
     await expect(page.getByRole('textbox', { name: /Nombre del nodo/ })).toHaveCount(2)
+  })
+})
+
+test.describe('medición en tiempo real con el GPS', () => {
+  test.use({ geolocation: { latitude: 0, longitude: 0 }, permissions: ['geolocation'] })
+
+  test('el avance se mide en vivo y, si te desvías, recalcula desde tu posición', async ({ page, context }) => {
+    test.setTimeout(90_000)
+    // Misma ruta que calculará la app (mismo motor y mismos datos reales de Buñol).
+    // Módulos del motor cargados en ejecución (Playwright resuelve el alias @/ con tsconfig.json).
+    const load = (p: string) => import(p) as Promise<Record<string, (...a: any[]) => any>>
+    const { buildGraphFromOsm, nearestNode } = await load('../src/features/routing/graph.ts')
+    const { findRoute } = await load('../src/features/routing/astar.ts')
+    const { pointAlong } = await load('../src/utils/geometry.ts')
+    type Way = { tags: Record<string, string>; geometry: { lat: number; lon: number }[] }
+    const demoRoads = (JSON.parse(readFileSync('src/data/demoRoads.json', 'utf8')) as { elements: Way[] }).elements
+    const mid = (name: string) => {
+      const w = demoRoads.find((x) => x.tags.name === name)!
+      const p = w.geometry[Math.floor(w.geometry.length / 2)]
+      return { lat: p.lat, lng: p.lon }
+    }
+    const g = buildGraphFromOsm(demoRoads)
+    const A = mid('Avenida de Vicente Blasco Ibáñez')
+    const B = mid('Avenida del Doctor Beltrán Báguena')
+    const r = findRoute(g, nearestNode(g, A.lat, A.lng)!.node.id, nearestNode(g, B.lat, B.lng)!.node.id)
+    if (!r.ok) throw new Error('ruta')
+    const at = async (meters: number) => {
+      const [latitude, longitude] = pointAlong(r.geometry, meters)
+      await context.setGeolocation({ latitude, longitude, accuracy: 8 })
+    }
+
+    await at(0)
+    await page.goto('/')
+    await page.getByRole('tab', { name: 'Ajustes' }).click()
+    await page.getByRole('button', { name: /Cargar demo offline/ }).click()
+    await page.getByRole('tab', { name: 'Ruta' }).click()
+    await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+    await page.getByRole('option', { name: /Blasco Ibáñez/ }).first().click()
+    await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+    await page.getByRole('option', { name: /Doctor Beltrán/ }).first().click()
+    await expect(page.getByTestId('route-duration')).toBeVisible()
+
+    // Antes de pulsar «Iniciar» ya se mide en vivo si estás sobre la ruta.
+    await at(r.distance * 0.3)
+    await expect(page.getByTestId('live-summary')).toContainText('En ruta ahora')
+
+    await page.getByRole('button', { name: 'Iniciar' }).click()
+    await expect(page.getByTestId('live-gps')).toContainText('GPS ±8 m')
+    const remaining = async () => (await page.locator('[data-testid=nav-hud] ~ div p.text-xs').first().innerText()).split(' · ')[0]
+    await at(r.distance * 0.4)
+    const before = await remaining()
+    // Avance realista: una lectura cada ~0,6 s, recorriendo el 30 % de la ruta.
+    for (let k = 1; k <= 12; k++) {
+      await at(r.distance * (0.4 + (0.3 * k) / 12))
+      await page.waitForTimeout(600)
+    }
+    await expect.poll(remaining).not.toBe(before)
+    await expect(page.getByTestId('live-traveled')).not.toHaveText('0 m')
+    // El marcador de posición se ve (con su flecha) y el mapa lo sigue dentro de la pantalla.
+    const puck = page.locator('.nav-puck svg')
+    await expect(puck).toBeVisible()
+    await expect
+      .poll(async () => {
+        const b = await puck.boundingBox()
+        const v = page.viewportSize()!
+        return !!b && b.y > 0 && b.y < v.height && b.x > 0 && b.x < v.width
+      })
+      .toBe(true)
+    const speed = Number((await page.getByTestId('live-speed').innerText()).replace(/\D/g, '') || 0)
+    expect(speed).toBeLessThanOrEqual(250)
+
+    // Desvío: ~250 m al norte del punto actual durante más de 6 s → recalcula.
+    const [lat, lng] = pointAlong(r.geometry, r.distance * 0.7)
+    for (let i = 0; i < 4; i++) {
+      await context.setGeolocation({ latitude: lat + 0.00225 + i * 0.00001, longitude: lng, accuracy: 8 })
+      await page.waitForTimeout(2200)
+    }
+    await expect(page.getByTestId('live-gps')).toContainText(/Fuera de ruta|GPS/)
+    await expect(page.getByText('Recalculando la ruta desde tu posición…')).toBeVisible({ timeout: 10_000 })
+    await page.getByRole('button', { name: 'Salir de la navegación' }).click()
+    await expect(page.getByRole('combobox', { name: 'Origen' })).toHaveValue('Mi ubicación')
   })
 })

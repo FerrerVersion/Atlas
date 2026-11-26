@@ -103,12 +103,20 @@ export function NavigationFollow() {
 
   useEffect(() => {
     if (!nav.active || !nav.following || !route) return
-    const now = performance.now()
-    if (now - lastPan.current < 250) return
-    lastPan.current = now
-    const pos = navigationState(route, nav.progress).position
-    if (map.getZoom() < 16) map.setView(pos, 17, { animate: true })
-    else map.panTo(pos, { animate: true, duration: 0.25, easeLinearity: 1 })
+    const pan = () => {
+      lastPan.current = performance.now()
+      const pos = navigationState(route, useAppStore.getState().navigation.progress).position
+      if (map.getZoom() < 16) map.setView(pos, 17, { animate: true })
+      else map.panTo(pos, { animate: true, duration: 0.25, easeLinearity: 1 })
+    }
+    // Como mucho 4 desplazamientos por segundo, pero la ÚLTIMA posición siempre se aplica.
+    const wait = 250 - (performance.now() - lastPan.current)
+    if (wait <= 0) {
+      pan()
+      return
+    }
+    const t = setTimeout(pan, wait)
+    return () => clearTimeout(t)
   }, [map, nav.active, nav.following, nav.progress, route])
   return null
 }

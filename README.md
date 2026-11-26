@@ -13,6 +13,7 @@ La originalidad está en la interfaz, los estilos y las funcionalidades. **Ning�
 - **Mapa interactivo** (Leaflet): zoom con botones, rueda y pellizco, arrastre, centrado en el lugar seleccionado y en tu ubicación (si das permiso), ajuste automático a la ruta, menú contextual («Ruta desde aquí / hasta aquí / Añadir parada / ¿Qué hay aquí?»).
 - **Motor de rutas A\*** sobre la red viaria real: sentidos únicos, rotondas, límites de velocidad, modo coche/a pie, ruta más rápida o más corta, evitar autopistas, detección de destinos inaccesibles.
 - **Paradas múltiples**: añadir, eliminar, reordenar (botones o arrastrar), invertir; cálculo por tramos y unión sin nodos duplicados; marcadores arrastrables.
+- **Medición en tiempo real con el GPS**: en cuanto hay una ruta, cada lectura del dispositivo actualiza lo que queda (distancia, tiempo, llegada), la próxima maniobra, la velocidad, la distancia recorrida y el tiempo de viaje. Indica la calidad de la señal, descarta saltos imposibles del GPS, avisa si te desvías y **recalcula la ruta desde tu posición** (manteniendo las paradas pendientes). La pantalla se mantiene encendida durante la navegación.
 - **Navegación paso a paso** generada a partir de la geometría: giros (suaves, normales, bruscos), cambios de sentido, rotondas («toma la 2.ª salida»), incorporación y salida de autopista, llegada a paradas y destino. Modo navegación con próxima maniobra, distancia al giro, distancia y tiempo restantes, simulación del recorrido, seguimiento GPS y voz (síntesis local del navegador).
 - **15 estilos de mapa** con selector, vista previa y persistencia. Cambiar de estilo no toca la búsqueda, la ruta, las paradas, las coordenadas, los nombres ni el grafo.
 - **Modo noche** de la interfaz (claro / noche / automático) y mapa nocturno automático opcional.
@@ -29,7 +30,7 @@ La originalidad está en la interfaz, los estilos y las funcionalidades. **Ning�
 
 ![Ruta real Valencia → Buñol](docs/img/ruta-valencia-bunol.jpg)
 
-| Ruta con parada | Navegación (Cyberpunk) | Blueprint |
+| Ruta con parada | Navegación en tiempo real | Blueprint |
 |---|---|---|
 | ![](docs/img/ruta.jpg) | ![](docs/img/navegacion.jpg) | ![](docs/img/ruta-blueprint.jpg) |
 
@@ -77,9 +78,9 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 81 tests unitarios y de integración
+npm test             # Vitest: 96 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 44 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 46 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 
