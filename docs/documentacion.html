@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>100 + 46</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>106 + 46</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -171,7 +171,7 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>100 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm test</code></td><td>106 tests unitarios y de integración (Vitest).</td></tr>
     <tr><td><code>npm run test:e2e</code></td><td>46 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
@@ -390,7 +390,8 @@ npm run dev</pre>
     <li>La <b>velocidad</b>: la etiqueta <code>maxspeed</code> o, si falta, un valor por tipo (autovía 110, residencial 30…).</li>
     <li>El <b>sentido</b>: una calle de doble sentido produce dos aristas; <code>oneway=yes/-1</code>, rotondas y autovías, solo una.</li>
   </ul>
-  <p>En coche se excluyen aceras y senderos; a pie se ignoran los sentidos únicos y se excluyen autovías. Los tramos muy largos se cortan cada ~250 m para ajustar mejor las paradas.</p>
+  <p>En coche se excluyen aceras y senderos, pero <b>se usan los caminos</b> (<code>highway=track</code>) sin restricción de acceso, a velocidad baja (12-30 km/h según su firmeza): son el acceso habitual a casas de campo y urbanizaciones. A pie se ignoran los sentidos únicos y se excluyen autovías.</p>
+  <p><b>Salida desde el punto exacto:</b> cada parada se proyecta sobre la calle más cercana y el tramo se parte con un nodo temporal, así la ruta empieza donde estás (no en el cruce más próximo) y respeta los sentidos de circulación. Los nodos temporales se retiran al terminar.</p>
 
   <h3>5.2 La búsqueda</h3>
   <p>A* explora el grafo desde el origen eligiendo siempre el nodo con menor <b>f = g + h</b>:</p>
@@ -484,7 +485,7 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>100</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>106</b><span>tests unitarios y de integración</span></div>
     <div class="kpi"><b>46</b><span>pruebas e2e (23 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
@@ -520,6 +521,7 @@ npm run dev</pre>
     <tr><td><span class="tag fix">fix</span> Mismo origen y destino</td><td>Se mostraba una ruta de «0 m · 1 min» que se podía «iniciar». Ahora sale un aviso claro.</td></tr>
     <tr><td><span class="tag fix">fix</span> Móvil pequeño</td><td>El desplegable de búsqueda quedaba tapado por los botones del mapa; la barra de navegación se partía palabra a palabra y el botón «Salir» quedaba inaccesible; un arrastre corto del asa expandía el panel.</td></tr>
     <tr><td><span class="tag fix">fix</span> Editor: casos límite</td><td>JSON roto mostraba un error técnico en inglés; se aceptaban coordenadas imposibles; no se avisaba de referencias que no permiten calibrar; borrar un nodo elegido para la ruta daba un error técnico; un mapa importado sin imagen no se podía recuperar.</td></tr>
+    <tr><td><span class="tag fix">fix</span> La ruta no salía de donde estabas</td><td>En una prueba real en el móvil la ruta empezaba a 410 m del usuario. Dos causas: el coche no usaba los caminos (<code>track</code>, el 14 % de las vías de Buñol) y la parada se ajustaba al cruce más cercano. Ahora se usan los caminos permitidos y se sale del punto exacto de la calle (en Buñol: de 629 m a 0 m).</td></tr>
     <tr><td><span class="tag fix">fix</span> Iconos de marcadores vacíos</td><td>Regresión de la optimización del bundle: los iconos se generaban durante el render de React, donde no se puede, y salían vacíos (gasolineras, restaurantes, flecha de navegación). Ahora se generan una vez al cargar. Test unitario y e2e.</td></tr>
     <tr><td><span class="tag fix">fix</span> El mapa no seguía al GPS</td><td>Con lecturas muy seguidas se descartaba la última posición y el marcador podía quedar fuera de pantalla. Ahora siempre se aplica la última.</td></tr>
     <tr><td><span class="tag fix">fix</span> GPS en el móvil</td><td>Por red local sin HTTPS el navegador bloquea la ubicación. Se añadió <code>npm run dev:movil</code> (HTTPS) y un aviso claro.</td></tr>
@@ -559,7 +561,6 @@ npm run dev</pre>
     <li><b>Servicios públicos</b>: Overpass, Photon y Nominatim son gratuitos y a veces están saturados. La app reintenta y avisa, pero una ruta larga nueva puede tardar alrededor de un minuto. Las zonas ya descargadas son casi instantáneas durante 7 días. Para uso intensivo conviene una instancia propia.</li>
     <li><b>Alcance</b>: rutas en vivo de hasta ~300 km en coche y ~25 km a pie.</li>
     <li><b>Sin tráfico real</b>, sin restricciones de giro (<i>turn restrictions</i>) y sin carriles.</li>
-    <li>Cada parada se ajusta al <b>cruce más cercano</b> (puede haber un pequeño tramo de acceso, mostrado con línea punteada).</li>
     <li>Los colores de agua, parques y edificios de cada estilo se consiguen con filtros sobre imágenes, no con mapas vectoriales.</li>
     <li>Las imágenes Esri gris tienen detalle hasta zoom 16; a partir de ahí se apoyan en las calles vectoriales propias.</li>
     <li>El mapa no rota (Leaflet no lo permite de forma nativa).</li>
@@ -636,7 +637,8 @@ VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/
     <tr><td class="mono">df5a7a9</td><td>fix: casos límite del editor de mapas personalizados</td></tr>
     <tr><td class="mono">3856c86</td><td>perf: rutas en paralelo con precarga, PWA y caché de teselas</td></tr>
     <tr><td class="mono">07d56fd</td><td>feat: medición de la ruta en tiempo real con el GPS y recálculo al desviarse</td></tr>
-    <tr><td class="mono">—</td><td>perf: respuesta instantánea, celdas compartidas y arranque sin bloqueos</td></tr>
+    <tr><td class="mono">d7de05a</td><td>perf: respuesta instantánea, celdas compartidas y arranque sin bloqueos</td></tr>
+    <tr><td class="mono">—</td><td>fix: la ruta sale del punto exacto y usa caminos accesibles en coche</td></tr>
   </table>
 
   <h3>A.5 Glosario</h3>

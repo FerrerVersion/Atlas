@@ -4,7 +4,8 @@ import { fetchRoadNetwork, MAJOR_ROADS, type NetworkQueryPlan } from '@/features
 import { bboxAround, bboxDiagonal, bboxOf, expandBBox } from '@/utils/geometry'
 import { concatPolylines } from '@/utils/geometry'
 import { findRoute } from './astar'
-import { nearestNode } from './graph'
+import { attachVirtualStop, nearestEdge, type EdgeSnap, type VirtualStop } from './edgeSnap'
+import { haversine } from '@/utils/distance'
 import { generateInstructions } from './routeInstructions'
 import type { CostMode, Instruction, MultiRoute, RoadGraph, RouteLeg, TravelProfile } from './routeTypes'
 
@@ -164,21 +165,38 @@ export async function computeMultiRoute(
 
 /** Núcleo síncrono: ajuste a la red + A* por tramos + instrucciones. */
 export function routeOnGraph(graph: RoadGraph, points: RoutePoint[], prefs: Omit<RoutePreferences, 'profile'>): MultiRoute {
-  const snapped = points.map((p, i) => {
-    const s = nearestNode(graph, p.lat, p.lng)
+  // 1) Proyecta cada parada sobre la calle más cercana (antes de tocar el grafo).
+  const snaps = points.map((p, i) => {
+    const s = nearestEdge(graph, p.lat, p.lng)
     if (!s || s.distance > MAX_SNAP_DISTANCE) {
       const which = i === 0 ? 'El origen' : i === points.length - 1 ? 'El destino' : `La parada ${i}`
       throw new RouteError(`${which} está a más de ${MAX_SNAP_DISTANCE / 1000} km de cualquier vía cargada.`)
     }
-    return { lat: s.node.lat, lng: s.node.lng, offsetMeters: s.distance, nodeId: s.node.id }
+    return s
   })
-
-  if (snapped.every((s) => s.nodeId === snapped[0].nodeId)) {
+  const first = snaps[0].point
+  if (snaps.every((s) => haversine(s.point[0], s.point[1], first[0], first[1]) < 5)) {
     throw new RouteError(
       'El origen y el destino están en el mismo punto de la red de calles. Elige un destino distinto.',
       'same-point',
     )
   }
+  // 2) Nodos temporales en esos puntos; se retiran siempre al terminar.
+  const virtual = snaps.map((s, i) => attachVirtualStop(graph, s, `parada:${i}`))
+  try {
+    return routeFromStops(graph, virtual, snaps, prefs)
+  } finally {
+    for (const v of [...virtual].reverse()) v.remove()
+  }
+}
+
+function routeFromStops(
+  graph: RoadGraph,
+  virtual: VirtualStop[],
+  snaps: EdgeSnap[],
+  prefs: Omit<RoutePreferences, 'profile'>,
+): MultiRoute {
+  const snapped = virtual.map((v, i) => ({ lat: v.point[0], lng: v.point[1], offsetMeters: snaps[i].distance, nodeId: v.nodeId }))
 
   const legs: RouteLeg[] = []
   const instructions: Instruction[] = []

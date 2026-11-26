@@ -139,7 +139,9 @@ describe('routeOnGraph (paradas múltiples)', () => {
   it('el orden de las paradas cambia la ruta', () => {
     const abc = routeOnGraph(g, [A, B, C], { cost: 'fastest', avoidHighways: false })
     const acb = routeOnGraph(g, [A, C, B], { cost: 'fastest', avoidHighways: false })
-    expect(abc.snapped[2].nodeId).not.toBe(acb.snapped[2].nodeId)
+    // La última parada es distinta según el orden (B frente a C).
+    expect([abc.snapped[2].lat, abc.snapped[2].lng]).not.toEqual([acb.snapped[2].lat, acb.snapped[2].lng])
+    expect(abc.distance).not.toBeCloseTo(acb.distance, 0)
   })
 
   it('rechaza paradas lejos de la red', () => {

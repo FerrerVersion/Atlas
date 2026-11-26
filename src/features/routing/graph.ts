@@ -51,8 +51,28 @@ export const DEFAULT_SPEEDS: Record<RoadType, number> = {
 const CAR_TYPES = new Set<RoadType>([
   'motorway', 'motorway_link', 'trunk', 'trunk_link', 'primary', 'primary_link', 'secondary',
   'secondary_link', 'tertiary', 'tertiary_link', 'unclassified', 'residential', 'living_street', 'service',
+  // Caminos (muy habituales como acceso a casas de campo y urbanizaciones). Se usan con
+  // velocidad baja, así que solo sirven para llegar o salir, salvo que estén restringidos.
+  'track',
   'custom',
 ])
+
+/** Valores de acceso que impiden circular a un coche particular. */
+const NO_CAR_ACCESS = new Set(['no', 'private', 'agricultural', 'forestry', 'delivery', 'customers', 'emergency', 'military', 'discouraged'])
+
+/** Velocidad en caminos según su firmeza (tracktype de OSM). */
+export function trackSpeed(tags: Record<string, string>): number {
+  switch (tags.tracktype) {
+    case 'grade1':
+      return 30
+    case 'grade2':
+      return 20
+    case 'grade3':
+      return 15
+    default:
+      return 12
+  }
+}
 
 const WALK_EXCLUDED = new Set<RoadType>(['motorway', 'motorway_link', 'trunk', 'trunk_link'])
 
@@ -123,7 +143,12 @@ function isAllowed(type: RoadType, tags: Record<string, string>, profile: Travel
   if (access === 'no' || access === 'private') return false
   if (profile === 'car') {
     if (!CAR_TYPES.has(type)) return false
-    if (tags.motor_vehicle === 'no' || tags.motorcar === 'no') return false
+    for (const key of ['access', 'vehicle', 'motor_vehicle', 'motorcar']) {
+      const v = tags[key]?.toLowerCase()
+      if (v && NO_CAR_ACCESS.has(v)) return false
+    }
+    // Caminos en muy mal estado o marcados como intransitables.
+    if (type === 'track' && (tags.tracktype === 'grade5' || tags.smoothness === 'impassable')) return false
     return true
   }
   if (tags.foot === 'no') return false
@@ -234,7 +259,9 @@ export function buildGraphFromOsm(ways: Iterable<OsmWay>, options: BuildGraphOpt
     const speed =
       profile === 'walk'
         ? WALK_SPEED_KMH
-        : Math.min(parseMaxSpeed(way.tags.maxspeed) ?? DEFAULT_SPEEDS[type], 130)
+        : type === 'track'
+          ? Math.min(parseMaxSpeed(way.tags.maxspeed) ?? trackSpeed(way.tags), 40)
+          : Math.min(parseMaxSpeed(way.tags.maxspeed) ?? DEFAULT_SPEEDS[type], 130)
     const base = {
       name: way.tags.name,
       ref: way.tags.ref,
