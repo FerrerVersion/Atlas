@@ -5,6 +5,7 @@ import { useMapInstance } from '@/features/map/mapInstance'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { loadRoadsForBBox } from '@/hooks/useRoadAutoLoader'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 import { MapThemeSelector } from './MapThemeSelector'
 
 /** Controles flotantes: zoom, ubicación, recentrar, ajustar ruta, cargar calles y estilos. */
@@ -14,7 +15,7 @@ export function MapControls({ compact = false }: { compact?: boolean }) {
   const selected = useAppStore((s) => s.selectedPlace)
   const route = useAppStore((s) => s.route)
   const roadsStatus = useAppStore((s) => s.roadsStatus)
-  const locationStatus = useAppStore((s) => s.locationStatus)
+  const locationStatus = useNavStore((s) => s.locationStatus)
 
   const loadRoads = async () => {
     if (!map) return

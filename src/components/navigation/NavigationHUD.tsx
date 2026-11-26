@@ -5,21 +5,22 @@ import { useGeolocation } from '@/hooks/useGeolocation'
 import { formatDistance, formatDuration } from '@/utils/distance'
 import { useNow } from '@/hooks/useMediaQuery'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 import { LiveTripStats } from './LiveTripStats'
 import { ManeuverIcon } from './ManeuverIcon'
 
 /** Modo navegación: próxima maniobra, distancia al giro, restante y tiempo. */
 export function NavigationHUD() {
-  const nav = useAppStore((s) => s.navigation)
+  const nav = useNavStore((s) => s.navigation)
   const route = useAppStore((s) => s.route)
   const voice = useAppStore((s) => s.navPrefs.voice)
-  const live = useAppStore((s) => s.live)
-  const accuracy = useAppStore((s) => s.userLocation?.accuracy ?? null)
+  const live = useNavStore((s) => s.live)
+  const accuracy = useNavStore((s) => s.userLocation?.accuracy ?? null)
   const { locate } = useGeolocation()
   const now = useNow(15_000)
   if (!nav.active || !route) return null
   const st = navigationState(route, nav.progress)
-  const s = useAppStore.getState
+  const s = useNavStore.getState
   const target = st.next ?? st.current
 
   const jump = (dir: 1 | -1) => {
@@ -86,7 +87,7 @@ export function NavigationHUD() {
           >
             <LocateFixed className="h-5 w-5" />
           </IconButton>
-          <IconButton label={voice ? 'Silenciar voz' : 'Activar voz'} onClick={() => s().setNavPrefs({ voice: !voice })}>
+          <IconButton label={voice ? 'Silenciar voz' : 'Activar voz'} onClick={() => useAppStore.getState().setNavPrefs({ voice: !voice })}>
             {voice ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
           </IconButton>
           <IconButton label="Salir de la navegación" onClick={() => s().stopNavigation()} className="text-rose-500">

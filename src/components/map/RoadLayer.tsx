@@ -3,7 +3,6 @@ import { useMap, useMapEvent } from 'react-leaflet'
 import { useSettledMove } from '@/hooks/useSettledMove'
 import L from 'leaflet'
 import { networkStore, useNetworkVersion } from '@/features/osm/networkStore'
-import { regionalRoads, useRegionalVersion } from '@/features/osm/regionalRoads'
 import { MIN_OVERLAY_ZOOM, NODE_MIN_ZOOM, PANES, REGIONAL_MIN_ZOOM } from '@/features/map/mapTypes'
 import { roadClass, toRoadType } from '@/features/routing/graph'
 import type { RoadClass } from '@/features/routing/routeTypes'
@@ -37,67 +36,47 @@ function lineScale(zoom: number) {
 export function RoadLayer({ theme }: { theme: MapTheme }) {
   const map = useMap()
   const version = useNetworkVersion()
-  const regionalVersion = useRegionalVersion()
   const [zoom, setZoom] = useState(() => Math.round(map.getZoom()))
   useMapEvent('zoomend', () => setZoom(Math.round(map.getZoom())))
   const bucket = zoom < REGIONAL_MIN_ZOOM ? 0 : Math.min(zoom, 17)
 
   useEffect(() => {
     const overlay = theme.overlay
-    if (!overlay.enabled || bucket === 0 || (networkStore.size === 0 && regionalRoads.size === 0)) return
+    if (!overlay.enabled || bucket === 0 || networkStore.size === 0) return
     const renderer = L.canvas({ pane: PANES.roads.name, padding: 0.4 })
     const group = L.layerGroup()
     const classes = visibleClasses(theme, bucket)
     const scale = lineScale(bucket)
 
-    // Cada clase se dibuja en varios grupos (uno por celda regional): Leaflet no
-    // procesa los grupos que quedan fuera de la pantalla.
-    const byClass = new Map<RoadClass, L.LatLngExpression[][][]>()
-    const groupFor = (c: RoadClass, idx: number) => {
-      let groups = byClass.get(c)
-      if (!groups) byClass.set(c, (groups = []))
-      return (groups[idx] ??= [])
-    }
+    const byClass = new Map<RoadClass, L.LatLngExpression[][]>()
     for (const w of networkStore.allWays()) {
       const t = toRoadType(w.tags.highway)
       if (!t) continue
       const c = roadClass(t)
       if (!classes.has(c)) continue
-      groupFor(c, 0).push(w.geometry.map((p) => [p.lat, p.lon] as L.LatLngTuple))
-    }
-    let cellIdx = 1
-    for (const cell of regionalRoads.allCells()) {
-      for (const w of cell.ways) {
-        const t = toRoadType(w.highway)
-        // Las vías que ya están con todo el detalle no se dibujan dos veces.
-        if (!t || networkStore.hasWay(w.id)) continue
-        const c = roadClass(t)
-        if (classes.has(c)) groupFor(c, cellIdx).push(w.geometry)
-      }
-      cellIdx++
+      let lines = byClass.get(c)
+      if (!lines) byClass.set(c, (lines = []))
+      lines.push(w.geometry.map((p) => [p.lat, p.lon] as L.LatLngTuple))
     }
 
     // Primero todas las «carcasas», luego los trazos, para cruces limpios.
     for (const pass of ['casing', 'line'] as const) {
       for (const c of DRAW_ORDER) {
-        const groups = byClass.get(c)
+        const lines = byClass.get(c)
         const st = overlay.classes[c]
-        if (!groups || !st || st.width <= 0) continue
+        if (!lines?.length || !st || st.width <= 0) continue
         if (pass === 'casing' && !st.casing) continue
-        for (const lines of groups) {
-          if (!lines?.length) continue
-          L.polyline(lines, {
-            renderer,
-            interactive: false,
-            color: pass === 'casing' ? st.casing : st.color,
-            weight: (st.width + (pass === 'casing' ? (st.casingWidth ?? 1) * 2 : 0)) * scale,
-            opacity: (st.opacity ?? 1) * overlay.opacity,
-            dashArray: pass === 'line' ? st.dash : undefined,
-            lineCap: theme.marker.shape === 'pixel' ? 'square' : 'round',
-            lineJoin: theme.marker.shape === 'pixel' ? 'miter' : 'round',
-            smoothFactor: bucket >= MIN_OVERLAY_ZOOM ? 1.2 : 2,
-          }).addTo(group)
-        }
+        L.polyline(lines, {
+          renderer,
+          interactive: false,
+          color: pass === 'casing' ? st.casing : st.color,
+          weight: (st.width + (pass === 'casing' ? (st.casingWidth ?? 1) * 2 : 0)) * scale,
+          opacity: (st.opacity ?? 1) * overlay.opacity,
+          dashArray: pass === 'line' ? st.dash : undefined,
+          lineCap: theme.marker.shape === 'pixel' ? 'square' : 'round',
+          lineJoin: theme.marker.shape === 'pixel' ? 'miter' : 'round',
+          smoothFactor: bucket >= MIN_OVERLAY_ZOOM ? 1.2 : 2,
+        }).addTo(group)
       }
     }
     group.addTo(map)
@@ -105,7 +84,7 @@ export function RoadLayer({ theme }: { theme: MapTheme }) {
       group.remove()
       renderer.remove()
     }
-  }, [map, theme, version, regionalVersion, bucket])
+  }, [map, theme, version, bucket])
 
   return theme.overlay.showNodes ? <GraphNodes theme={theme} zoom={zoom} /> : null
 }

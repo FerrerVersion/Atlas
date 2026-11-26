@@ -1,16 +1,14 @@
 import { MapControls } from '@/components/map/MapControls'
-import { RegionStatus } from '@/components/map/RegionStatus'
 import { MapView } from '@/components/map/MapView'
 import { lazy, Suspense } from 'react'
 import { Toasts } from '@/components/ui/Toasts'
-import { useNavigationRunner } from '@/hooks/useNavigationRunner'
+import { NavigationRunner } from '@/hooks/useNavigationRunner'
 import { usePoiLoader } from '@/hooks/usePoiLoader'
-import { useRegionalPreload } from '@/hooks/useRegionalPreload'
-import { useRouteCorridor } from '@/hooks/useRouteCorridor'
 import { useRoadAutoLoader } from '@/hooks/useRoadAutoLoader'
 import { useRouteComputation } from '@/hooks/useRouteComputation'
 import { useMapTheme, useMediaQuery } from '@/hooks/useUiTheme'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 import { MobileNavigation } from './MobileNavigation'
 import { Sidebar } from './Sidebar'
 
@@ -20,14 +18,8 @@ const NavigationHUD = lazy(() => import('@/components/navigation/NavigationHUD')
 export function AppShell() {
   const theme = useMapTheme()
   const desktop = useMediaQuery('(min-width: 768px)')
-  const navigating = useAppStore((s) => s.navigation.active)
+  const navigating = useNavStore((s) => s.navigation.active)
   const sheetExpanded = useAppStore((s) => s.sheetExpanded)
-  useRouteComputation()
-  usePoiLoader()
-  useRoadAutoLoader()
-  useNavigationRunner()
-  useRegionalPreload()
-  useRouteCorridor()
 
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ ['--ui-accent' as string]: theme.colors.accent }}>
@@ -44,15 +36,6 @@ export function AppShell() {
         >
           <MapControls compact={navigating && !desktop} />
         </div>
-        {!navigating && (
-          <div
-            className={`absolute z-[940] ${
-              desktop ? 'bottom-6 left-1/2 -translate-x-1/2' : 'left-3 top-[calc(max(0.75rem,env(safe-area-inset-top))+4.5rem)]'
-            }`}
-          >
-            <RegionStatus />
-          </div>
-        )}
       </div>
       {navigating && (
         <Suspense fallback={null}>
@@ -60,6 +43,36 @@ export function AppShell() {
         </Suspense>
       )}
       <Toasts />
+      <Orchestrators />
     </div>
+  )
+}
+
+/*
+ * Lógica sin interfaz (cálculo de rutas, POIs, carga de calles, GPS y navegación).
+ * Cada una va en su propio componente: lo que escuchan (paradas, vista del mapa,
+ * lecturas del GPS, avance de la simulación) solo repinta ese componente vacío, no
+ * AppShell ni el mapa.
+ */
+function RouteComputation() {
+  useRouteComputation()
+  return null
+}
+function PoiLoader() {
+  usePoiLoader()
+  return null
+}
+function RoadAutoLoader() {
+  useRoadAutoLoader()
+  return null
+}
+function Orchestrators() {
+  return (
+    <>
+      <RouteComputation />
+      <PoiLoader />
+      <RoadAutoLoader />
+      <NavigationRunner />
+    </>
   )
 }

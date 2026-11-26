@@ -3,11 +3,12 @@ import { Popup, useMapEvents } from 'react-leaflet'
 import { Flag, MapPin, Navigation2, Plus, Search } from 'lucide-react'
 import { placeFromMap, pointPlace } from '@/features/geocoding/placeFromMap'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 
 /** Menú al pulsar el mapa: usar el punto como origen, destino, parada o consultar qué hay. */
 export function MapContextPopup() {
   const [point, setPoint] = useState<{ lat: number; lng: number } | null>(null)
-  const navActive = useAppStore((s) => s.navigation.active)
+  const navActive = useNavStore((s) => s.navigation.active)
   // Leaflet recibe el clic del botón del menú después de React (con el popup ya
   // desmontado): se ignora el clic inmediatamente posterior a una acción.
   const ignoreUntil = useRef(0)

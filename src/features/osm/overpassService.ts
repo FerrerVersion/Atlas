@@ -1,5 +1,4 @@
 import { cacheGet, cacheSet, hashKey } from '@/utils/storage'
-import { isBackgroundPaused } from './backgroundGate'
 import { HttpError, RateLimitedClient, sleep } from '@/utils/http'
 import { bboxToOverpass, type BBox } from '@/utils/geometry'
 import type { OsmWay } from '@/features/routing/graph'
@@ -8,30 +7,37 @@ import { POI_CATEGORY_MAP, poisFromOsm, type OsmPoiElement, type POI, type PoiCa
 /**
  * Servicio Overpass API (OpenStreetMap). Endpoints configurables mediante
  * VITE_OVERPASS_URLS (lista separada por comas). Con caché en IndexedDB de
- * 7 días y cola con un mínimo de 1,2 s entre peticiones.
+ * 7 días, como mucho 2 consultas a la vez y 0,6 s entre inicios de petición.
+ *
+ * Los espejos se prueban de uno en uno: son servicios gratuitos y compartidos, pensados
+ * para uso ligero. Única excepción: si el primero no ha respondido en BACKUP_AFTER_MS,
+ * se lanza UN respaldo en el siguiente (como mucho 2 servidores a la vez por consulta,
+ * y solo una vez); gana el que responda antes y el otro se cancela.
  */
 const DEFAULT_ENDPOINTS = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
   'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ]
-/** Tiempo máximo por servidor antes de probar el siguiente espejo. */
-const ENDPOINT_TIMEOUT_MS = 45_000
-/** Espera antes de reintentar un servidor que respondió 429/5xx. */
+/** Tiempo máximo de un servidor antes de pasar al siguiente espejo. */
+export const ENDPOINT_TIMEOUT_MS = 25_000
+/** Las consultas grandes (corredores de trayectos largos) tardan más de forma legítima. */
+export const ENDPOINT_TIMEOUT_LARGE_MS = 60_000
+/** Si el servidor no ha respondido en este tiempo, se lanza un único respaldo en otro espejo. */
+export const BACKUP_AFTER_MS = 15_000
+/** Las consultas grandes tardan más de forma legítima: el respaldo espera más. */
+export const BACKUP_AFTER_LARGE_MS = 30_000
+/** Espera antes de reintentar un servidor que respondió 429/5xx (se dobla en cada ronda). */
 export const RETRY_DELAY_MS = 4_000
-/** Si un espejo no responde en este tiempo, se lanza el siguiente en paralelo. */
-export const HEDGE_MS = 6_000
-/** Las consultas grandes (corredores) tardan más de forma legítima: se espera más. */
-export const HEDGE_MS_LARGE = 12_000
+/** Rondas de reintento para los servidores saturados (responden rápido con 429/5xx). */
+export const RETRY_ROUNDS = 2
 
 export const OVERPASS_ENDPOINTS: string[] = (import.meta.env.VITE_OVERPASS_URLS as string | undefined)
   ?.split(',')
   .map((s) => s.trim())
   .filter(Boolean) ?? DEFAULT_ENDPOINTS
 
-// 0,6 s entre inicios de petición; la concurrencia ya está limitada a 2 (routeService).
 const client = new RateLimitedClient(600, ENDPOINT_TIMEOUT_MS)
-/** Índice del último espejo que respondió: se prueba primero la próxima vez. */
 const PREF_KEY = 'atlas-nav:overpass-preferido'
 /** Último espejo que respondió, recordado entre visitas (no se empieza por uno caído). */
 let preferred = (() => {
@@ -44,6 +50,7 @@ let preferred = (() => {
   }
 })()
 function rememberPreferred(idx: number) {
+  if (preferred === idx) return
   preferred = idx
   try {
     localStorage.setItem(PREF_KEY, OVERPASS_ENDPOINTS[idx])
@@ -74,15 +81,6 @@ async function acquireSlot() {
   }
   await new Promise<void>((resolve) => waiting.push(resolve))
 }
-/**
- * Las descargas de fondo (precarga regional, corredor de la ruta) solo ocupan plaza
- * cuando no hay ninguna otra consulta en marcha ni en espera, y nunca mientras se
- * calcula una ruta: así jamás retrasan lo que el usuario está esperando.
- */
-async function acquireBackgroundSlot(signal?: AbortSignal) {
-  while (running > 0 || waiting.length > 0 || isBackgroundPaused()) await sleep(400, signal)
-  running++
-}
 function releaseSlot() {
   const next = waiting.shift()
   if (next) next()
@@ -92,56 +90,29 @@ function releaseSlot() {
 /** Consultas en curso: si se pide la misma (p. ej. precarga + ruta), se reutiliza. */
 const inFlight = new Map<string, Promise<OverpassResponse<unknown>>>()
 
-export interface QueryOptions {
-  /** Baja prioridad: espera a que no haya otras consultas y se cancela de verdad con `signal`. */
-  background?: boolean
-  /** Tiempo máximo por espejo (las consultas regionales grandes tardan más). */
-  timeoutMs?: number
-  /** `false`: no guarda la respuesta bruta (quien llama guarda su propia versión compacta). */
-  cache?: boolean
-}
-
-/**
- * Las consultas de fondo son grandes y lentas (10-50 s): solo se lanza otro espejo en
- * paralelo si el primero no responde en 25 s (un servidor colgado no bloquea la zona).
- */
-export const HEDGE_MS_BACKGROUND = 25_000
-
 export function queryOverpass<T>(
   ql: string,
   signal?: AbortSignal,
   onRetry?: (host: string) => void,
-  hedgeMs = HEDGE_MS,
-  options: QueryOptions = {},
+  timeoutMs = ENDPOINT_TIMEOUT_MS,
+  backupAfterMs = BACKUP_AFTER_MS,
 ): Promise<OverpassResponse<T>> {
   const key = `overpass:${hashKey(ql)}`
   const pending = inFlight.get(key)
   if (pending) return abortable(pending as Promise<OverpassResponse<T>>, signal)
-  if (options.background) return backgroundQuery<T>(ql, options.cache === false ? null : key, signal, options.timeoutMs)
   // La descarga compartida no se cancela si un solo interesado se va: otro puede necesitarla.
   const shared = (async () => {
     const cached = await cacheGet<OverpassResponse<T>>(key, CACHE_TTL)
     if (cached) return cached
     await acquireSlot()
     try {
-      return await runQuery<T>(ql, key, onRetry, hedgeMs)
+      return await runQuery<T>(ql, key, onRetry, timeoutMs, backupAfterMs)
     } finally {
       releaseSlot()
     }
   })().finally(() => inFlight.delete(key))
   inFlight.set(key, shared)
   return abortable(shared, signal)
-}
-
-async function backgroundQuery<T>(ql: string, key: string | null, signal?: AbortSignal, timeoutMs?: number) {
-  const cached = key ? await cacheGet<OverpassResponse<T>>(key, CACHE_TTL) : null
-  if (cached) return cached
-  await acquireBackgroundSlot(signal)
-  try {
-    return await runQuery<T>(ql, key, undefined, HEDGE_MS_BACKGROUND, signal, timeoutMs)
-  } finally {
-    releaseSlot()
-  }
 }
 
 function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -157,23 +128,25 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   })
 }
 
+/**
+ * Prueba los espejos en orden (primero el último que respondió). Si uno falla o no
+ * contesta a tiempo se pasa al siguiente; si tarda más de `backupAfterMs` sin fallar,
+ * se lanza un único respaldo en el siguiente y gana el primero que responda. Después, hasta RETRY_ROUNDS rondas (con
+ * pausas de 4 s y 8 s) solo con los que respondieron con saturación (429/5xx): esos
+ * rechazan al instante, así que reintentarlos cuesta poco y no carga al servidor.
+ */
 async function runQuery<T>(
   ql: string,
-  /** Clave de caché; `null` = sin caché. */
-  key: string | null,
+  key: string,
   onRetry: ((host: string) => void) | undefined,
-  hedgeMs: number,
-  /** Cancela la descarga real (solo consultas de fondo: las normales se comparten). */
-  outer?: AbortSignal,
-  timeoutMs?: number,
+  timeoutMs: number,
+  backupAfterMs: number,
 ): Promise<OverpassResponse<T>> {
-  const cached = key ? await cacheGet<OverpassResponse<T>>(key, CACHE_TTL) : null
+  const cached = await cacheGet<OverpassResponse<T>>(key, CACHE_TTL)
   if (cached) return cached
 
   let lastError: unknown
-  const order = OVERPASS_ENDPOINTS.map((_, i) => (preferred + i) % OVERPASS_ENDPOINTS.length)
-  const attempt = async (idx: number, sig?: AbortSignal) => {
-    const signal = outer && sig ? AbortSignal.any([outer, sig]) : (outer ?? sig)
+  const attempt = async (idx: number, signal?: AbortSignal) => {
     const data = await client.request<OverpassResponse<T>>(
       OVERPASS_ENDPOINTS[idx],
       {
@@ -185,65 +158,80 @@ async function runQuery<T>(
       timeoutMs,
     )
     rememberPreferred(idx)
-    if (key) await cacheSet(key, data)
+    await cacheSet(key, data)
     return data
   }
+
+  const order = OVERPASS_ENDPOINTS.map((_, i) => (preferred + i) % OVERPASS_ENDPOINTS.length)
   const retryable: number[] = []
 
-  // Ronda 1 «escalonada»: si un espejo no contesta en HEDGE_MS se lanza el siguiente
-  // en paralelo; gana el primero que responde y se cancelan los demás.
-  const hedged = () =>
+  // Primera pasada: de uno en uno, con un único respaldo si el servidor se demora.
+  const firstPass = () =>
     new Promise<OverpassResponse<T> | null>((resolve) => {
       const controllers: AbortController[] = []
       let next = 0
-      let pending = 0
+      let running = 0
       let settled = false
+      let backupUsed = false
+      let backupTimer: ReturnType<typeof setTimeout> | undefined
       const finish = (value: OverpassResponse<T> | null) => {
         if (settled) return
         settled = true
+        clearTimeout(backupTimer)
         controllers.forEach((c) => c.abort())
         resolve(value)
       }
       const launch = () => {
-        if (settled || next >= order.length) {
-          if (!settled && pending === 0) finish(null)
+        if (settled) return
+        if (next >= order.length) {
+          if (running === 0) finish(null)
           return
         }
         const idx = order[next++]
         if (next > 1) onRetry?.(new URL(OVERPASS_ENDPOINTS[idx]).host)
         const ctrl = new AbortController()
         controllers.push(ctrl)
-        pending++
-        const timer = Number.isFinite(hedgeMs) ? setTimeout(launch, hedgeMs) : undefined
+        running++
+        // Respaldo: solo una vez por consulta y solo si este servidor sigue sin responder.
+        if (!backupUsed) {
+          clearTimeout(backupTimer)
+          backupTimer = setTimeout(() => {
+            if (settled || backupUsed || next >= order.length) return
+            backupUsed = true
+            launch()
+          }, backupAfterMs)
+        }
         attempt(idx, ctrl.signal).then(finish, (e) => {
-          pending--
-          clearTimeout(timer)
+          running--
           if (settled) return
-          if (outer?.aborted) return finish(null)
           lastError = e
+          // Consulta mal formada: ningún espejo la va a aceptar.
           if (e instanceof HttpError && e.status === 400) return finish(null)
           if (e instanceof HttpError && (e.status === 429 || e.status >= 500)) retryable.push(idx)
-          launch()
+          // Si el respaldo sigue en marcha se le espera; si no, se pasa al siguiente.
+          if (running === 0) launch()
         })
       }
       launch()
     })
 
-  const first = await hedged()
+  const first = await firstPass()
   if (first) return first
-  outer?.throwIfAborted()
-  if (!(lastError instanceof HttpError && lastError.status === 400)) {
-    // Ronda 2: solo los espejos que respondieron rápido con saturación (429/5xx).
-    for (const idx of retryable) {
+  let pendingRetry = retryable
+  for (let round = 0; round < RETRY_ROUNDS && pendingRetry.length > 0; round++) {
+    if (lastError instanceof HttpError && lastError.status === 400) break
+    const next: number[] = []
+    for (const idx of pendingRetry) {
       onRetry?.(`${new URL(OVERPASS_ENDPOINTS[idx]).host} (reintento)`)
-      await sleep(RETRY_DELAY_MS, outer)
+      await sleep(RETRY_DELAY_MS * 2 ** round)
       try {
         return await attempt(idx)
       } catch (e) {
-        outer?.throwIfAborted()
         lastError = e
+        if (e instanceof HttpError && (e.status === 429 || e.status >= 500)) next.push(idx)
       }
     }
+    pendingRetry = next
   }
   const status = lastError instanceof HttpError ? ` (${lastError.status})` : ''
   throw new OverpassError(
@@ -297,7 +285,13 @@ export async function fetchRoadNetwork(
   signal?: AbortSignal,
   onRetry?: (host: string) => void,
 ): Promise<OsmWay[]> {
-  const res = await queryOverpass<OsmWay>(buildRoadQuery(plan), signal, onRetry, plan.corridor ? HEDGE_MS_LARGE : HEDGE_MS)
+  const res = await queryOverpass<OsmWay>(
+    buildRoadQuery(plan),
+    signal,
+    onRetry,
+    plan.corridor ? ENDPOINT_TIMEOUT_LARGE_MS : ENDPOINT_TIMEOUT_MS,
+    plan.corridor ? BACKUP_AFTER_LARGE_MS : BACKUP_AFTER_MS,
+  )
   return res.elements.filter((e) => e.type === 'way' && Array.isArray(e.geometry) && Array.isArray(e.nodes))
 }
 

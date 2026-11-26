@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { createJSONStorage, persist } from 'zustand/middleware'
+import { persist, type PersistStorage, type StorageValue } from 'zustand/middleware'
 import type { Place } from '@/features/geocoding/geocodingService'
 import type { POI, PoiCategory } from '@/features/poi/poiTypes'
 import type { CostMode, MultiRoute, TravelProfile } from '@/features/routing/routeTypes'
@@ -7,7 +7,8 @@ import { DEFAULT_THEME_ID, hasTheme } from '@/features/themes/themeRegistry'
 import type { BBox } from '@/utils/geometry'
 import type { LatLngTuple } from '@/utils/distance'
 import { sanitizePrefs } from './sanitizePrefs'
-import { initialTracker, remainingStopIndices, type TrackerState } from '@/features/navigation/liveTracking'
+import { remainingStopIndices } from '@/features/navigation/liveTracking'
+import { useNavStore } from './useNavStore'
 
 export interface Waypoint {
   id: string
@@ -69,23 +70,9 @@ export interface AppState {
   pois: POI[]
   poiStatus: 'idle' | 'loading' | 'error'
   selectedPoiId: string | null
-  navigation: { active: boolean; progress: number; following: boolean; simulating: boolean }
-  userLocation: {
-    lat: number
-    lng: number
-    accuracy: number
-    heading: number | null
-    /** m/s según el dispositivo. */
-    speed?: number | null
-    timestamp?: number
-  } | null
-  /** Medición en tiempo real de la ruta con el GPS (progreso, recorrido, velocidad, estado). */
-  live: TrackerState
-  setLive: (t: TrackerState) => void
+  // GPS, medición en vivo y navegación viven en useNavStore (sin persistir).
   /** Recalcula desde un punto (p. ej. la posición GPS) manteniendo las paradas pendientes. */
   rerouteFrom: (origin: Place) => void
-  locationStatus: 'idle' | 'pending' | 'active' | 'denied' | 'unavailable'
-  setLocationStatus: (s: AppState['locationStatus']) => void
   mapTarget: { lat: number; lng: number; zoom?: number; bbox?: Place['bbox']; nonce: number } | null
   fitRouteNonce: number
   /** Puntos a encuadrar (al empezar a calcular, aún sin ruta); si no hay, la ruta. */
@@ -126,11 +113,8 @@ export interface AppState {
   setPois: (p: POI[], status?: AppState['poiStatus']) => void
   selectPoi: (id: string | null) => void
 
+  /** Inicia la navegación y recoge el panel (el avance vive en useNavStore). */
   startNavigation: () => void
-  stopNavigation: () => void
-  setNavProgress: (meters: number) => void
-  setNavFlags: (f: Partial<Pick<AppState['navigation'], 'following' | 'simulating'>>) => void
-  setUserLocation: (l: AppState['userLocation']) => void
 
   toggleFavorite: (p: Place) => void
   isFavorite: (id: string) => boolean
@@ -141,6 +125,50 @@ export interface AppState {
 }
 
 let toastId = 0
+
+/** Campos que se guardan en el navegador (preferencias del usuario). */
+type PersistedPrefs = Pick<
+  AppState,
+  'themeId' | 'uiMode' | 'autoNightTheme' | 'showLabels' | 'autoLoadRoads' | 'navPrefs' | 'favorites' | 'history' | 'lastView'
+>
+
+/**
+ * Almacenamiento de las preferencias. El middleware `persist` intenta guardar tras
+ * CADA cambio del store (también los de sesión: mensajes, paradas, avisos…); aquí
+ * solo se escribe en localStorage si ha cambiado alguno de los campos guardados.
+ * getItem tolera JSON corrupto (se trata como «sin preferencias»).
+ */
+let lastSaved: PersistedPrefs | null = null
+const samePrefs = (a: PersistedPrefs, b: PersistedPrefs) =>
+  (Object.keys(a) as (keyof PersistedPrefs)[]).every((k) => Object.is(a[k], b[k]))
+
+export const prefsStorage: PersistStorage<PersistedPrefs> = {
+  getItem: (name) => {
+    try {
+      const raw = localStorage.getItem(name)
+      return raw ? (JSON.parse(raw) as StorageValue<PersistedPrefs>) : null
+    } catch {
+      return null
+    }
+  },
+  setItem: (name, value) => {
+    if (lastSaved && samePrefs(lastSaved, value.state)) return
+    lastSaved = value.state
+    try {
+      localStorage.setItem(name, JSON.stringify(value))
+    } catch {
+      /* almacenamiento lleno o bloqueado */
+    }
+  },
+  removeItem: (name) => {
+    lastSaved = null
+    try {
+      localStorage.removeItem(name)
+    } catch {
+      /* almacenamiento bloqueado */
+    }
+  },
+}
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -167,20 +195,15 @@ export const useAppStore = create<AppState>()(
       pois: [],
       poiStatus: 'idle',
       selectedPoiId: null,
-      navigation: { active: false, progress: 0, following: true, simulating: false },
-      userLocation: null,
-      live: initialTracker(),
-      setLive: (live) => set({ live }),
       rerouteFrom: (origin) =>
         set((s) => {
           const filled = s.waypoints.filter((w) => w.place)
           const legs = s.route?.legs.map((l) => l.result.distance) ?? []
-          const pending = remainingStopIndices(legs, s.live.progress).map((i) => filled[i]).filter(Boolean)
+          const progress = useNavStore.getState().live.progress
+          const pending = remainingStopIndices(legs, progress).map((i) => filled[i]).filter(Boolean)
           if (pending.length === 0) return {}
           return { waypoints: [{ id: newId(), place: origin }, ...pending] }
         }),
-      locationStatus: 'idle',
-      setLocationStatus: (locationStatus) => set({ locationStatus }),
       mapTarget: null,
       fitRouteNonce: 0,
       fitPoints: null,
@@ -244,29 +267,16 @@ export const useAppStore = create<AppState>()(
           return { waypoints: wps }
         }),
       swapEnds: () => set((s) => ({ waypoints: [...s.waypoints].reverse() })),
-      clearRoute: () =>
-        set({
-          waypoints: emptyWaypoints(),
-          route: null,
-          routeStatus: 'idle',
-          routeMessage: null,
-          navigation: { active: false, progress: 0, following: true, simulating: false },
-        }),
-      setRoute: (route, routeStatus, routeMessage = null) =>
-        set((s) => {
-          // Ruta nueva (p. ej. recalculada al desviarse): el avance vuelve a 0, pero se
-          // conservan el recorrido y el tiempo del viaje en curso.
-          if (route && route !== s.route) {
-            return {
-              route,
-              routeStatus,
-              routeMessage,
-              navigation: { ...s.navigation, progress: 0 },
-              live: { ...s.live, progress: 0, status: 'waiting', offRouteFixes: 0, offRouteSince: null },
-            }
-          }
-          return { route, routeStatus, routeMessage }
-        }),
+      clearRoute: () => {
+        set({ waypoints: emptyWaypoints(), route: null, routeStatus: 'idle', routeMessage: null })
+        useNavStore.getState().resetNavigation()
+      },
+      setRoute: (route, routeStatus, routeMessage = null) => {
+        // Ruta nueva (p. ej. recalculada al desviarse): el avance vuelve a 0, pero se
+        // conservan el recorrido y el tiempo del viaje en curso.
+        if (route && route !== get().route) useNavStore.getState().resetProgressForNewRoute()
+        set({ route, routeStatus, routeMessage })
+      },
       requestFitRoute: (points) => set((s) => ({ fitRouteNonce: s.fitRouteNonce + 1, fitPoints: points ?? null })),
 
       toggleCategory: (c) =>
@@ -278,17 +288,10 @@ export const useAppStore = create<AppState>()(
       setPois: (pois, poiStatus = 'idle') => set({ pois, poiStatus }),
       selectPoi: (selectedPoiId) => set({ selectedPoiId }),
 
-      startNavigation: () =>
-        set((s) => ({
-          navigation: { active: true, progress: s.live.status === 'tracking' ? s.live.progress : 0, following: true, simulating: false },
-          // Al iniciar se mide el viaje desde cero (recorrido y tiempo).
-          live: { ...initialTracker(), progress: s.live.progress, status: s.live.status },
-          sheetExpanded: false,
-        })),
-      stopNavigation: () => set((s) => ({ navigation: { ...s.navigation, active: false, simulating: false } })),
-      setNavProgress: (progress) => set((s) => ({ navigation: { ...s.navigation, progress } })),
-      setNavFlags: (f) => set((s) => ({ navigation: { ...s.navigation, ...f } })),
-      setUserLocation: (userLocation) => set({ userLocation }),
+      startNavigation: () => {
+        useNavStore.getState().startNavigation()
+        set({ sheetExpanded: false })
+      },
 
       toggleFavorite: (p) =>
         set((s) => ({
@@ -309,29 +312,9 @@ export const useAppStore = create<AppState>()(
     {
       name: 'atlas-nav:prefs',
       version: 1,
-      // getItem tolera JSON corrupto (se trata como «sin preferencias»).
-      storage: createJSONStorage(() => ({
-        getItem: (k) => {
-          const raw = localStorage.getItem(k)
-          if (!raw) return null
-          try {
-            JSON.parse(raw)
-            return raw
-          } catch {
-            return null
-          }
-        },
-        setItem: (k, v) => {
-          try {
-            localStorage.setItem(k, v)
-          } catch {
-            /* almacenamiento lleno o bloqueado */
-          }
-        },
-        removeItem: (k) => localStorage.removeItem(k),
-      })),
+      storage: prefsStorage,
       merge: (persisted, current) => ({ ...current, ...sanitizePrefs(persisted, current) }),
-      partialize: (s) => ({
+      partialize: (s): PersistedPrefs => ({
         themeId: s.themeId,
         uiMode: s.uiMode,
         autoNightTheme: s.autoNightTheme,

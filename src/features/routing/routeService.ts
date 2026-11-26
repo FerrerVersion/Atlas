@@ -1,6 +1,6 @@
 import { ensureRoadCells } from '@/features/osm/cellLoader'
 import { networkStore } from '@/features/osm/networkStore'
-import { fetchRoadNetwork, MAJOR_ROADS, type NetworkQueryPlan } from '@/features/osm/overpassService'
+import { fetchRoadNetwork, MAJOR_ROADS, OverpassError, type NetworkQueryPlan } from '@/features/osm/overpassService'
 import { bboxAround, bboxDiagonal, bboxOf, expandBBox } from '@/utils/geometry'
 import { concatPolylines } from '@/utils/geometry'
 import { findRoute } from './astar'
@@ -83,21 +83,14 @@ export const ACCESS_RADIUS = 5000
 
 
 /**
- * Precarga las calles alrededor de una parada en cuanto se elige, antes de que
- * exista la ruta. Usa exactamente las mismas consultas que el cálculo posterior
- * (radio de trayecto medio), así que este las encuentra en caché o en curso.
+ * Precarga las calles alrededor de una parada en cuanto se elige, antes de que exista
+ * la ruta. Solo las celdas cercanas (las mismas que usa el mapa y el cálculo): el
+ * anillo de acceso de 5 km se descarga únicamente si la ruta resulta ser larga, así
+ * una ruta corta nunca provoca descargas grandes.
  */
 export async function prefetchAround(point: RoutePoint, profile: TravelProfile, signal?: AbortSignal) {
   if (profile !== 'car') return
-  // Mismas consultas que usará el cálculo de la ruta: las calles cercanas (celdas, que
-  // comparte también el mapa) y el anillo de acceso de trayectos medios. Así, mientras
-  // se elige el destino, la mitad de la descarga ya está hecha.
-  await Promise.all([
-    ensureRoadCells(bboxAround(point.lat, point.lng, 600), { maxCells: 9, signal }),
-    fetchRoadNetwork({ detail: [], access: [bboxAround(point.lat, point.lng, ACCESS_RADIUS)] }, signal).then((w) =>
-      networkStore.addWays(w),
-    ),
-  ])
+  await ensureRoadCells(bboxAround(point.lat, point.lng, 600), { maxCells: 9, signal })
 }
 
 export interface ComputeOptions {
@@ -110,6 +103,8 @@ export interface ComputeOptions {
    * (por calles reales) se entrega aquí, sin esperar al resto de la descarga.
    */
   onProvisional?: (route: MultiRoute) => void
+  /** Alguna descarga falló y la ruta se ha calculado con los datos que sí llegaron. */
+  onIncomplete?: () => void
 }
 
 /** Calcula una ruta que pasa por todas las paradas en orden. */
@@ -128,6 +123,8 @@ export async function computeMultiRoute(
 
   // Ruta provisional: se intenta con lo que ya hay (precarga, mapa) y tras cada trozo.
   let provisional = false
+  /** Primer error de descarga (si lo hubo): la ruta se intenta igualmente con lo que llegó. */
+  let downloadError: unknown = null
   const tryProvisional = () => {
     if (!opts.onProvisional || provisional || networkStore.size === 0 || opts.signal?.aborted) return
     try {
@@ -168,23 +165,32 @@ export async function computeMultiRoute(
     opts.onStatus?.(`Descargando red viaria de OpenStreetMap (0/${total})…`)
     // El cliente de Overpass limita a 2 consultas reales a la vez (en orden de llegada:
     // el corredor, lo más pesado, va primero).
-    await Promise.all([...downloads, ...details].map((t) => t().then(finished)))
+    // Se espera a TODAS las descargas aunque alguna falle: abandonar al primer fallo
+    // dejaba otras a medias y la ruta salía «inalcanzable» por falta de datos.
+    const results = await Promise.allSettled([...downloads, ...details].map((t) => t().then(finished)))
+    opts.signal?.throwIfAborted()
+    downloadError = results.find((r): r is PromiseRejectedResult => r.status === 'rejected')?.reason
   }
   opts.signal?.throwIfAborted()
 
   opts.onStatus?.('Construyendo grafo…')
   const graph = networkStore.graph(prefs.profile)
   if (graph.nodes.size === 0) {
+    if (downloadError instanceof OverpassError) throw downloadError
     throw new RouteError('No hay datos de carreteras para esta zona. No se puede calcular la ruta.')
   }
   opts.onStatus?.('Calculando ruta óptima con A*…')
   let corridor = plan?.corridor
   for (;;) {
     try {
-      return routeOnGraph(networkStore.graph(prefs.profile), points, prefs)
+      const route = routeOnGraph(networkStore.graph(prefs.profile), points, prefs)
+      if (downloadError) opts.onIncomplete?.()
+      return route
     } catch (e) {
       // Si las vías principales no conectan las paradas, se amplía el corredor un nivel.
       const finer = corridor && FINER_LEVEL[corridor.level]
+      // Si faltan datos porque una descarga falló, el problema es la descarga (no la red).
+      if (e instanceof RouteError && e.reason === 'unreachable' && downloadError instanceof OverpassError) throw downloadError
       if (!(e instanceof RouteError) || e.reason !== 'unreachable' || !corridor || !finer) throw e
       corridor = { ...corridor, level: finer }
       opts.onStatus?.('Ampliando la red de carreteras para conectar las paradas…')

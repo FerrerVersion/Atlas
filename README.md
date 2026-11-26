@@ -57,7 +57,8 @@ npm run dev          # http://localhost:5173
 
 ### Ubicación del dispositivo (GPS)
 
-- **Antes de nada se pide la ubicación**: la app no se abre hasta que la permites (si el navegador ya la tenía concedida, entra directamente). Si se deniega, una pantalla explica cómo activarla desde el candado de la barra de direcciones. Con el permiso, el mapa se centra donde estás y el punto azul se mantiene actualizado (un único seguimiento compartido por toda la app).
+- **La ubicación es opcional**: el mapa se abre siempre y se puede buscar y calcular rutas entre dos lugares sin dar permiso. El GPS solo se usa cuando lo pides: al pulsar *Mi ubicación*, *Usar mi ubicación como origen* o *Iniciar* la navegación. Si lo deniegas, se explica cómo activarlo y la app sigue funcionando. Hay un único seguimiento compartido por toda la app.
+- **Ahorro de batería**: fuera de la navegación se usa la ubicación de precisión normal; el GPS de alta precisión (lecturas cada segundo) solo mientras navegas.
 - **Mi ubicación** (botón de diana en los controles del mapa, resaltado cuando el seguimiento está activo): vuelve a centrar el mapa en tu posición.
 - **Usar mi ubicación como origen** (icono junto al campo *Origen* en la pestaña Ruta).
 - **Seguir mi ubicación GPS** en el modo navegación: la posición se proyecta sobre la ruta para avanzar las indicaciones.
@@ -80,31 +81,38 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 120 tests unitarios y de integración
+npm test             # Vitest: 130 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 48 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 52 pruebas (26 en escritorio y 26 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 
 > En macOS, si la pantalla entra en reposo Chromium deja de emitir `requestAnimationFrame` y los e2e se ralentizan o fallan. Ejecútalos con `caffeinate -dis npm run test:e2e`.
 
-Cobertura de los tests: A* (ruta directa, varios tramos, óptima frente a alternativa, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo, reconstrucción, ausencia de ciclos), construcción del grafo desde OSM, instrucciones (giros, rotondas, autopistas), multi-parada, progreso de navegación, planificación de descargas, búsqueda y normalización, adaptadores Photon/Nominatim, temas, store (cambiar tema no borra ruta), persistencia, calibración de imágenes, limitador de peticiones y componentes de UI.
+Cobertura de los tests: A* (ruta directa, varios tramos, óptima frente a alternativa, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo, reconstrucción, ausencia de ciclos), construcción del grafo desde OSM, instrucciones (giros, rotondas, autopistas), multi-parada, progreso de navegación, planificación de descargas, búsqueda y normalización, adaptadores Photon/Nominatim, temas, store (cambiar tema no borra ruta), persistencia (el GPS y la navegación no escriben en el navegador ni repintan la app), uso sin ubicación, calibración de imágenes, limitador de peticiones y componentes de UI.
 
 ## Rendimiento
 
-Medido con la versión de producción, servida comprimida como en un hosting real:
+**Medición con los servicios reales** (26/11/2026, Chromium, ruta Valencia → Buñol de 40 km, ubicación en Valencia). Overpass es un servicio público y su respuesta varía muchísimo según la carga del momento, así que cada cifra es una ejecución concreta:
+
+| | Tiempo hasta ver la ruta (cada cifra, una ejecución) | Datos de Overpass durante la ruta |
+|---|---|---|
+| Versión anterior (misma consulta en paralelo en varios espejos a los 6 s) | 30 s, 38 s, 42 s, 43 s, 90 s | 13-17 MB |
+| Espejos estrictamente de uno en uno | 72 s, 76 s, 112 s, 157 s | 7-13 MB |
+| **Versión actual** (de uno en uno + un único respaldo a los 15 s) | 57 s, 62 s, 115 s, 163 s | 13 MB |
+
+La ruta fue de 30-33 min y 39-41 km en todas las ejecuciones (31 min y 40 km en todas las de la versión actual). En esas mediciones `overpass-api.de` respondía 502 a casi todo, `overpass.private.coffee` se quedaba colgado y `maps.mail.ru` daba algún 504: el tiempo lo marca el estado de los servidores públicos. Lanzar menos consultas duplicadas es más respetuoso con ellos, pero con servidores saturados la ruta tarda más que antes. La solución de fondo es un motor de rutas o un Overpass propios (ver *Limitaciones*).
+
+**Medición con servicios simulados** (mismo extracto real de Buñol, sin red, versión anterior frente a la actual):
 
 | | Antes | Ahora |
 |---|---|---|
-| Ruta Valencia → Buñol (servidor de calles con 3 s de respuesta) | 16,5 s tras elegir destino | **7,9 s** |
-| 2.ª visita, móvil 4G lento + CPU ×4 (todo cargado) | 5,8 s | **0,6 s** |
-| 2.ª visita, primera tesela del mapa | 2,4 s | **0,15 s** |
-| Primer pintado, móvil 4G lento (1.ª visita) | 1,24 s | **0,19 s** |
-| Buscar: primera sugerencia (calle ya cargada) | 0,79 s | **0,03 s** |
-| Ruta pulsando origen y destino en el mapa | 4,8 s | **0,8 s** |
-| Ruta larga Valencia → Buñol (servidor de calles a 1,5 s por respuesta) | 3,8 s | **3,3 s** |
-| Mapa en movimiento tras una lectura GPS (fotogramas en 1 s) | 16 (y 0,75 s parado) | **44-47, sin pausas** |
-| Huecos en blanco al desplazar media pantalla (teselas lentas) | 20 | **0** |
+| Consultas Overpass al abrir la app (8 s) | 11 (9 de la zona de 200 km) | **0** |
+| Teselas pedidas al abrir la app (8 s) | 720 | **54** |
+| Consultas Overpass en una ruta corta dentro de Buñol | 14 (11 de la zona de 200 km, 2 anillos de 5 km, 1 corredor) | **4** (solo calles cercanas) |
+| Uso del GPS al abrir la app | sí (obligatorio) | **no** (solo si lo pides) |
+| Escrituras en localStorage con 20 lecturas del GPS | 60 | **0** |
+| Escrituras en localStorage en 3 s de simulación | 362 | **0** |
 
 Cómo:
 - **Descargas en paralelo**: los trozos de red viaria (corredor, calles cercanas, anillos de acceso) se piden de 2 en 2, el más pesado primero.
@@ -116,14 +124,12 @@ Cómo:
 - **Búsqueda en dos fases**: coordenadas, categorías, favoritos, historial y calles ya cargadas aparecen al instante; el servidor completa después.
 - **Clic en el mapa instantáneo**: el punto se usa al momento y su nombre real (Nominatim) se rellena cuando llega, sin recalcular.
 - **Rejilla de celdas compartida**: la carga del mapa, la precarga de paradas y las rutas reutilizan las mismas celdas de calles (nunca se piden dos veces).
-- **Overpass**: se recuerda entre visitas el último servidor que respondió; se prueba el siguiente a los 6 s (12 s en consultas grandes).
+- **Overpass**: se recuerda entre visitas el último servidor que respondió y se empieza por él; los demás espejos solo se prueban si ese falla.
 - **Movimiento fluido**: la posición se anima fotograma a fotograma entre lecturas del GPS y el mapa la acompaña sin tirones.
 - **Mapa precargado alrededor de la pantalla**: un anillo extra de teselas y 600 m de calles de margen; también carga mientras se arrastra.
-- **Ruta provisional**: en cuanto los datos llegados permiten una ruta real se muestra, y se afina al terminar la descarga. Al elegir el origen se precargan sus calles y su anillo de acceso; como mucho 2 consultas reales a Overpass a la vez.
-- **Tu zona de 200 km**: al conceder la ubicación se precarga en segundo plano el mapa del tema elegido en 200 km a tu alrededor: autopistas y autovías reales en vectorial (celdas fijas de 1°, de la más cercana a la más lejana, solo tipo y geometría, caché compacta de 7 días), dibujadas con el estilo del tema desde el zoom 7, y las teselas de los zooms 5-10. Se repite si te alejas más de 50 km.
-- **Prioridad a la ruta**: mientras se calcula una ruta el mapa se encuadra en el trayecto y todo lo demás (zona de 200 km, calles al mover el mapa, POIs) se pausa; una descarga de fondo en curso se cancela y se retoma después. Las descargas de fondo nunca ocupan una plaza de Overpass si hay otra consulta en marcha.
-- **5 km alrededor de la ruta**: con la ruta lista se cargan las carreteras reales a ≤ 5 km del trayecto (Overpass `around` sobre la línea simplificada, en tramos de 40 km) y las teselas a lo largo de la ruta al zoom del encuadre y uno más.
-- **Política de teselas de OSM**: nunca se precargan más de 250 teselas de zoom ≥ 13; la precarga regional se limita a zooms ≤ 10.
+- **Ruta provisional**: en cuanto los datos llegados permiten una ruta real se muestra, y se afina al terminar la descarga. Al elegir una parada se precargan solo sus calles cercanas (el anillo de acceso de 5 km se descarga únicamente si la ruta resulta ser larga); como mucho 2 consultas reales a Overpass a la vez.
+- **Sin descargas de fondo masivas**: no se precarga ninguna zona alrededor del usuario ni un corredor alrededor de la ruta (versiones anteriores lo hacían: unas 15 consultas Overpass pesadas y ~300 teselas por capa en cada visita). Solo se descarga lo que se ve o lo que necesita la ruta.
+- **Estado separado**: el GPS, la medición en vivo y el avance de la navegación viven en un store propio que nunca se guarda en el navegador; las preferencias solo se escriben cuando cambian. Cada proceso sin interfaz (rutas, POIs, calles, navegación) va en su propio componente, así una lectura del GPS no repinta el mapa ni los paneles.
 - **Arranque**: pantalla inicial en el propio HTML, estilos y registro de la PWA que no bloquean el pintado, paneles secundarios y modo navegación descargados aparte (precargados en reposo) y teselas sin fundido.
 
 Para medirlo: `npx vite preview --port 4173` y `node scripts/perf-ux.mjs` (servicios simulados con latencias realistas).
@@ -183,7 +189,7 @@ Si no hay datos de carreteras, **no se inventa una ruta**: se informa del motivo
 |---|---|---|
 | Autocompletado | [Photon](https://photon.komoot.io) (komoot, datos OSM) | Diseñado para búsqueda mientras se escribe. Antirrebote 220 ms, mín. 3 letras, caché. |
 | Búsqueda completa y geocodificación inversa | [Nominatim](https://nominatim.org) (OSMF) | [Política](https://operations.osmfoundation.org/policies/nominatim/): **máx. 1 petición/s**, sin autocompletado → solo al pulsar Enter o elegir un punto del mapa. |
-| Red viaria y POIs | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) | Peticiones espaciadas ≥ 1,2 s, caché IndexedDB de 7 días, zonas acotadas. Si un espejo no responde en 12 s se prueba el siguiente en paralelo (gana el primero y se cancela el resto); los errores 429/5xx se reintentan una vez. |
+| Red viaria y POIs | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) | Como mucho 2 consultas a la vez y 0,6 s entre inicios, caché IndexedDB de 7 días, zonas acotadas. Los espejos se prueban **de uno en uno**: si uno falla se pasa al siguiente. Única excepción: si no ha respondido en 15 s (30 s en consultas grandes) se lanza **un solo respaldo** en otro espejo y gana el primero que responda (nunca más de 2 servidores a la vez por consulta). Tiempo máximo por servidor: 25 s (60 s en consultas grandes). Los que responden 429/5xx se reintentan hasta 2 veces (a los 4 s y a los 8 s). |
 | Teselas | OpenStreetMap estándar, Esri (World Imagery, Light/Dark Gray Canvas), OpenTopoMap | Ninguna requiere clave API. Los basemaps de CARTO pasaron a exigir clave y no se usan. |
 
 ### Configurar fuentes alternativas
@@ -267,7 +273,8 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 
 ## Limitaciones
 
-- Depende de servicios públicos gratuitos (Overpass, Photon, Nominatim, teselas) con límites de uso; Overpass puede estar saturado (se prueban espejos y se informa al usuario). Para uso intensivo, despliega tus propias instancias.
+- **El cálculo de rutas descarga la red viaria en vivo desde Overpass**, un servicio público gratuito: con el servidor saturado una ruta puede tardar decenas de segundos (ver *Rendimiento*). Overpass, Photon, Nominatim y las teselas tienen políticas de uso ligero; la app limita sus consultas, pero para uso intensivo hay que desplegar instancias propias (o un motor de rutas en servidor).
+- El autocompletado (Photon) muestra el nombre oficial de OSM (p. ej. «València») y la búsqueda con Enter (Nominatim, en español) puede mostrar «Valencia».
 - Rutas en vivo hasta ~300 km en coche (~25 km a pie); en trayectos largos solo se descargan vías principales en el corredor.
 - No hay tráfico en tiempo real, restricciones de giro (`turn restrictions`) ni carriles; los tiempos no consideran pendientes (no hay datos de elevación), así que en puertos de montaña pueden quedarse algo cortos.
 - Las capas Esri Canvas tienen detalle nativo hasta zoom 16; por encima, las calles se dibujan en vectorial a partir de OSM.

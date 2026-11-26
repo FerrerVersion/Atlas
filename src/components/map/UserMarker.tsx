@@ -5,12 +5,13 @@ import { userIcon } from '@/features/map/mapUtils'
 import { bearing } from '@/utils/distance'
 import { pointAlong } from '@/utils/geometry'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 import { smoothLocation, smoothProgress, useSmooth } from '@/features/navigation/smoothMotion'
 
 /** Posición real del usuario (GPS) o posición simulada durante la navegación. */
 export function UserMarker() {
-  const user = useAppStore((s) => s.userLocation)
-  const active = useAppStore((s) => s.navigation.active)
+  const user = useNavStore((s) => s.userLocation)
+  const active = useNavStore((s) => s.navigation.active)
   const route = useAppStore((s) => s.route)
   const dotIcon = useMemo(() => userIcon(false), [])
   // Posiciones suavizadas fotograma a fotograma (sin saltos entre lecturas del GPS).

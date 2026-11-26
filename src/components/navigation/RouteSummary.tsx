@@ -4,10 +4,11 @@ import { formatDistance, formatDuration } from '@/utils/distance'
 import { useNow } from '@/hooks/useMediaQuery'
 import { navigationState } from '@/features/navigation/navigationProgress'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 
 export function RouteSummary() {
   const route = useAppStore((s) => s.route)
-  const live = useAppStore((s) => s.live)
+  const live = useNavStore((s) => s.live)
   const now = useNow()
   if (!route) return null
   // Si el GPS te sitúa ya sobre la ruta, se muestra lo que queda en tiempo real.

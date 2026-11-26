@@ -7,6 +7,7 @@ import { prefersReducedMotion } from '@/features/map/mapUtils'
 import { useMediaQuery } from '@/hooks/useUiTheme'
 import { smoothProgress } from '@/features/navigation/smoothMotion'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 
 /** Padding para que el panel lateral/inferior no tape la zona de interés. */
 function usePanelPadding() {
@@ -97,14 +98,14 @@ export function FitRouteController() {
 /** Sigue la posición durante la navegación. */
 export function NavigationFollow() {
   const map = useMap()
-  const active = useAppStore((s) => s.navigation.active)
-  const following = useAppStore((s) => s.navigation.following)
+  const active = useNavStore((s) => s.navigation.active)
+  const following = useNavStore((s) => s.navigation.following)
   const route = useAppStore((s) => s.route)
-  const setNavFlags = useAppStore((s) => s.setNavFlags)
+  const setNavFlags = useNavStore((s) => s.setNavFlags)
 
   useMapEvents({
     dragstart: () => {
-      if (useAppStore.getState().navigation.active) setNavFlags({ following: false })
+      if (useNavStore.getState().navigation.active) setNavFlags({ following: false })
     },
   })
 
@@ -112,7 +113,7 @@ export function NavigationFollow() {
   useEffect(() => {
     if (!active || !following || !route) return
     const v = smoothProgress.get()
-    const pos = navigationState(route, v ? v[0] : useAppStore.getState().navigation.progress).position
+    const pos = navigationState(route, v ? v[0] : useNavStore.getState().navigation.progress).position
     if (map.getZoom() < 16) map.setView(pos, 17, { animate: !prefersReducedMotion() })
   }, [map, active, following, route])
 

@@ -2,9 +2,10 @@ import { useEffect, useRef } from 'react'
 import { announce, navigationState } from '@/features/navigation/navigationProgress'
 import { formatDistance } from '@/utils/distance'
 import { updateTracker } from '@/features/navigation/liveTracking'
-import { startTracking } from './useGeolocation'
+import { setPreciseTracking, startTracking } from './useGeolocation'
 import { smoothLocation, smoothProgress } from '@/features/navigation/smoothMotion'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 
 /** Velocidad de la simulación (multiplicador sobre el tiempo real estimado). */
 const SIM_SPEEDUP = 8
@@ -15,12 +16,13 @@ const SIM_SPEEDUP = 8
  * encendida y, opcionalmente, anuncia las maniobras por voz (síntesis local).
  */
 export function useNavigationRunner() {
-  const active = useAppStore((s) => s.navigation.active)
-  const simulating = useAppStore((s) => s.navigation.simulating)
+  const active = useNavStore((s) => s.navigation.active)
+  const simulating = useNavStore((s) => s.navigation.simulating)
   const route = useAppStore((s) => s.route)
-  const user = useAppStore((s) => s.userLocation)
+  const user = useNavStore((s) => s.userLocation)
   const voice = useAppStore((s) => s.navPrefs.voice)
-  const progress = useAppStore((s) => s.navigation.progress)
+  // El avance solo interesa durante la navegación (fuera de ella no provoca renders).
+  const progress = useNavStore((s) => (s.navigation.active ? s.navigation.progress : 0))
   const lastSpoken = useRef<string>('')
 
   // Simulación
@@ -31,7 +33,7 @@ export function useNavigationRunner() {
     const tick = (now: number) => {
       const dt = (now - last) / 1000
       last = now
-      const { navigation, setNavProgress, setNavFlags } = useAppStore.getState()
+      const { navigation, setNavProgress, setNavFlags } = useNavStore.getState()
       const state = navigationState(route, navigation.progress)
       const speed = route.distance / Math.max(route.duration, 1) // m/s medio
       const next = navigation.progress + speed * SIM_SPEEDUP * dt
@@ -51,7 +53,8 @@ export function useNavigationRunner() {
   // lectura del dispositivo (aunque no se haya pulsado «Iniciar»).
   useEffect(() => {
     if (!route || !user || simulating) return
-    const s = useAppStore.getState()
+    const s = useNavStore.getState()
+    const app = useAppStore.getState()
     const fix = {
       lat: user.lat,
       lng: user.lng,
@@ -63,12 +66,12 @@ export function useNavigationRunner() {
     s.setLive(state)
     if (!active) return
     if (state.status === 'tracking' || state.status === 'arrived') s.setNavProgress(state.progress)
-    if (event === 'off-route') s.notify('Te has desviado de la ruta.', 'info')
-    if (event === 'back-on-route') s.notify('De nuevo en la ruta.', 'success')
-    if (event === 'arrived') s.notify('Has llegado a tu destino.', 'success')
+    if (event === 'off-route') app.notify('Te has desviado de la ruta.', 'info')
+    if (event === 'back-on-route') app.notify('De nuevo en la ruta.', 'success')
+    if (event === 'arrived') app.notify('Has llegado a tu destino.', 'success')
     if (event === 'reroute') {
-      s.notify('Recalculando la ruta desde tu posición…', 'info')
-      s.rerouteFrom({
+      app.notify('Recalculando la ruta desde tu posición…', 'info')
+      app.rerouteFrom({
         id: `gps:${fix.lat.toFixed(6)},${fix.lng.toFixed(6)}`,
         name: 'Mi ubicación',
         kind: 'coordinates',
@@ -83,7 +86,7 @@ export function useNavigationRunner() {
   // En simulación, el recorrido y la velocidad salen del propio avance simulado.
   useEffect(() => {
     if (!active || !simulating || !route) return
-    const s = useAppStore.getState()
+    const s = useNavStore.getState()
     const live = s.live
     s.setLive({
       ...live,
@@ -98,7 +101,10 @@ export function useNavigationRunner() {
   // Durante la navegación: seguimiento GPS activo y pantalla encendida.
   useEffect(() => {
     if (!active) return
-    startTracking({ silent: true })
+    // Navegar es la acción que necesita el GPS: se pide (con aviso si se deniega) y en
+    // alta precisión solo mientras dure la navegación.
+    setPreciseTracking(true)
+    startTracking()
     let lock: { release: () => Promise<void> } | null = null
     const nav = navigator as Navigator & { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } }
     const acquire = () =>
@@ -113,13 +119,14 @@ export function useNavigationRunner() {
     return () => {
       document.removeEventListener('visibilitychange', onVisible)
       lock?.release().catch(() => undefined)
+      setPreciseTracking(false)
     }
   }, [active])
 
   // Movimiento fluido: el avance mostrado se anima entre lecturas (ver smoothMotion.ts).
   useEffect(() => {
     // Ruta nueva o inicio/fin de la navegación: se coloca sin animar.
-    smoothProgress.reset(active && route ? [useAppStore.getState().navigation.progress] : null)
+    smoothProgress.reset(active && route ? [useNavStore.getState().navigation.progress] : null)
   }, [active, route])
   useEffect(() => {
     if (active && route) smoothProgress.setTarget([progress])
@@ -142,4 +149,10 @@ export function useNavigationRunner() {
     speechSynthesis.cancel()
     speechSynthesis.speak(u)
   }, [active, voice, route, progress])
+}
+
+/** Componente sin interfaz: aísla los renders del GPS y de la simulación del resto de la app. */
+export function NavigationRunner() {
+  useNavigationRunner()
+  return null
 }

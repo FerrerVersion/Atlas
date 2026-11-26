@@ -91,6 +91,41 @@ test('ruta con parada intermedia y modo navegación', async ({ page }) => {
   await expect(page.getByTestId('nav-hud')).toBeHidden()
 })
 
+test('la simulación y el GPS no escriben en el almacenamiento del navegador', async ({ page }) => {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __prefsWrites: number }
+    w.__prefsWrites = 0
+    const original = Storage.prototype.setItem
+    Storage.prototype.setItem = function (k: string, v: string) {
+      if (k === 'atlas-nav:prefs') w.__prefsWrites++
+      return original.call(this, k, v)
+    }
+  })
+  await page.goto('/')
+  await openTab(page, 'Ajustes')
+  await page.getByRole('button', { name: /Cargar demo offline/ }).click()
+  await openTab(page, 'Ruta')
+  await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+  await page.getByRole('option', { name: /Blasco Ibáñez/ }).first().click()
+  await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+  await page.getByRole('option', { name: /Doctor Beltrán/ }).first().click()
+  await expect(page.getByTestId('route-duration')).toBeVisible({ timeout: 15_000 })
+  await page.getByRole('button', { name: 'Iniciar' }).click()
+  await expect(page.getByTestId('nav-hud')).toBeVisible()
+  await page.waitForTimeout(800)
+
+  const writes = () => page.evaluate(() => (window as unknown as { __prefsWrites: number }).__prefsWrites)
+  const remaining = () => page.getByTestId('nav-hud').innerText()
+  const before = await writes()
+  const hudBefore = await remaining()
+  await page.getByRole('button', { name: 'Simular recorrido' }).click()
+  await page.waitForTimeout(2500)
+  // La simulación avanza (cambia el HUD)…
+  expect(await remaining()).not.toBe(hudBefore)
+  // …sin escribir nada en localStorage (antes eran ~60 escrituras por segundo).
+  expect(await writes()).toBe(before)
+})
+
 test('filtro de POIs muestra establecimientos reales', async ({ page }) => {
   await page.goto('/')
   await openTab(page, 'Ajustes')
@@ -147,8 +182,23 @@ test.describe('ubicación del dispositivo', () => {
   // Posición simulada: Plaça de l'Ajuntament (València).
   test.use({ geolocation: { latitude: 39.46975, longitude: -0.37739, accuracy: 25 }, permissions: ['geolocation'] })
 
-  test('al abrir la web centra el mapa en la ubicación sin pulsar nada y la sigue', async ({ page, context }) => {
+  test('al abrir la web no usa el GPS; tras pulsar «Mi ubicación» centra el mapa y lo sigue', async ({ page, context }) => {
+    await page.addInitScript(() => {
+      const w = window as unknown as { __geoCalls: number }
+      w.__geoCalls = 0
+      const g = navigator.geolocation
+      const watch = g.watchPosition.bind(g)
+      const current = g.getCurrentPosition.bind(g)
+      g.watchPosition = (...a) => (w.__geoCalls++, watch(...a))
+      g.getCurrentPosition = (...a) => (w.__geoCalls++, current(...a))
+    })
     await page.goto('/')
+    await expect(page.locator('.leaflet-container')).toBeVisible()
+    await page.waitForTimeout(1500)
+    expect(await page.evaluate(() => (window as unknown as { __geoCalls: number }).__geoCalls)).toBe(0)
+    await expect(page.locator('.user-dot')).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Mi ubicación', exact: true }).click()
     await expect(page.locator('.user-dot')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Mi ubicación' })).toHaveAttribute('aria-pressed', 'true')
     await expect
@@ -156,7 +206,7 @@ test.describe('ubicación del dispositivo', () => {
       .toBeCloseTo(39.4697, 2)
     // El seguimiento continúa: al moverse el dispositivo se actualiza el punto.
     await context.setGeolocation({ latitude: 39.4189, longitude: -0.7909 })
-    await page.getByRole('button', { name: 'Mi ubicación' }).click()
+    await page.getByRole('button', { name: 'Mi ubicación', exact: true }).click()
     await expect
       .poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('atlas-nav:prefs')!).state.lastView.lng))
       .toBeCloseTo(-0.7909, 2)
@@ -164,7 +214,7 @@ test.describe('ubicación del dispositivo', () => {
 
   test('«Mi ubicación» centra el mapa y muestra el punto azul', async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('button', { name: 'Mi ubicación' }).click()
+    await page.getByRole('button', { name: 'Mi ubicación', exact: true }).click()
     await expect(page.locator('.user-dot')).toBeVisible()
     await expect
       .poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('atlas-nav:prefs')!).state.lastView))
@@ -182,27 +232,44 @@ test.describe('ubicación del dispositivo', () => {
   })
 })
 
-test.describe('ubicación denegada', () => {
+test.describe('sin ubicación', () => {
   test.use({ permissions: [] })
-  test('antes de nada pide la ubicación; si se deniega explica cómo activarla y no abre el mapa', async ({ page, context }) => {
+
+  test('se abre el mapa, se busca y se calcula una ruta entre dos lugares sin conceder la ubicación', async ({ page, context }) => {
     await context.clearPermissions()
+    const overpass: string[] = []
+    page.on('request', (r) => {
+      if (/overpass|maps\.mail\.ru/.test(r.url())) overpass.push(new URLSearchParams(r.postData() ?? '').get('data') ?? '')
+    })
     await page.goto('/')
-    await expect(page.getByRole('dialog', { name: 'Permite tu ubicación' })).toBeVisible()
-    await expect(page.locator('.leaflet-container')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Permitir ubicación' }).click()
-    await expect(page.getByRole('dialog', { name: 'La ubicación está bloqueada' })).toBeVisible()
-    await expect(page.getByRole('alert')).toContainText(/candado/)
-    await expect(page.locator('.leaflet-container')).toHaveCount(0)
+    await expect(page.locator('.leaflet-container')).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    await openTab(page, 'Ruta')
+    await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+    await page.getByRole('option', { name: /Avenida de Vicente Blasco Ibáñez/ }).click()
+    await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+    await page.getByRole('option', { name: /Avenida del Doctor Beltrán Báguena/ }).click()
+    await expect(page.getByTestId('route-duration')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('instructions').locator('li').last()).toContainText('Has llegado a tu destino')
+
+    // Ruta corta (dentro de Buñol): solo celdas de calles cercanas, sin anillos de 5 km, corredores
+    // ni red regional (consultas con «convert» o «around»).
+    await page.waitForTimeout(2000)
+    expect(overpass.length).toBeLessThanOrEqual(4)
+    for (const q of overpass) {
+      expect(q).not.toMatch(/around:|convert /)
+      expect(q).not.toMatch(/"\^\(secondary\|secondary_link\|tertiary\|tertiary_link\|unclassified\)\$"/)
+    }
   })
 
-  test('al permitirla se abre el mapa centrado en el usuario', async ({ page, context }) => {
+  test('si se deniega al pulsar «Mi ubicación», se explica y el mapa sigue funcionando', async ({ page, context }) => {
     await context.clearPermissions()
     await page.goto('/')
-    await expect(page.getByRole('dialog', { name: 'Permite tu ubicación' })).toBeVisible()
-    await context.grantPermissions(['geolocation'])
-    await page.getByRole('button', { name: 'Permitir ubicación' }).click()
+    await page.getByRole('button', { name: 'Mi ubicación', exact: true }).click()
+    await expect(page.getByText(/Permiso de ubicación denegado/)).toBeVisible()
     await expect(page.locator('.leaflet-container')).toBeVisible()
-    await expect(page.locator('.user-dot')).toBeVisible()
+    await expect(page.getByRole('combobox', { name: 'Buscar un lugar' })).toBeEnabled()
   })
 })
 
@@ -418,8 +485,15 @@ test.describe('medición en tiempo real con el GPS', () => {
     await page.getByRole('option', { name: /Doctor Beltrán/ }).first().click()
     await expect(page.getByTestId('route-duration')).toBeVisible()
 
-    // Antes de pulsar «Iniciar» ya se mide en vivo si estás sobre la ruta.
+    // El GPS solo se activa cuando el usuario lo pide («Mi ubicación» o «Iniciar»). Con él
+    // activo, antes de pulsar «Iniciar» ya se mide en vivo si estás sobre la ruta.
+    // En móvil los controles del mapa quedan bajo el panel desplegado: se contrae primero.
+    const collapse = page.getByRole('button', { name: 'Contraer panel' })
+    if (await collapse.isVisible()) await collapse.click()
+    await page.getByRole('button', { name: 'Mi ubicación', exact: true }).click()
     await at(r.distance * 0.3)
+    const expand = page.getByRole('button', { name: 'Expandir panel' })
+    if (await expand.isVisible()) await expand.click()
     await expect(page.getByTestId('live-summary')).toContainText('En ruta ahora')
 
     await page.getByRole('button', { name: 'Iniciar' }).click()

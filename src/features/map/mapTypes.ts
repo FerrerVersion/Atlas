@@ -7,7 +7,7 @@ export const PANES = {
 } as const
 
 export const MIN_OVERLAY_ZOOM = 13
-/** Por debajo de MIN_OVERLAY_ZOOM solo se dibujan las vías principales (red regional de 200 km). */
+/** Por debajo de MIN_OVERLAY_ZOOM solo se dibujan las vías principales ya cargadas. */
 export const REGIONAL_MIN_ZOOM = 7
 export const STREET_LABEL_MIN_ZOOM = 16
 export const NODE_MIN_ZOOM = 16

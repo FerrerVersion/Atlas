@@ -4,6 +4,7 @@ import type { LatLngTuple } from 'leaflet'
 import type { MapTheme } from '@/features/themes/themeTypes'
 import { sliceAlong } from '@/utils/geometry'
 import { useAppStore } from '@/store/useAppStore'
+import { useNavStore } from '@/store/useNavStore'
 
 /**
  * Ruta dibujada exactamente sobre la geometría de las vías recorridas.
@@ -11,12 +12,14 @@ import { useAppStore } from '@/store/useAppStore'
  */
 export function RouteLayer({ theme }: { theme: MapTheme }) {
   const route = useAppStore((s) => s.route)
-  const nav = useAppStore((s) => s.navigation)
+  const navActive = useNavStore((s) => s.navigation.active)
+  // Solo durante la navegación interesa el avance (fuera de ella no provoca repintados).
+  const navProgress = useNavStore((s) => (s.navigation.active ? s.navigation.progress : 0))
   const positions = useMemo(() => (route?.geometry ?? []) as LatLngTuple[], [route])
 
   const traveled = useMemo(
-    () => (route && nav.active && nav.progress > 0 ? (sliceAlong(route.geometry, nav.progress) as LatLngTuple[]) : null),
-    [route, nav.active, nav.progress],
+    () => (route && navActive && navProgress > 0 ? (sliceAlong(route.geometry, navProgress) as LatLngTuple[]) : null),
+    [route, navActive, navProgress],
   )
 
   if (positions.length < 2) return null
