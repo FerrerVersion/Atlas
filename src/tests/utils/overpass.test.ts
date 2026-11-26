@@ -46,7 +46,7 @@ describe('consulta escalonada', () => {
       return Promise.resolve(Response.json({ elements: [{ id: 2 }] }))
     }))
     const p = queryOverpass<{ id: number }>(`[out:json];way(${Math.random()});out;`)
-    await vi.advanceTimersByTimeAsync(13_000)
+    await vi.advanceTimersByTimeAsync(7_000)
     await expect(p).resolves.toMatchObject({ elements: [{ id: 2 }] })
     expect(hosts).toHaveLength(2)
     expect(aborted).toEqual([hosts[0]])
@@ -87,5 +87,30 @@ describe('consultas repetidas en curso', () => {
     ctrl.abort()
     await expect(first).rejects.toThrow()
     await expect(second).resolves.toMatchObject({ elements: [{ id: 10 }] })
+  })
+})
+
+describe('servidor preferido', () => {
+  it('se recuerda entre visitas el último espejo que respondió', async () => {
+    localStorage.removeItem('atlas-nav:overpass-preferido')
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      new URL(url).host === 'maps.mail.ru' ? Response.json({ elements: [] }) : new Response('caído', { status: 503 }),
+    ))
+    vi.resetModules()
+    const { queryOverpass: q1, OVERPASS_ENDPOINTS } = await import('@/features/osm/overpassService')
+    await q1(`[out:json];way(${Math.random()});out;`)
+    const saved = localStorage.getItem('atlas-nav:overpass-preferido')
+    expect(saved).toContain('maps.mail.ru')
+    // «Nueva visita»: el primer intento va directo al espejo recordado.
+    const hits: string[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      hits.push(new URL(url).host)
+      return Response.json({ elements: [] })
+    }))
+    vi.resetModules()
+    const { queryOverpass: q2 } = await import('@/features/osm/overpassService')
+    await q2(`[out:json];way(${Math.random()});out;`)
+    expect(hits[0]).toBe('maps.mail.ru')
+    expect(OVERPASS_ENDPOINTS.length).toBeGreaterThan(1)
   })
 })

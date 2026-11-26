@@ -1,6 +1,6 @@
 import { MapControls } from '@/components/map/MapControls'
 import { MapView } from '@/components/map/MapView'
-import { NavigationHUD } from '@/components/navigation/NavigationHUD'
+import { lazy, Suspense } from 'react'
 import { Toasts } from '@/components/ui/Toasts'
 import { useAutoLocation } from '@/hooks/useGeolocation'
 import { useNavigationRunner } from '@/hooks/useNavigationRunner'
@@ -11,6 +11,9 @@ import { useMapTheme, useMediaQuery } from '@/hooks/useUiTheme'
 import { useAppStore } from '@/store/useAppStore'
 import { MobileNavigation } from './MobileNavigation'
 import { Sidebar } from './Sidebar'
+
+// El modo navegación solo se descarga al iniciarlo (o en reposo, ver PanelContent).
+const NavigationHUD = lazy(() => import('@/components/navigation/NavigationHUD').then((m) => ({ default: m.NavigationHUD })))
 
 export function AppShell() {
   const theme = useMapTheme()
@@ -39,7 +42,11 @@ export function AppShell() {
           <MapControls compact={navigating && !desktop} />
         </div>
       </div>
-      <NavigationHUD />
+      {navigating && (
+        <Suspense fallback={null}>
+          <NavigationHUD />
+        </Suspense>
+      )}
       <Toasts />
     </div>
   )

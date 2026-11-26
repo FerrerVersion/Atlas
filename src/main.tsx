@@ -10,8 +10,26 @@ import './styles/globals.css'
 import './styles/map.css'
 import { App } from './app/App'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
+/** Espera a que las hojas de estilos (cargadas sin bloquear, ver vite.config.ts) estén aplicadas. */
+function stylesReady(): Promise<unknown> {
+  const pending = [...document.querySelectorAll<HTMLLinkElement>('link[as="style"]')].filter(
+    (l) => !(l.rel === 'stylesheet' && l.sheet),
+  )
+  return Promise.all(
+    pending.map(
+      (link) =>
+        new Promise<void>((resolve) => {
+          link.addEventListener('load', () => resolve(), { once: true })
+          link.addEventListener('error', () => resolve(), { once: true })
+        }),
+    ),
+  ).then(() => new Promise((r) => requestAnimationFrame(r)))
+}
+
+stylesReady().then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  ),
 )

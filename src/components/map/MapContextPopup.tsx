@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Popup, useMapEvents } from 'react-leaflet'
 import { Flag, MapPin, Navigation2, Plus, Search } from 'lucide-react'
-import { placeFromMap } from '@/features/geocoding/placeFromMap'
+import { placeFromMap, pointPlace } from '@/features/geocoding/placeFromMap'
 import { useAppStore } from '@/store/useAppStore'
 
 /** Menú al pulsar el mapa: usar el punto como origen, destino, parada o consultar qué hay. */
@@ -29,18 +29,20 @@ export function MapContextPopup() {
 
   if (!point) return null
 
-  const act = async (kind: 'origin' | 'destination' | 'stop' | 'info') => {
+  const act = (kind: 'origin' | 'destination' | 'stop' | 'info') => {
     const p = point
-    ignoreUntil.current = performance.now() + 400
+    // El clic «sobrante» que Leaflet recibe del botón llega casi a la vez: basta un margen corto.
+    ignoreUntil.current = performance.now() + 120
     setPoint(null)
-    const s = useAppStore.getState()
-    const place = await placeFromMap(p.lat, p.lng)
+    // El punto se usa YA (la ruta empieza a calcularse); su nombre real llega después.
+    const place = pointPlace(p.lat, p.lng)
+    placeFromMap(p.lat, p.lng).then((named) => useAppStore.getState().updatePlace(named))
+    const st = useAppStore.getState()
     if (kind === 'info') {
-      s.selectPlace(place, { fly: false })
-      s.setPanelTab('explore')
+      st.selectPlace(place, { fly: false })
+      st.setPanelTab('explore')
       return
     }
-    const st = useAppStore.getState()
     if (kind === 'origin') st.setOrigin(place)
     else if (kind === 'destination') st.setDestination(place)
     else {

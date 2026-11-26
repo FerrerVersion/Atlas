@@ -86,7 +86,7 @@ export function WaypointList() {
     <div className="space-y-2">
       <ol className="space-y-2" aria-label="Paradas de la ruta">
         {waypoints.map((w, i) => (
-          <WaypointRow key={`${w.id}:${w.place?.id ?? ''}`} wp={w} index={i} total={waypoints.length} />
+          <WaypointRow key={`${w.id}:${w.place?.id ?? ''}:${w.place?.name ?? ''}`} wp={w} index={i} total={waypoints.length} />
         ))}
       </ol>
       <div className="flex gap-2">

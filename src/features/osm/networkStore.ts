@@ -83,8 +83,11 @@ class NetworkStore {
     return out
   }
 
-  /** Nombres de calle reales presentes en los datos cargados. */
+  private streetCache: { version: number; idx: Map<string, { name: string; lat: number; lng: number; highway: string }> } | null = null
+
+  /** Nombres de calle reales presentes en los datos cargados (cacheado por versión). */
   streetIndex(): Map<string, { name: string; lat: number; lng: number; highway: string }> {
+    if (this.streetCache?.version === this.version) return this.streetCache.idx
     const idx = new Map<string, { name: string; lat: number; lng: number; highway: string }>()
     for (const w of this.ways.values()) {
       const name = w.tags.name
@@ -92,6 +95,7 @@ class NetworkStore {
       const mid = w.geometry[Math.floor(w.geometry.length / 2)]
       idx.set(name, { name, lat: mid.lat, lng: mid.lon, highway: w.tags.highway })
     }
+    this.streetCache = { version: this.version, idx }
     return idx
   }
 

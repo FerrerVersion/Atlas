@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Marker, Polyline, Tooltip } from 'react-leaflet'
 import type { LeafletEvent, Marker as LMarker } from 'leaflet'
-import { placeFromMap } from '@/features/geocoding/placeFromMap'
+import { placeFromMap, pointPlace } from '@/features/geocoding/placeFromMap'
 import { waypointIcon } from '@/features/map/mapUtils'
 import type { MapTheme } from '@/features/themes/themeTypes'
 import { useAppStore } from '@/store/useAppStore'
@@ -47,9 +47,11 @@ export function WaypointMarkers({ theme }: { theme: MapTheme }) {
               keyboard
               title={w.place.name}
               eventHandlers={{
-                dragend: async (e: LeafletEvent) => {
+                dragend: (e: LeafletEvent) => {
                   const ll = (e.target as LMarker).getLatLng()
-                  setWaypoint(i, await placeFromMap(ll.lat, ll.lng))
+                  // Recalcula al instante; el nombre real se rellena cuando llega.
+                  setWaypoint(i, pointPlace(ll.lat, ll.lng))
+                  placeFromMap(ll.lat, ll.lng).then((named) => useAppStore.getState().updatePlace(named))
                 },
               }}
             >

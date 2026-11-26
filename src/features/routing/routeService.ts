@@ -1,3 +1,4 @@
+import { ensureRoadCells } from '@/features/osm/cellLoader'
 import { networkStore } from '@/features/osm/networkStore'
 import { fetchRoadNetwork, MAJOR_ROADS, type NetworkQueryPlan } from '@/features/osm/overpassService'
 import { bboxAround, bboxDiagonal, bboxOf, expandBBox } from '@/utils/geometry'
@@ -61,7 +62,8 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
   // Calles completas cerca de cada parada + anillo de acceso más amplio: los enlaces
   // núcleo↔autovía suelen ser carreteras secundarias/terciarias fuera del corredor
   // (p. ej. Buñol solo enlaza con la A-3 por la CV-425, a ~2,7 km del centro).
-  const radius = diag > 60_000 ? 1500 : 1000
+  // Las celdas de detalle incluyen todas las calles: radio corto (1-4 celdas por parada).
+  const radius = diag > 60_000 ? 900 : 600
   const accessRadius = diag > 60_000 ? 8000 : 5000
   // Primero el nivel más ligero razonable; si no conecta, se amplía (ver computeMultiRoute).
   const level: CorridorLevel = diag <= 30_000 ? 'secondary' : diag <= 120_000 ? 'primary' : 'trunk'
@@ -85,13 +87,6 @@ export async function mapLimit<T>(items: T[], limit: number, fn: (item: T) => Pr
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
 }
 
-/** Trozos de detalle y de acceso de un plan (cada uno con su propia caché). */
-function splitPlan(plan: NetworkQueryPlan): NetworkQueryPlan[] {
-  return [
-    ...plan.detail.map((b) => ({ detail: [b], carOnly: plan.carOnly })),
-    ...(plan.access ?? []).map((b) => ({ detail: [], access: [b] })),
-  ]
-}
 
 /**
  * Precarga las calles alrededor de una parada en cuanto se elige, antes de que
@@ -100,9 +95,8 @@ function splitPlan(plan: NetworkQueryPlan): NetworkQueryPlan[] {
  */
 export async function prefetchAround(point: RoutePoint, profile: TravelProfile, signal?: AbortSignal) {
   if (profile !== 'car') return
-  // Solo las calles cercanas (ligero); el anillo de acceso se pide si el trayecto es largo.
-  const [part] = splitPlan({ carOnly: true, detail: [bboxAround(point.lat, point.lng, 1000)] })
-  networkStore.addWays(await fetchRoadNetwork(part, signal))
+  // Mismas celdas que usará el cálculo de la ruta (y la carga automática del mapa).
+  await ensureRoadCells(bboxAround(point.lat, point.lng, 600), { maxCells: 9, signal })
 }
 
 export interface ComputeOptions {
@@ -129,18 +123,19 @@ export async function computeMultiRoute(
   if (plan) {
     // Descarga por trozos pequeños (cada uno con caché propia): más fiable con
     // servidores Overpass saturados que una única consulta grande.
-    // El corredor (lo más pesado) primero; los trozos se descargan en paralelo.
-    const parts: NetworkQueryPlan[] = [
-      ...(plan.corridor ? [{ detail: [], corridor: plan.corridor }] : []),
-      ...splitPlan({ ...plan, corridor: undefined }),
+    // El corredor (lo más pesado) primero; el resto en paralelo. Las calles cercanas a
+    // cada parada se piden por celdas: si la precarga o el mapa ya las tienen, no se repiten.
+    type Task = () => Promise<unknown>
+    const tasks: Task[] = [
+      ...(plan.corridor ? [() => fetchRoadNetwork({ detail: [], corridor: plan.corridor }, opts.signal, onRetry).then((w) => networkStore.addWays(w))] : []),
+      ...plan.detail.map((b) => () => ensureRoadCells(b, { maxCells: 36, signal: opts.signal, onRetry })),
+      ...(plan.access ?? []).map((b) => () => fetchRoadNetwork({ detail: [], access: [b] }, opts.signal, onRetry).then((w) => networkStore.addWays(w))),
     ]
     let done = 0
-    opts.onStatus?.(`Descargando red viaria de OpenStreetMap (0/${parts.length})…`)
-    await mapLimit(parts, OVERPASS_CONCURRENCY, async (part) => {
-      networkStore.addWays(await fetchRoadNetwork(part, opts.signal, onRetry))
-      // Solo cuenta como zona cubierta si se descargaron todas las vías (también peatonales).
-      if (!part.carOnly) networkStore.addCoverage(part.detail)
-      opts.onStatus?.(`Descargando red viaria de OpenStreetMap (${++done}/${parts.length})…`)
+    opts.onStatus?.(`Descargando red viaria de OpenStreetMap (0/${tasks.length})…`)
+    await mapLimit(tasks, OVERPASS_CONCURRENCY, async (task) => {
+      await task()
+      opts.onStatus?.(`Descargando red viaria de OpenStreetMap (${++done}/${tasks.length})…`)
     })
   }
   opts.signal?.throwIfAborted()

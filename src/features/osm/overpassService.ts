@@ -19,16 +19,37 @@ const ENDPOINT_TIMEOUT_MS = 45_000
 /** Espera antes de reintentar un servidor que respondió 429/5xx. */
 export const RETRY_DELAY_MS = 4_000
 /** Si un espejo no responde en este tiempo, se lanza el siguiente en paralelo. */
-export const HEDGE_MS = 12_000
+export const HEDGE_MS = 6_000
+/** Las consultas grandes (corredores) tardan más de forma legítima: se espera más. */
+export const HEDGE_MS_LARGE = 12_000
 
 export const OVERPASS_ENDPOINTS: string[] = (import.meta.env.VITE_OVERPASS_URLS as string | undefined)
   ?.split(',')
   .map((s) => s.trim())
   .filter(Boolean) ?? DEFAULT_ENDPOINTS
 
-const client = new RateLimitedClient(1200, ENDPOINT_TIMEOUT_MS)
+// 0,6 s entre inicios de petición; la concurrencia ya está limitada a 2 (routeService).
+const client = new RateLimitedClient(600, ENDPOINT_TIMEOUT_MS)
 /** Índice del último espejo que respondió: se prueba primero la próxima vez. */
-let preferred = 0
+const PREF_KEY = 'atlas-nav:overpass-preferido'
+/** Último espejo que respondió, recordado entre visitas (no se empieza por uno caído). */
+let preferred = (() => {
+  try {
+    const url = localStorage.getItem(PREF_KEY)
+    const idx = url ? OVERPASS_ENDPOINTS.indexOf(url) : -1
+    return idx >= 0 ? idx : 0
+  } catch {
+    return 0
+  }
+})()
+function rememberPreferred(idx: number) {
+  preferred = idx
+  try {
+    localStorage.setItem(PREF_KEY, OVERPASS_ENDPOINTS[idx])
+  } catch {
+    /* almacenamiento no disponible */
+  }
+}
 const CACHE_TTL = 7 * 24 * 3600 * 1000
 
 interface OverpassResponse<T> {
@@ -45,12 +66,13 @@ export function queryOverpass<T>(
   ql: string,
   signal?: AbortSignal,
   onRetry?: (host: string) => void,
+  hedgeMs = HEDGE_MS,
 ): Promise<OverpassResponse<T>> {
   const key = `overpass:${hashKey(ql)}`
   const pending = inFlight.get(key)
   if (pending) return abortable(pending as Promise<OverpassResponse<T>>, signal)
   // La descarga compartida no se cancela si un solo interesado se va: otro puede necesitarla.
-  const shared = runQuery<T>(ql, key, onRetry).finally(() => inFlight.delete(key))
+  const shared = runQuery<T>(ql, key, onRetry, hedgeMs).finally(() => inFlight.delete(key))
   inFlight.set(key, shared)
   return abortable(shared, signal)
 }
@@ -68,7 +90,12 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   })
 }
 
-async function runQuery<T>(ql: string, key: string, onRetry?: (host: string) => void): Promise<OverpassResponse<T>> {
+async function runQuery<T>(
+  ql: string,
+  key: string,
+  onRetry: ((host: string) => void) | undefined,
+  hedgeMs: number,
+): Promise<OverpassResponse<T>> {
   const cached = await cacheGet<OverpassResponse<T>>(key, CACHE_TTL)
   if (cached) return cached
 
@@ -81,7 +108,7 @@ async function runQuery<T>(ql: string, key: string, onRetry?: (host: string) => 
       body: new URLSearchParams({ data: ql }).toString(),
       signal: sig,
     })
-    preferred = idx
+    rememberPreferred(idx)
     await cacheSet(key, data)
     return data
   }
@@ -111,7 +138,7 @@ async function runQuery<T>(ql: string, key: string, onRetry?: (host: string) => 
         const ctrl = new AbortController()
         controllers.push(ctrl)
         pending++
-        const timer = setTimeout(launch, HEDGE_MS)
+        const timer = setTimeout(launch, hedgeMs)
         attempt(idx, ctrl.signal).then(finish, (e) => {
           pending--
           clearTimeout(timer)
@@ -191,7 +218,7 @@ export async function fetchRoadNetwork(
   signal?: AbortSignal,
   onRetry?: (host: string) => void,
 ): Promise<OsmWay[]> {
-  const res = await queryOverpass<OsmWay>(buildRoadQuery(plan), signal, onRetry)
+  const res = await queryOverpass<OsmWay>(buildRoadQuery(plan), signal, onRetry, plan.corridor ? HEDGE_MS_LARGE : HEDGE_MS)
   return res.elements.filter((e) => e.type === 'way' && Array.isArray(e.geometry) && Array.isArray(e.nodes))
 }
 

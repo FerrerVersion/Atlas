@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>96 + 46</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>100 + 46</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -171,7 +171,7 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>96 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm test</code></td><td>100 tests unitarios y de integración (Vitest).</td></tr>
     <tr><td><code>npm run test:e2e</code></td><td>46 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
@@ -484,7 +484,7 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>96</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>100</b><span>tests unitarios y de integración</span></div>
     <div class="kpi"><b>46</b><span>pruebas e2e (23 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
@@ -534,13 +534,20 @@ npm run dev</pre>
     <tr><td>Ruta Valencia → Buñol (servidor de calles con 3 s de respuesta)</td><td>16,5 s tras elegir el destino</td><td><b>7,9 s</b></td></tr>
     <tr><td>Segunda visita en móvil (4G lento, CPU ×4): todo cargado</td><td>5,8 s</td><td><b>0,6 s</b></td></tr>
     <tr><td>Segunda visita: primera imagen del mapa</td><td>2,4 s</td><td><b>0,15 s</b></td></tr>
+    <tr><td>Primer pintado en móvil lento (primera visita)</td><td>1,24 s</td><td><b>0,19 s</b></td></tr>
+    <tr><td>Buscar: primera sugerencia (calle ya cargada)</td><td>0,79 s</td><td><b>0,03 s</b></td></tr>
+    <tr><td>Ruta pulsando origen y destino en el mapa</td><td>4,8 s</td><td><b>0,8 s</b></td></tr>
     <tr><td>Construir el grafo (15 000 vías) + A*</td><td colspan="2">≈ 100 ms: no es el cuello de botella</td></tr>
   </table>
   <ul>
     <li><b>Descargas en paralelo</b> (de 2 en 2, el corredor primero) y <b>precarga</b> de las calles de cada parada en cuanto se elige.</li>
     <li><b>Sin duplicados</b>: una consulta ya en curso se reutiliza (p. ej. precarga + ruta).</li>
     <li><b>PWA</b>: la app y las teselas vistas se guardan en el dispositivo durante 14 días; se puede instalar como app y el mapa visitado funciona sin conexión.</li>
-    <li><b>Librerías en paquetes propios</b> que se cachean entre versiones, <b>conexiones anticipadas</b> a los servidores y <b>menos esperas</b> (buscador 220 ms; calles y POIs 400 ms).</li>
+    <li><b>Librerías en paquetes propios</b> que se cachean entre versiones, <b>conexiones anticipadas</b> a los servidores y <b>menos esperas</b> (buscador 180 ms; calles y POIs 400 ms).</li>
+    <li><b>Búsqueda en dos fases</b>: lo que ya está en el dispositivo (coordenadas, categorías, favoritos, historial, calles cargadas) aparece al instante.</li>
+    <li><b>Clic en el mapa instantáneo</b>: el punto se usa al momento y el nombre real llega después sin recalcular.</li>
+    <li><b>Rejilla de celdas compartida</b> entre mapa, precarga y rutas; <b>servidor Overpass recordado</b> entre visitas y siguiente servidor a los 6 s.</li>
+    <li><b>Arranque</b>: pantalla inicial en el HTML, estilos y registro de la PWA sin bloquear el pintado (este último retrasaba 1 s el primer pintado), paneles secundarios diferidos y teselas sin fundido.</li>
   </ul>
 </section>
 
@@ -628,7 +635,8 @@ VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/
     <tr><td class="mono">0f72487</td><td>fix: fallos encontrados en pruebas exploratorias (app, buscador, móvil)</td></tr>
     <tr><td class="mono">df5a7a9</td><td>fix: casos límite del editor de mapas personalizados</td></tr>
     <tr><td class="mono">3856c86</td><td>perf: rutas en paralelo con precarga, PWA y caché de teselas</td></tr>
-    <tr><td class="mono">—</td><td>feat: medición de la ruta en tiempo real con el GPS y recálculo al desviarse</td></tr>
+    <tr><td class="mono">07d56fd</td><td>feat: medición de la ruta en tiempo real con el GPS y recálculo al desviarse</td></tr>
+    <tr><td class="mono">—</td><td>perf: respuesta instantánea, celdas compartidas y arranque sin bloqueos</td></tr>
   </table>
 
   <h3>A.5 Glosario</h3>

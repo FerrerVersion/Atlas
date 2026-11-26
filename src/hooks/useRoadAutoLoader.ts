@@ -1,27 +1,13 @@
 import { useEffect } from 'react'
-import { cellsForBBox, networkStore } from '@/features/osm/networkStore'
-import { fetchRoadNetwork } from '@/features/osm/overpassService'
-import { bboxOf, type BBox } from '@/utils/geometry'
+import { ensureRoadCells } from '@/features/osm/cellLoader'
+import { cellsForBBox } from '@/features/osm/networkStore'
+import type { BBox } from '@/utils/geometry'
 import { isAbortError } from '@/utils/http'
 import { useAppStore } from '@/store/useAppStore'
 
 export const AUTOLOAD_MIN_ZOOM = 15
-const MAX_CELLS = 9
-
-/** Descarga las celdas de red viaria que faltan para una zona (máx. 9 celdas ≈ 4,5 km). */
-export async function loadRoadsForBBox(view: BBox, signal?: AbortSignal) {
-  const missing = cellsForBBox(view).filter((c) => !networkStore.hasCell(c.key)).slice(0, MAX_CELLS)
-  if (missing.length === 0) return 0
-  const corners = missing.flatMap((c) => [
-    { lat: c.bbox.south, lng: c.bbox.west },
-    { lat: c.bbox.north, lng: c.bbox.east },
-  ])
-  const ways = await fetchRoadNetwork({ detail: [bboxOf(corners)] }, signal)
-  networkStore.addWays(ways)
-  networkStore.markCells(missing.map((c) => c.key))
-  networkStore.addCoverage(missing.map((c) => c.bbox))
-  return ways.length
-}
+/** Descarga las celdas de calles que faltan en la zona visible (máx. 9 celdas ≈ 4,5 km). */
+export const loadRoadsForBBox = (view: BBox, signal?: AbortSignal) => ensureRoadCells(view, { maxCells: 9, signal })
 
 /** Carga automáticamente las calles reales al acercarse (zoom ≥ 15). */
 export function useRoadAutoLoader() {

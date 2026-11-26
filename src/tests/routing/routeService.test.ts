@@ -28,8 +28,11 @@ vi.mock('@/features/osm/overpassService', async (orig) => ({
     running--
     if (plan.corridor) return plan.corridor.level === 'secondary' ? [SECONDARY] : []
     if (plan.access) return []
+    // Devuelve las vías locales que caen dentro de la zona pedida.
     const [b] = plan.detail
-    return b.south < 39.45 ? [LOCAL_B] : [LOCAL_A]
+    return [LOCAL_A, LOCAL_B].filter((w) =>
+      w.geometry.some((p) => p.lat >= b.south && p.lat <= b.north && p.lon >= b.west && p.lon <= b.east),
+    )
   }),
 }))
 

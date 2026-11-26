@@ -30,6 +30,8 @@ export function MapView({ theme }: { theme: MapTheme }) {
         maxZoom={19}
         zoomControl={false}
         worldCopyJump
+        // Las teselas aparecen en cuanto llegan (sin animación de fundido).
+        fadeAnimation={false}
         className="h-full w-full"
         attributionControl
       >

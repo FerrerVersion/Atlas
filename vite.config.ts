@@ -3,22 +3,42 @@ import { fileURLToPath, URL } from 'node:url'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // `npm run dev:movil`: HTTPS + red local, necesario para usar el GPS desde el móvil
 // (los navegadores solo permiten la geolocalización en HTTPS o en localhost).
 const mobile = process.env.ATLAS_MOBILE === '1'
 
+/**
+ * La hoja de estilos deja de bloquear el primer pintado: la pantalla de arranque del
+ * HTML se ve al instante y la app (main.tsx) espera a que los estilos estén aplicados.
+ */
+const nonBlockingCss = (): Plugin => ({
+  name: 'atlas-css-no-bloqueante',
+  apply: 'build',
+  transformIndexHtml: {
+    order: 'post',
+    handler: (html) =>
+      html.replace(
+        /<link rel="stylesheet"([^>]*)>/g,
+        `<link rel="preload" as="style"$1 onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet"$1></noscript>`,
+      ),
+  },
+})
+
 export default defineConfig({
   plugins: [
     react(),
+    nonBlockingCss(),
     tailwindcss(),
     ...(mobile ? [basicSsl()] : []),
     // PWA: la app y las teselas ya vistas se guardan en el dispositivo → las visitas
     // siguientes cargan casi al instante y el mapa visitado funciona sin conexión.
     VitePWA({
       registerType: 'autoUpdate',
+      // Registro diferido: el script no bloquea el primer pintado.
+      injectRegister: 'script-defer',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
       manifest: {
         name: 'Atlas · Navegación',

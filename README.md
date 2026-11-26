@@ -78,7 +78,7 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 96 tests unitarios y de integración
+npm test             # Vitest: 100 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
 npm run test:e2e     # Playwright: 46 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint
@@ -97,6 +97,9 @@ Medido con la versión de producción, servida comprimida como en un hosting rea
 | Ruta Valencia → Buñol (servidor de calles con 3 s de respuesta) | 16,5 s tras elegir destino | **7,9 s** |
 | 2.ª visita, móvil 4G lento + CPU ×4 (todo cargado) | 5,8 s | **0,6 s** |
 | 2.ª visita, primera tesela del mapa | 2,4 s | **0,15 s** |
+| Primer pintado, móvil 4G lento (1.ª visita) | 1,24 s | **0,19 s** |
+| Buscar: primera sugerencia (calle ya cargada) | 0,79 s | **0,03 s** |
+| Ruta pulsando origen y destino en el mapa | 4,8 s | **0,8 s** |
 
 Cómo:
 - **Descargas en paralelo**: los trozos de red viaria (corredor, calles cercanas, anillos de acceso) se piden de 2 en 2, el más pesado primero.
@@ -104,7 +107,14 @@ Cómo:
 - **Sin duplicados**: si la misma consulta ya está en curso, se reutiliza.
 - **PWA / service worker**: la app y las teselas ya vistas se guardan en el dispositivo (14 días). La web se puede instalar como app y el mapa ya visitado funciona sin conexión.
 - **Librerías en paquetes propios** (React, Leaflet, router), que se cachean entre versiones; **conexiones anticipadas** (*preconnect*) a los servidores de teselas y búsqueda.
-- **Menos esperas**: buscador 220 ms, carga de calles y POIs 400 ms.
+- **Menos esperas**: buscador 180 ms (0 si ya está en caché), carga de calles y POIs 400 ms.
+- **Búsqueda en dos fases**: coordenadas, categorías, favoritos, historial y calles ya cargadas aparecen al instante; el servidor completa después.
+- **Clic en el mapa instantáneo**: el punto se usa al momento y su nombre real (Nominatim) se rellena cuando llega, sin recalcular.
+- **Rejilla de celdas compartida**: la carga del mapa, la precarga de paradas y las rutas reutilizan las mismas celdas de calles (nunca se piden dos veces).
+- **Overpass**: se recuerda entre visitas el último servidor que respondió; se prueba el siguiente a los 6 s (12 s en consultas grandes).
+- **Arranque**: pantalla inicial en el propio HTML, estilos y registro de la PWA que no bloquean el pintado, paneles secundarios y modo navegación descargados aparte (precargados en reposo) y teselas sin fundido.
+
+Para medirlo: `npx vite preview --port 4173` y `node scripts/perf-ux.mjs` (servicios simulados con latencias realistas).
 
 Construir el grafo y calcular A* no es el cuello de botella: con 15 000 vías reales tarda unos 100 ms.
 

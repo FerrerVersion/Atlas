@@ -108,6 +108,8 @@ export interface AppState {
   setLastView: (v: MapView) => void
 
   setWaypoint: (index: number, place: Place | null) => void
+  /** Sustituye el lugar con ese id (p. ej. al llegar su nombre real) sin mover la parada. */
+  updatePlace: (place: Place) => void
   setOrigin: (place: Place) => void
   setDestination: (place: Place) => void
   addStop: (place?: Place | null) => void
@@ -211,6 +213,11 @@ export const useAppStore = create<AppState>()(
 
       setWaypoint: (index, place) =>
         set((s) => ({ waypoints: s.waypoints.map((w, i) => (i === index ? { ...w, place } : w)) })),
+      updatePlace: (place) =>
+        set((s) => ({
+          waypoints: s.waypoints.map((w) => (w.place?.id === place.id ? { ...w, place: { ...place, lat: w.place.lat, lng: w.place.lng } } : w)),
+          selectedPlace: s.selectedPlace?.id === place.id ? place : s.selectedPlace,
+        })),
       setOrigin: (place) => get().setWaypoint(0, place),
       setDestination: (place) => get().setWaypoint(get().waypoints.length - 1, place),
       addStop: (place = null) =>

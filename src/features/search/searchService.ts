@@ -124,6 +124,8 @@ const cache = new Map<string, Place[]>()
 export interface SearchOptions {
   near?: { lat: number; lng: number }
   pois?: POI[]
+  /** Favoritos e historial: se ofrecen al instante si coinciden. */
+  saved?: Place[]
   signal?: AbortSignal
   /** true = búsqueda confirmada (Enter) → Nominatim; false = autocompletado → Photon. */
   submit?: boolean
@@ -133,16 +135,39 @@ export interface SearchOptions {
  * Búsqueda combinada: coordenadas, categoría, datos locales y geocodificador remoto.
  * Cachea por consulta para evitar peticiones repetidas.
  */
-export async function searchPlaces(query: string, opts: SearchOptions = {}): Promise<Place[]> {
+/** Favoritos e historial que coinciden con la búsqueda (sin red). */
+function searchSaved(query: string, saved: Place[], near?: { lat: number; lng: number }): Place[] {
+  const scored = saved
+    .map((p) => ({ p, score: matchScore(p.name, query) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map((x) => x.p)
+  return withDistances(scored, near)
+}
+
+/**
+ * Resultados INSTANTÁNEOS (sin red): coordenadas, categoría, favoritos/historial y
+ * calles o POIs ya cargados. Se muestran mientras responde el servidor.
+ */
+export function searchInstant(query: string, opts: Omit<SearchOptions, 'signal' | 'submit'> = {}): Place[] {
   const q = query.trim()
   if (q.length < 2) return []
   const coords = parseCoordinates(q)
   if (coords) return [coords]
-
-  const head: Place[] = []
   const cat = detectCategory(q)
-  if (cat) head.push(categoryPlace(cat))
-  const local = searchLocal(q, opts.pois ?? [], opts.near)
+  return dedupe([
+    ...(cat ? [categoryPlace(cat)] : []),
+    ...searchSaved(q, opts.saved ?? [], opts.near),
+    ...searchLocal(q, opts.pois ?? [], opts.near),
+  ])
+}
+
+export async function searchPlaces(query: string, opts: SearchOptions = {}): Promise<Place[]> {
+  const q = query.trim()
+  if (q.length < 2) return []
+  if (parseCoordinates(q)) return searchInstant(q, opts)
+  const instant = searchInstant(q, opts)
 
   const provider = opts.submit ? geocoding.searchProvider : geocoding.autocompleteProvider
   const nearKey = opts.near ? `${opts.near.lat.toFixed(1)},${opts.near.lng.toFixed(1)}` : ''
@@ -157,6 +182,13 @@ export async function searchPlaces(query: string, opts: SearchOptions = {}): Pro
   }
   // Una calle local con el mismo nombre que un resultado remoto es la misma calle.
   const remoteNames = new Set((remote ?? []).map((p) => normalize(p.name)))
-  const extra = local.filter((p) => !(p.kind === 'street' && remoteNames.has(normalize(p.name))))
+  const head = instant.filter((p) => p.kind === 'category')
+  const extra = instant.filter((p) => p.kind !== 'category' && !(p.kind === 'street' && remoteNames.has(normalize(p.name))))
   return dedupe([...head, ...withDistances(remote ?? [], opts.near), ...extra])
+}
+
+/** ¿Hay resultados remotos ya en caché para esta búsqueda? (para mostrarlos sin esperar). */
+export function hasCachedRemote(query: string, near?: { lat: number; lng: number }) {
+  const nearKey = near ? `${near.lat.toFixed(1)},${near.lng.toFixed(1)}` : ''
+  return cache.has(`${geocoding.autocompleteProvider.id}|${normalize(query.trim())}|${nearKey}`)
 }

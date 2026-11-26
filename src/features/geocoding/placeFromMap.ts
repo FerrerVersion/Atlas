@@ -1,11 +1,8 @@
 import { geocoding, type Place } from './geocodingService'
 
-/**
- * Crea un lugar a partir de un punto del mapa. Intenta obtener el nombre REAL
- * con geocodificación inversa (Nominatim); si falla, usa solo las coordenadas.
- */
-export async function placeFromMap(lat: number, lng: number): Promise<Place> {
-  const fallback: Place = {
+/** Lugar inmediato con solo las coordenadas (no espera a ningún servidor). */
+export function pointPlace(lat: number, lng: number): Place {
+  return {
     id: `map:${lat.toFixed(6)},${lng.toFixed(6)}`,
     name: `Punto ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
     kind: 'coordinates',
@@ -14,10 +11,17 @@ export async function placeFromMap(lat: number, lng: number): Promise<Place> {
     lng,
     source: 'map',
   }
+}
+
+/**
+ * Nombre REAL del punto con geocodificación inversa (Nominatim). Conserva el id y la
+ * posición exacta del punto; si no hay nombre, devuelve el lugar con coordenadas.
+ */
+export async function placeFromMap(lat: number, lng: number): Promise<Place> {
+  const fallback = pointPlace(lat, lng)
   try {
     const found = await geocoding.reverseProvider.reverse?.(lat, lng)
     if (!found) return fallback
-    // Conserva la posición exacta elegida y usa el nombre real devuelto por OSM.
     return { ...found, id: fallback.id, lat, lng, source: 'map', bbox: undefined, address: found.address }
   } catch {
     return fallback

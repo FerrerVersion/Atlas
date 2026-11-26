@@ -1,9 +1,28 @@
+import { lazy, Suspense } from 'react'
 import { Compass, Palette, Route, Settings, Star } from 'lucide-react'
 import { ExplorePanel } from '@/components/explore/ExplorePanel'
-import { RoutePanel } from '@/components/navigation/RoutePanel'
-import { SavedPanel } from '@/components/saved/SavedPanel'
-import { SettingsPanel } from '@/components/settings/SettingsPanel'
 import { ThemeGallery } from '@/components/themes/ThemeGallery'
+import { Spinner } from '@/components/ui/Controls'
+
+/*
+ * Solo «Explorar» va en la carga inicial. El resto de paneles se descargan aparte y
+ * se precargan en cuanto el navegador queda libre, así que al pulsar ya están listos.
+ */
+const loadRoute = () => import('@/components/navigation/RoutePanel')
+const loadSaved = () => import('@/components/saved/SavedPanel')
+const loadSettings = () => import('@/components/settings/SettingsPanel')
+const RoutePanel = lazy(() => loadRoute().then((m) => ({ default: m.RoutePanel })))
+const SavedPanel = lazy(() => loadSaved().then((m) => ({ default: m.SavedPanel })))
+const SettingsPanel = lazy(() => loadSettings().then((m) => ({ default: m.SettingsPanel })))
+
+if (typeof window !== 'undefined') {
+  const idle = window.requestIdleCallback ?? ((fn: () => void) => setTimeout(fn, 1200))
+  idle(() => {
+    loadRoute()
+    loadSaved()
+    loadSettings()
+  })
+}
 import { useAppStore, type PanelTab } from '@/store/useAppStore'
 
 const TABS: { id: PanelTab; label: string; icon: typeof Compass }[] = [
@@ -48,11 +67,13 @@ export function PanelContent() {
   const tab = useAppStore((s) => s.panelTab)
   return (
     <div id="panel-content" role="tabpanel" className="animate-fade-in" key={tab}>
-      {tab === 'explore' && <ExplorePanel />}
-      {tab === 'route' && <RoutePanel />}
-      {tab === 'styles' && <ThemeGallery />}
-      {tab === 'saved' && <SavedPanel />}
-      {tab === 'settings' && <SettingsPanel />}
+      <Suspense fallback={<Spinner className="mx-auto my-8 block h-5 w-5 text-slate-400" />}>
+        {tab === 'explore' && <ExplorePanel />}
+        {tab === 'route' && <RoutePanel />}
+        {tab === 'styles' && <ThemeGallery />}
+        {tab === 'saved' && <SavedPanel />}
+        {tab === 'settings' && <SettingsPanel />}
+      </Suspense>
     </div>
   )
 }
