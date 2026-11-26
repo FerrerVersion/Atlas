@@ -148,4 +148,6 @@ export interface MultiRoute {
   instructions: Instruction[]
   /** Puntos donde se ajustó cada parada a la red. */
   snapped: { lat: number; lng: number; offsetMeters: number; nodeId: string }[]
+  /** Alguna descarga falló: la ruta se calculó con datos parciales y puede no ser la mejor. */
+  incomplete?: boolean
 }

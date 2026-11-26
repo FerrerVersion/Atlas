@@ -64,6 +64,26 @@ const CAR_TYPES = new Set<RoadType>([
 
 /** Valores de acceso que impiden circular a un coche particular. */
 const NO_CAR_ACCESS = new Set(['no', 'private', 'agricultural', 'forestry', 'delivery', 'customers', 'emergency', 'military', 'discouraged'])
+/** Valores de acceso que impiden pasar a pie. */
+const NO_FOOT_ACCESS = new Set(['no', 'private', 'use_sidepath', 'emergency', 'military'])
+
+/**
+ * Jerarquía de acceso de OSM: manda la etiqueta MÁS ESPECÍFICA que exista. Para un
+ * coche, motorcar > motor_vehicle > vehicle > access; a pie, foot > access.
+ * Ejemplos: access=no + foot=yes (zona peatonal) se puede recorrer a pie;
+ * access=no + motor_vehicle=yes se puede recorrer en coche; access=no + bus=yes, no.
+ * Devuelve el valor que aplica o undefined si ninguna etiqueta lo dice.
+ */
+export function accessFor(tags: Record<string, string>, profile: TravelProfile): string | undefined {
+  const chain = profile === 'car' ? ['motorcar', 'motor_vehicle', 'vehicle', 'access'] : ['foot', 'access']
+  for (const key of chain) {
+    const v = tags[key]?.trim().toLowerCase()
+    // Valores con condiciones (p. ej. "no @ (Mo-Fr 08:00-10:00)") o varios (";")
+    // se toman por su primera parte: es la regla general.
+    if (v) return v.split(/[;@]/)[0].trim()
+  }
+  return undefined
+}
 
 /** Velocidad en caminos según su firmeza (tracktype de OSM). */
 export function trackSpeed(tags: Record<string, string>): number {
@@ -144,20 +164,18 @@ export function onewayDirection(tags: Record<string, string>, profile: TravelPro
 }
 
 function isAllowed(type: RoadType, tags: Record<string, string>, profile: TravelProfile): boolean {
-  const access = tags.access?.toLowerCase()
-  if (access === 'no' || access === 'private') return false
+  const access = accessFor(tags, profile)
   if (profile === 'car') {
     if (!CAR_TYPES.has(type)) return false
-    for (const key of ['access', 'vehicle', 'motor_vehicle', 'motorcar']) {
-      const v = tags[key]?.toLowerCase()
-      if (v && NO_CAR_ACCESS.has(v)) return false
-    }
+    if (access && NO_CAR_ACCESS.has(access)) return false
     // Caminos en muy mal estado o marcados como intransitables.
     if (type === 'track' && (tags.tracktype === 'grade5' || tags.smoothness === 'impassable')) return false
     return true
   }
-  if (tags.foot === 'no') return false
-  return !WALK_EXCLUDED.has(type)
+  if (access && NO_FOOT_ACCESS.has(access)) return false
+  // Autovías y vías rápidas: a pie solo si una etiqueta lo permite expresamente.
+  if (WALK_EXCLUDED.has(type)) return tags.foot === 'yes' || tags.foot === 'designated' || tags.foot === 'permissive'
+  return true
 }
 
 /* ------------------------------------------------------------------ */

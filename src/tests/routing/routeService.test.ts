@@ -97,6 +97,8 @@ describe('descargas que fallan', () => {
     )
     expect(route.distance).toBeGreaterThan(30_000)
     expect(onIncomplete).toHaveBeenCalledTimes(1)
+    // La ruta queda marcada (el resumen lo muestra de forma permanente).
+    expect(route.incomplete).toBe(true)
   })
 
   it('si faltan datos por un fallo de descarga, informa del fallo y no de una red «inalcanzable»', async () => {

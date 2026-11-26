@@ -1,4 +1,4 @@
-import { Clock, Gauge, Milestone, Navigation, Trash2 } from 'lucide-react'
+import { Clock, Gauge, Milestone, Navigation, Trash2, TriangleAlert } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { formatDistance, formatDuration } from '@/utils/distance'
 import { useNow } from '@/hooks/useMediaQuery'
@@ -31,6 +31,17 @@ export function RouteSummary() {
           Iniciar
         </Button>
       </div>
+      {route.incomplete && (
+        <p
+          role="note"
+          className="flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
+          data-testid="route-incomplete"
+        >
+          <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          Ruta aproximada: no se pudieron descargar todos los datos de OpenStreetMap, así que puede no ser la mejor. Vuelve a
+          calcularla en unos minutos.
+        </p>
+      )}
       {liveState && (
         <p className="flex items-center gap-2 rounded-xl bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300" data-testid="live-summary">
           <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />

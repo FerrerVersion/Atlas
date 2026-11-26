@@ -1,7 +1,7 @@
 import { ensureRoadCells } from '@/features/osm/cellLoader'
 import { networkStore } from '@/features/osm/networkStore'
 import { fetchRoadNetwork, MAJOR_ROADS, OverpassError, type NetworkQueryPlan } from '@/features/osm/overpassService'
-import { bboxAround, bboxDiagonal, bboxOf, expandBBox } from '@/utils/geometry'
+import { bboxAround, bboxDiagonal, bboxOf, expandBBox, type BBox } from '@/utils/geometry'
 import { concatPolylines } from '@/utils/geometry'
 import { findRoute } from './astar'
 import { attachVirtualStop, nearestEdge, type EdgeSnap, type VirtualStop } from './edgeSnap'
@@ -53,7 +53,9 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
   const diag = bboxDiagonal(box)
   if (profile === 'walk') {
     if (diag > 25_000) throw new RouteError('A pie solo se calculan rutas de hasta ~25 km con datos en vivo.')
-    return { detail: [expandBBox(box, 600)] }
+    // Todas las calles y caminos, pero solo a lo largo de cada tramo (no el rectángulo
+    // entero: en 25 km de ciudad serían cientos de km² de aceras).
+    return { detail: walkCorridor(points) }
   }
   if (diag <= 6_000) return { detail: [expandBBox(box, 900)], carOnly: true }
   if (diag > 320_000) {
@@ -79,6 +81,32 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
 
 /** Radio del anillo de acceso en trayectos medios (y en la precarga). */
 export const ACCESS_RADIUS = 5000
+
+/** Separación entre muestras del corredor a pie y margen a cada lado (mínimo / máximo). */
+export const WALK_STEP_M = 1_000
+export const WALK_MARGIN_MIN_M = 600
+export const WALK_MARGIN_MAX_M = 1_500
+
+/**
+ * Zonas a lo largo de cada tramo a pie (línea recta entre paradas) con un margen
+ * proporcional a su longitud: ahí están los caminos que puede usar la ruta. Si no
+ * bastan, computeMultiRoute amplía el margen una vez.
+ */
+export function walkCorridor(points: RoutePoint[], scale = 1): BBox[] {
+  const boxes: BBox[] = []
+  for (let k = 0; k < points.length - 1; k++) {
+    const a = points[k]
+    const b = points[k + 1]
+    const len = haversine(a.lat, a.lng, b.lat, b.lng)
+    const margin = Math.min(WALK_MARGIN_MAX_M, Math.max(WALK_MARGIN_MIN_M, len * 0.1)) * scale
+    const steps = Math.max(1, Math.ceil(len / WALK_STEP_M))
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps
+      boxes.push(bboxAround(a.lat + (b.lat - a.lat) * t, a.lng + (b.lng - a.lng) * t, margin))
+    }
+  }
+  return boxes
+}
 
 
 
@@ -157,7 +185,10 @@ async function computeWithPinnedArea(points: RoutePoint[], prefs: RoutePreferenc
     type Task = () => Promise<unknown>
     // Las calles cercanas suelen estar ya precargadas o en camino: se esperan aparte para
     // no ocupar una de las 2 plazas de descarga mientras tanto.
-    const details: Task[] = plan.detail.map((b) => () => ensureRoadCells(b, { maxCells: 36, signal: opts.signal, onRetry }))
+    // Sin recorte de celdas (maxCells: Infinity): se piden por bloques. A pie, todo el
+    // corredor en una sola llamada (así las zonas que se solapan no se piden dos veces).
+    const cellsOf = (areas: BBox | BBox[]) => () => ensureRoadCells(areas, { maxCells: Infinity, signal: opts.signal, onRetry })
+    const details: Task[] = prefs.profile === 'walk' ? [cellsOf(plan.detail)] : plan.detail.map((b) => cellsOf(b))
     const downloads: Task[] = [
       ...(plan.corridor ? [() => fetchRoadNetwork({ detail: [], corridor: plan.corridor }, opts.signal, onRetry).then((w) => networkStore.addWays(w))] : []),
       ...(plan.access ?? []).map((b) => () => fetchRoadNetwork({ detail: [], access: [b] }, opts.signal, onRetry).then((w) => networkStore.addWays(w))),
@@ -192,12 +223,25 @@ async function computeWithPinnedArea(points: RoutePoint[], prefs: RoutePreferenc
   }
   opts.onStatus?.('Calculando ruta óptima con A*…')
   let corridor = plan?.corridor
+  let walkWidened = false
   for (;;) {
     try {
       const route = routeOnGraph(networkStore.graph(prefs.profile), points, prefs)
-      if (downloadError) opts.onIncomplete?.()
+      if (downloadError) {
+        // Calculada con datos parciales: puede no ser la mejor. Se marca y se avisa.
+        route.incomplete = true
+        opts.onIncomplete?.()
+      }
       return route
     } catch (e) {
+      // A pie: si los caminos del corredor no conectan, se amplía su margen una vez.
+      if (e instanceof RouteError && e.reason === 'unreachable' && plan && prefs.profile === 'walk' && !walkWidened && !downloadError) {
+        walkWidened = true
+        opts.onStatus?.('Ampliando la zona de caminos para conectar las paradas…')
+        await ensureRoadCells(walkCorridor(points, 2.5), { maxCells: Infinity, signal: opts.signal, onRetry })
+        opts.signal?.throwIfAborted()
+        continue
+      }
       // Si las vías principales no conectan las paradas, se amplía el corredor un nivel.
       const finer = corridor && FINER_LEVEL[corridor.level]
       // Si faltan datos porque una descarga falló, el problema es la descarga (no la red).
