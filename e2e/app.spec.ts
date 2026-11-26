@@ -476,3 +476,38 @@ test.describe('medición en tiempo real con el GPS', () => {
     await expect(page.getByRole('combobox', { name: 'Origen' })).toHaveValue('Mi ubicación')
   })
 })
+
+test('al desplazar el mapa, las teselas del borde ya están cargadas (sin huecos)', async ({ page }) => {
+  // Teselas lentas (0,4 s): sin margen precargado, lo que entra por el borde se vería en blanco.
+  await page.unroute(/(tile\.openstreetmap\.org|arcgisonline\.com|opentopomap\.org)/)
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
+  await page.route(/(tile\.openstreetmap\.org|arcgisonline\.com|opentopomap\.org)/, async (route) => {
+    await new Promise((r) => setTimeout(r, 400))
+    await route.fulfill({ status: 200, contentType: 'image/png', body: png })
+  })
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await page.waitForTimeout(800)
+  const map = page.locator('.leaflet-container')
+  const box = (await map.boundingBox())!
+  // Arrastre de un cuarto de pantalla hacia la izquierda (entra mapa por la derecha).
+  await page.mouse.move(box.x + box.width * 0.7, box.y + box.height * 0.5)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.5, { steps: 6 })
+  await page.mouse.up()
+  const blank = await page.evaluate(() => {
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    // Puntos de la mitad derecha (la zona que acaba de entrar en pantalla).
+    // Las teselas no reciben eventos (pointer-events: none): se comprueba por geometría.
+    const loaded = [...document.querySelectorAll('.leaflet-tile-pane img.leaflet-tile-loaded')].map((t) => t.getBoundingClientRect())
+    let missing = 0
+    for (let x = vw * 0.55; x < vw - 5; x += 60) {
+      for (let y = 60; y < vh - 60; y += 80) {
+        if (!loaded.some((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) missing++
+      }
+    }
+    return missing
+  })
+  expect(blank).toBe(0)
+})
