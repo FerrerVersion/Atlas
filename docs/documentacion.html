@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>106 + 46</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>113 + 46</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -171,7 +171,7 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>106 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm test</code></td><td>113 tests unitarios y de integración (Vitest).</td></tr>
     <tr><td><code>npm run test:e2e</code></td><td>46 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
@@ -393,10 +393,19 @@ npm run dev</pre>
   <p>En coche se excluyen aceras y senderos, pero <b>se usan los caminos</b> (<code>highway=track</code>) sin restricción de acceso, a velocidad baja (12-30 km/h según su firmeza): son el acceso habitual a casas de campo y urbanizaciones. A pie se ignoran los sentidos únicos y se excluyen autovías.</p>
   <p><b>Salida desde el punto exacto:</b> cada parada se proyecta sobre la calle más cercana y el tramo se parte con un nodo temporal, así la ruta empieza donde estás (no en el cruce más próximo) y respeta los sentidos de circulación. Los nodos temporales se retiran al terminar.</p>
 
+  <h3>Tiempos realistas</h3>
+  <p>Ir al límite de velocidad todo el rato no es real en carreteras con curvas. Para cada tramo se calcula un <b>perfil de velocidad</b>:</p>
+  <ul>
+    <li><b>Curvas</b>: en cada vértice se estima el radio R y la velocidad cómoda v = √(2,6 m/s² · R). Una curva de 100 m de radio se toma a ~58 km/h y una horquilla de 30 m a ~31 km/h.</li>
+    <li><b>Aceleración y frenada</b>: entre curvas se acelera a 1,2 m/s² y hay que frenar (2 m/s²) antes de la siguiente, así que en rectas cortas nunca se llega al límite.</li>
+    <li><b>Maniobras</b>: cada giro, rotonda o incorporación suma unos segundos (de 2 a 20).</li>
+  </ul>
+  <p>Resultado con datos reales: la CV-424 (límite 90) sale a 54 km/h de media y la A-3 a 110. <b>Buñol → Yátova</b> pasa de 7,9 min (solo límites) a 10,5 min; <b>Valencia → Buñol</b>, de 29 a 31 min. A* usa estos tiempos, así que también elige mejor: prefiere una carretera algo más larga pero más rápida a una de curvas.</p>
+
   <h3>5.2 La búsqueda</h3>
   <p>A* explora el grafo desde el origen eligiendo siempre el nodo con menor <b>f = g + h</b>:</p>
   <ul>
-    <li><b>g</b>: coste real acumulado desde el origen (tiempo = distancia ÷ velocidad, o distancia en modo «más corta»).</li>
+    <li><b>g</b>: coste real acumulado desde el origen (tiempo realista con curvas, o distancia en modo «más corta»).</li>
     <li><b>h</b>: estimación optimista hasta el destino: distancia en línea recta, dividida por la velocidad máxima del grafo en modo «más rápida».</li>
   </ul>
   <p>Como <b>h</b> nunca sobreestima, la primera vez que se extrae el destino la ruta es <b>óptima</b>. Usa una cola de prioridad (montículo binario), descarta entradas obsoletas y marca los nodos cerrados, así que nunca entra en bucles. Devuelve nodos, aristas, distancia, tiempo y geometría, o un error claro: grafo vacío, nodo inexistente, destino inalcanzable o límite superado.</p>
@@ -485,7 +494,7 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>106</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>113</b><span>tests unitarios y de integración</span></div>
     <div class="kpi"><b>46</b><span>pruebas e2e (23 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
@@ -560,7 +569,7 @@ npm run dev</pre>
   <ul>
     <li><b>Servicios públicos</b>: Overpass, Photon y Nominatim son gratuitos y a veces están saturados. La app reintenta y avisa, pero una ruta larga nueva puede tardar alrededor de un minuto. Las zonas ya descargadas son casi instantáneas durante 7 días. Para uso intensivo conviene una instancia propia.</li>
     <li><b>Alcance</b>: rutas en vivo de hasta ~300 km en coche y ~25 km a pie.</li>
-    <li><b>Sin tráfico real</b>, sin restricciones de giro (<i>turn restrictions</i>) y sin carriles.</li>
+    <li><b>Sin tráfico real</b>, sin restricciones de giro (<i>turn restrictions</i>) y sin carriles. Los tiempos no consideran pendientes (OSM no trae elevación), así que en puertos pueden quedarse algo cortos.</li>
     <li>Los colores de agua, parques y edificios de cada estilo se consiguen con filtros sobre imágenes, no con mapas vectoriales.</li>
     <li>Las imágenes Esri gris tienen detalle hasta zoom 16; a partir de ahí se apoyan en las calles vectoriales propias.</li>
     <li>El mapa no rota (Leaflet no lo permite de forma nativa).</li>
@@ -638,7 +647,8 @@ VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/
     <tr><td class="mono">3856c86</td><td>perf: rutas en paralelo con precarga, PWA y caché de teselas</td></tr>
     <tr><td class="mono">07d56fd</td><td>feat: medición de la ruta en tiempo real con el GPS y recálculo al desviarse</td></tr>
     <tr><td class="mono">d7de05a</td><td>perf: respuesta instantánea, celdas compartidas y arranque sin bloqueos</td></tr>
-    <tr><td class="mono">—</td><td>fix: la ruta sale del punto exacto y usa caminos accesibles en coche</td></tr>
+    <tr><td class="mono">2901ae6</td><td>fix: la ruta sale del punto exacto y usa caminos accesibles en coche</td></tr>
+    <tr><td class="mono">—</td><td>feat: tiempos realistas con curvas, aceleración y maniobras</td></tr>
   </table>
 
   <h3>A.5 Glosario</h3>

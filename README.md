@@ -78,7 +78,7 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 106 tests unitarios y de integración
+npm test             # Vitest: 113 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
 npm run test:e2e     # Playwright: 46 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint
@@ -158,9 +158,10 @@ Separación clave: **UI** (`components/`), **datos geográficos** (`features/osm
 
 1. **Grafo** (`graph.ts`): las vías OSM (`highway=*`) se dividen en las intersecciones (nodos compartidos por varias vías) y, en vías largas, cada ~250 m para mejorar el ajuste. Cada arista conserva la geometría completa, el nombre/ref real, el tipo de vía y la velocidad (`maxspeed` o valor por defecto por tipo). Las vías de doble sentido generan dos aristas dirigidas; `oneway=yes/-1`, rotondas y autopistas solo una.
 2. **Ajuste a la red**: cada parada se proyecta sobre el **punto exacto** de la calle más cercana (máx. 1,5 km) y el tramo se parte con un nodo temporal, así la ruta sale de donde estás en cualquier sentido permitido. En coche se usan también los **caminos** (`highway=track`) sin restricción de acceso, a velocidad baja (12-30 km/h según su firmeza), porque son el acceso habitual a casas de campo y urbanizaciones.
-3. **Búsqueda** (`astar.ts`): montículo binario, coste = tiempo (`distancia / velocidad`) o distancia; heurística = distancia haversine al destino (dividida por la velocidad máxima del grafo en modo «más rápida»), que nunca sobreestima → ruta óptima. Conjunto cerrado y descarte de entradas obsoletas → sin bucles infinitos. Devuelve `RouteResult` con nodos, aristas, distancia, tiempo y geometría, o un error tipado (`empty-graph`, `node-not-found`, `unreachable`, `limit-exceeded`).
-4. **Instrucciones** (`routeInstructions.ts`): ángulo entre el rumbo de llegada y el de salida (medidos a 20 m del nodo), número de alternativas en el cruce, cambios de nombre, rotondas y transiciones de autopista.
-5. **Descarga de datos** (`routeService.ts`): trayectos cortos → todas las calles del área. Trayectos largos → por trozos con caché propia: calles de coche a 1 km de cada parada, un **anillo de acceso** de 5 km (secundarias, terciarias y sin clasificar, que son las que unen cada núcleo con las autovías) y un corredor de vías principales. Si aun así las paradas no conectan, el corredor se amplía un nivel. Ejemplo real: Buñol solo enlaza con la A-3 por la CV-425, a ~2,7 km del centro; sin el anillo, la ruta Valencia→Buñol daba un rodeo de 46 km por Chiva en lugar de los 40 km reales. Si la zona ya está cargada no se vuelve a pedir.
+3. **Tiempo realista** (`travelTime.ts`): en cada vértice se estima el radio de la curva y su velocidad cómoda, v = √(2,6 m/s² · R); entre curvas se acelera a 1,2 m/s² y se frena a 2 m/s², así una carretera de montaña limitada a 90 sale a ~50 km/h de media y una autovía a ~110. Cada giro, rotonda o incorporación suma unos segundos. Ejemplo real: Buñol → Yátova pasa de 7,9 min (solo límites) a 10,5 min; Valencia → Buñol, de 29 a 31 min.
+4. **Búsqueda** (`astar.ts`): montículo binario, coste = tiempo realista o distancia; heurística = distancia haversine al destino (dividida por la velocidad máxima del grafo en modo «más rápida»), que nunca sobreestima → ruta óptima. Conjunto cerrado y descarte de entradas obsoletas → sin bucles infinitos. Devuelve `RouteResult` con nodos, aristas, distancia, tiempo y geometría, o un error tipado (`empty-graph`, `node-not-found`, `unreachable`, `limit-exceeded`).
+5. **Instrucciones** (`routeInstructions.ts`): ángulo entre el rumbo de llegada y el de salida (medidos a 20 m del nodo), número de alternativas en el cruce, cambios de nombre, rotondas y transiciones de autopista.
+6. **Descarga de datos** (`routeService.ts`): trayectos cortos → todas las calles del área. Trayectos largos → por trozos con caché propia: calles de coche a 1 km de cada parada, un **anillo de acceso** de 5 km (secundarias, terciarias y sin clasificar, que son las que unen cada núcleo con las autovías) y un corredor de vías principales. Si aun así las paradas no conectan, el corredor se amplía un nivel. Ejemplo real: Buñol solo enlaza con la A-3 por la CV-425, a ~2,7 km del centro; sin el anillo, la ruta Valencia→Buñol daba un rodeo de 46 km por Chiva en lugar de los 40 km reales. Si la zona ya está cargada no se vuelve a pedir.
 
 Si no hay datos de carreteras, **no se inventa una ruta**: se informa del motivo.
 
@@ -256,7 +257,7 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 
 - Depende de servicios públicos gratuitos (Overpass, Photon, Nominatim, teselas) con límites de uso; Overpass puede estar saturado (se prueban espejos y se informa al usuario). Para uso intensivo, despliega tus propias instancias.
 - Rutas en vivo hasta ~300 km en coche (~25 km a pie); en trayectos largos solo se descargan vías principales en el corredor.
-- No hay tráfico en tiempo real, restricciones de giro (`turn restrictions`) ni carriles.
+- No hay tráfico en tiempo real, restricciones de giro (`turn restrictions`) ni carriles; los tiempos no consideran pendientes (no hay datos de elevación), así que en puertos de montaña pueden quedarse algo cortos.
 - Las capas Esri Canvas tienen detalle nativo hasta zoom 16; por encima, las calles se dibujan en vectorial a partir de OSM.
 - Los colores de agua/parques/edificios de cada tema se aplican mediante filtros sobre teselas ráster (no hay teselas vectoriales).
 - Rotación del mapa no implementada (Leaflet no la soporta de forma nativa).

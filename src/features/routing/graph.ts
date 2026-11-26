@@ -1,5 +1,10 @@
 import { haversine, polylineLength, type LatLngTuple } from '@/utils/distance'
 import type { GraphEdge, GraphNode, RoadClass, RoadGraph, RoadType, TravelProfile } from './routeTypes'
+import { curveAwareTime } from './travelTime'
+import { travelSeconds } from '@/utils/distance'
+
+/** Segundos para recorrer una arista (con curvas si se calcularon al construir el grafo). */
+export const edgeTime = (e: GraphEdge) => e.time ?? travelSeconds(e.distance, e.speedLimit)
 
 /* ------------------------------------------------------------------ */
 /* Tipos de entrada: subconjunto del JSON de Overpass (out body geom)  */
@@ -299,7 +304,9 @@ export function buildGraphFromOsm(ways: Iterable<OsmWay>, options: BuildGraphOpt
           .map((p) => [p.lat, p.lon] as LatLngTuple)
         const id = `w${way.id}_${segIndex++}`
         const forward = dir === -1 ? [...geometry].reverse() : geometry
-        const road = { ...base, id, geometry: forward, from: dir === -1 ? to : from, to: dir === -1 ? from : to }
+        // En coche se frena en las curvas (la geometría al revés tarda lo mismo).
+        const time = profile === 'car' ? curveAwareTime(forward, speed) : undefined
+        const road = { ...base, id, time, geometry: forward, from: dir === -1 ? to : from, to: dir === -1 ? from : to }
         addRoad(graph, road)
       }
       segStart = i

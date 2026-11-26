@@ -1,6 +1,6 @@
-import { haversine, travelSeconds } from '@/utils/distance'
+import { haversine } from '@/utils/distance'
 import { concatPolylines } from '@/utils/geometry'
-import { isHighwayType } from './graph'
+import { edgeTime, isHighwayType } from './graph'
 import type { GraphEdge, RoadGraph, RouteOptions, RouteResult } from './routeTypes'
 
 /** Cola de prioridad mínima (montículo binario) con entradas (prioridad, valor). */
@@ -47,7 +47,7 @@ export class MinHeap<T> {
 }
 
 export function edgeCost(edge: GraphEdge, mode: RouteOptions['cost']): number {
-  return mode === 'shortest' ? edge.distance : travelSeconds(edge.distance, edge.speedLimit)
+  return mode === 'shortest' ? edge.distance : edgeTime(edge)
 }
 
 /**
@@ -153,7 +153,7 @@ function reconstruct(
   let duration = 0
   for (const e of edges) {
     distance += e.distance
-    duration += travelSeconds(e.distance, e.speedLimit)
+    duration += edgeTime(e)
   }
   const geometry = concatPolylines(edges.map((e) => e.geometry))
   return { ok: true, nodes, edges, distance, duration, geometry, expanded }

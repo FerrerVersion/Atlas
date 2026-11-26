@@ -1,6 +1,6 @@
-import { formatDistance, travelSeconds, turnAngle } from '@/utils/distance'
+import { formatDistance, turnAngle } from '@/utils/distance'
 import { endBearing, startBearing } from '@/utils/geometry'
-import { isHighwayType, isLinkType } from './graph'
+import { edgeTime, isHighwayType, isLinkType } from './graph'
 import type { GraphEdge, Instruction, ManeuverType, RoadGraph } from './routeTypes'
 
 /** Etiqueta legible de una vía usando solo datos reales (nombre y/o referencia). */
@@ -191,7 +191,7 @@ export function generateInstructions(
   const cumTime: number[] = [0]
   for (const e of edges) {
     cumDist.push(cumDist[cumDist.length - 1] + e.distance)
-    cumTime.push(cumTime[cumTime.length - 1] + travelSeconds(e.distance, e.speedLimit))
+    cumTime.push(cumTime[cumTime.length - 1] + edgeTime(e))
   }
   const total = cumDist[edges.length]
   const totalTime = cumTime[edges.length]

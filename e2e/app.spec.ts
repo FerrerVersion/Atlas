@@ -78,7 +78,10 @@ test('ruta con parada intermedia y modo navegación', async ({ page }) => {
   await page.getByRole('combobox', { name: 'Parada 1' }).fill('Severo Ochoa')
   await page.getByRole('option', { name: /Calle de Severo Ochoa/ }).click()
   await expect(page.getByText('Tramo 2')).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByTestId('route-distance')).not.toContainText(direct)
+  // Pasar por una parada nunca acorta la ruta (puede no alargarla si ya estaba de camino).
+  const km = (t: string) => Number(t.replace(/[^\d,]/g, '').replace(',', '.')) * (t.includes('km') ? 1000 : 1)
+  const withStop = (await page.getByTestId('route-distance').textContent())!.split(' · ')[0]
+  expect(km(withStop)).toBeGreaterThanOrEqual(km(direct) - 50)
   await expect(page.getByTestId('instructions')).toContainText('Has llegado a la parada 1')
 
   await page.getByRole('button', { name: 'Iniciar' }).click()

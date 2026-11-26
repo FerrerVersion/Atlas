@@ -46,6 +46,8 @@ export interface GraphEdge {
   distance: number
   /** km/h */
   speedLimit: number
+  /** Segundos de recorrido realistas (frenando en curvas). Si falta: distancia / límite. */
+  time?: number
   roadType: RoadType
   /** La vía original es de sentido único. */
   oneWay: boolean

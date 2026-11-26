@@ -90,8 +90,12 @@ export function attachVirtualStop(graph: RoadGraph, snap: EdgeSnap, id: string):
   }
   const split = (d: GraphEdge, seg: number) => {
     const [head, tail] = splitGeometry(d.geometry, seg, point)
-    add({ ...d, id: `${d.id}~a~${id}`, to: id, geometry: head, distance: polylineLength(head) })
-    add({ ...d, id: `${d.id}~b~${id}`, from: id, geometry: tail, distance: polylineLength(tail) })
+    const dh = polylineLength(head)
+    const dt = polylineLength(tail)
+    // El tiempo realista del tramo se reparte en proporción a la distancia.
+    const share = (part: number) => (d.time === undefined ? undefined : d.time * (part / Math.max(d.distance, 1e-9)))
+    add({ ...d, id: `${d.id}~a~${id}`, to: id, geometry: head, distance: dh, time: share(dh) })
+    add({ ...d, id: `${d.id}~b~${id}`, from: id, geometry: tail, distance: dt, time: share(dt) })
   }
   split(edge, segment)
   const twin = twinOf(graph, edge)

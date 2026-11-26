@@ -5,6 +5,7 @@ import { bboxAround, bboxDiagonal, bboxOf, expandBBox } from '@/utils/geometry'
 import { concatPolylines } from '@/utils/geometry'
 import { findRoute } from './astar'
 import { attachVirtualStop, nearestEdge, type EdgeSnap, type VirtualStop } from './edgeSnap'
+import { MANEUVER_SECONDS } from './travelTime'
 import { haversine } from '@/utils/distance'
 import { generateInstructions } from './routeInstructions'
 import type { CostMode, Instruction, MultiRoute, RoadGraph, RouteLeg, TravelProfile } from './routeTypes'
@@ -250,6 +251,8 @@ function routeFromStops(
     })
   }
 
+  const extra = applyManeuverTime(instructions)
+
   // Une los tramos sin duplicar el nodo de unión.
   const nodes: string[] = []
   for (const leg of legs) {
@@ -261,8 +264,26 @@ function routeFromStops(
     nodes,
     geometry: concatPolylines(legs.map((l) => l.result.geometry)),
     distance: offset,
-    duration: time,
+    duration: time + extra,
     instructions,
     snapped,
   }
+}
+
+/**
+ * Suma el tiempo de cada maniobra (girar, rotondas, incorporaciones) a la duración del
+ * tramo que empieza en ella y retrasa las horas de paso de las siguientes.
+ * Devuelve los segundos añadidos en total.
+ */
+export function applyManeuverTime(instructions: Instruction[]): number {
+  let extra = 0
+  for (const ins of instructions) {
+    ins.timeOffset += extra
+    const p = MANEUVER_SECONDS[ins.type] ?? 0
+    if (p > 0) {
+      ins.duration += p
+      extra += p
+    }
+  }
+  return extra
 }
