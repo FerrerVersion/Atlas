@@ -75,6 +75,17 @@ export function useCustomMapEditor() {
     if (mode === 'route') setRouteEnds((ends) => (ends.length >= 2 ? [id] : [...ends, id]))
   }
 
+  /** Borra un nodo, sus vías y cualquier selección que lo use (ruta o vía a medias). */
+  const removeNode = (id: string) => {
+    update((m) => ({
+      ...m,
+      nodes: m.nodes.filter((x) => x.id !== id),
+      roads: m.roads.filter((r) => r.from !== id && r.to !== id),
+    }))
+    setPendingNode((p) => (p === id ? null : p))
+    setRouteEnds((ends) => (ends.includes(id) ? [] : ends))
+  }
+
   const addReference = (lat: number, lng: number) => {
     if (!pendingRef) return
     const ref: ReferencePoint = { id: uid('ref_'), ...pendingRef, lat, lng }
@@ -89,6 +100,6 @@ export function useCustomMapEditor() {
       setPendingRef(null)
     },
     pendingNode, pendingRef, setPendingRef, routeEnds, setRouteEnds, draft, setDraft, saved, setSaved,
-    graph, transform, calibrated, route, instructions, clickImage, clickNode, addReference,
+    graph, transform, calibrated, route, instructions, clickImage, clickNode, addReference, removeNode,
   }
 }

@@ -35,8 +35,13 @@ export default function CustomMapPage() {
     try {
       const image = await readImageFile(file)
       setError(null)
-      ed.setMap({ ...emptyCustomMap(), name: file.name.replace(/\.\w+$/, ''), image })
-      ed.setMode('calibrate')
+      if (!map.image && (map.nodes.length > 0 || map.references.length > 0)) {
+        // Mapa importado sin imagen: se le añade conservando nodos, vías y calibración.
+        ed.setMap({ ...map, image })
+      } else {
+        ed.setMap({ ...emptyCustomMap(), name: file.name.replace(/\.\w+$/, ''), image })
+        ed.setMode('calibrate')
+      }
     } catch (e) {
       setError((e as Error).message)
     }
@@ -45,8 +50,19 @@ export default function CustomMapPage() {
   const onJson = async (file?: File) => {
     if (!file) return
     try {
-      ed.setMap(importCustomMap(JSON.parse(await file.text())))
-      setError(null)
+      let json: unknown
+      try {
+        json = JSON.parse(await file.text())
+      } catch {
+        throw new Error('El archivo no es un JSON válido.')
+      }
+      const imported = importCustomMap(json)
+      ed.setMap(imported)
+      setError(
+        imported.image
+          ? null
+          : `«${imported.name}» se exportó sin imagen: carga la imagen original para ver y editar sus ${imported.nodes.length} nodos.`,
+      )
     } catch (e) {
       setError((e as Error).message)
     }
@@ -128,13 +144,7 @@ export default function CustomMapPage() {
                       <IconButton
                         label={`Eliminar nodo ${i + 1}`}
                         size="sm"
-                        onClick={() =>
-                          update((m) => ({
-                            ...m,
-                            nodes: m.nodes.filter((x) => x.id !== n.id),
-                            roads: m.roads.filter((r) => r.from !== n.id && r.to !== n.id),
-                          }))
-                        }
+                        onClick={() => ed.removeNode(n.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </IconButton>
@@ -276,7 +286,9 @@ export default function CustomMapPage() {
           >
             <span>
               <Download className="mx-auto mb-2 h-8 w-8 rotate-180" />
-              <span className="block font-medium">Arrastra una imagen PNG, JPG o WebP</span>
+              <span className="block font-medium">
+                {map.nodes.length > 0 ? `Carga la imagen de «${map.name}»` : 'Arrastra una imagen PNG, JPG o WebP'}
+              </span>
               <span className="text-xs">o pulsa para seleccionarla · no se envía a ningún servidor</span>
             </span>
           </button>

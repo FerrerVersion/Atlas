@@ -77,9 +77,9 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 72 tests unitarios y de integración
+npm test             # Vitest: 79 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 24 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 44 pruebas en escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 

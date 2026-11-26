@@ -94,6 +94,13 @@ export function exportCustomMap(map: CustomMap, includeImage: boolean) {
 export function importCustomMap(json: unknown): CustomMap {
   const d = json as ReturnType<typeof exportCustomMap>
   if (!d || d.format !== 'atlas-custom-map') throw new Error('El archivo no es un mapa personalizado de Atlas.')
+  const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+  const nodesOk = Array.isArray(d.nodes ?? []) && (d.nodes ?? []).every((n) => typeof n?.id === 'string' && num(n.x) && num(n.y))
+  const ids = new Set((d.nodes ?? []).map((n) => n.id))
+  const roadsOk =
+    Array.isArray(d.roads ?? []) &&
+    (d.roads ?? []).every((r) => ids.has(r?.from) && ids.has(r?.to) && num(r.speedLimit) && r.speedLimit > 0)
+  if (!nodesOk || !roadsOk) throw new Error('El mapa está dañado: hay nodos o vías con datos no válidos.')
   return {
     ...emptyCustomMap(),
     name: d.name ?? 'Mapa importado',
@@ -101,7 +108,7 @@ export function importCustomMap(json: unknown): CustomMap {
     references: d.calibration?.references ?? [],
     manualScale: d.manualScale ?? 1,
     manualRotationDeg: d.manualRotationDeg ?? 0,
-    nodes: (d.nodes ?? []).map(({ id, name, x, y }) => ({ id, name, x, y })),
+    nodes: (d.nodes ?? []).map(({ id, name, x, y }) => ({ id, name: typeof name === 'string' ? name : '', x, y })),
     roads: d.roads ?? [],
   }
 }

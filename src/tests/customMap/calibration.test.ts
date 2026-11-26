@@ -75,3 +75,12 @@ describe('mapa personalizado', () => {
     expect(() => importCustomMap({ foo: 1 })).toThrow()
   })
 })
+
+describe('importación robusta', () => {
+  it('rechaza mapas con vías a nodos inexistentes o coordenadas no numéricas', () => {
+    const base = { format: 'atlas-custom-map', name: 'x', nodes: [{ id: 'a', name: 'A', x: 0, y: 0 }], roads: [] }
+    expect(() => importCustomMap({ ...base, roads: [{ id: 'r', from: 'a', to: 'zz', speedLimit: 50 }] })).toThrow(/dañado/)
+    expect(() => importCustomMap({ ...base, nodes: [{ id: 'a', x: 'uno', y: 0 }] })).toThrow(/dañado/)
+    expect(importCustomMap(base).nodes).toHaveLength(1)
+  })
+})

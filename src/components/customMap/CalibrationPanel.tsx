@@ -15,7 +15,10 @@ interface Props {
 
 export function CalibrationPanel({ map, transform, calibrated, pendingRef, onAdd, onCancel, update }: Props) {
   const [coords, setCoords] = useState('')
-  const parsed = coords.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*$/)
+  const match = coords.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)\s*$/)
+  const parsed = match && Math.abs(Number(match[1])) <= 90 && Math.abs(Number(match[2])) <= 180 ? match : null
+  const outOfRange = match !== null && parsed === null
+  const degenerate = map.references.length >= 2 && !calibrated
 
   return (
     <div className="space-y-3 text-sm">
@@ -44,6 +47,11 @@ export function CalibrationPanel({ map, transform, calibrated, pendingRef, onAdd
               className="mt-1 h-9 w-full rounded-lg border border-slate-300 bg-white px-2 font-mono text-xs dark:border-white/15 dark:bg-ink-800"
             />
           </label>
+          {outOfRange && (
+            <p role="alert" className="text-xs text-rose-600">
+              Coordenadas fuera de rango: la latitud va de -90 a 90 y la longitud de -180 a 180.
+            </p>
+          )}
           <div className="flex gap-2">
             <Button size="sm" variant="primary" type="submit" disabled={!parsed}>
               Añadir referencia
@@ -73,6 +81,12 @@ export function CalibrationPanel({ map, transform, calibrated, pendingRef, onAdd
           </li>
         ))}
       </ul>
+      {degenerate && (
+        <p role="alert" className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          Estas referencias no permiten calibrar (coinciden en el mismo punto o están alineadas). Añade puntos separados en
+          distintas zonas de la imagen; mientras tanto se usa la escala manual.
+        </p>
+      )}
       {!calibrated && (
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs">

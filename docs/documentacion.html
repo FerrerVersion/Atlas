@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>72 + 24</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>79 + 44</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -171,8 +171,8 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>72 tests unitarios y de integración (Vitest).</td></tr>
-    <tr><td><code>npm run test:e2e</code></td><td>24 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
+    <tr><td><code>npm test</code></td><td>79 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm run test:e2e</code></td><td>44 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
   </table>
@@ -480,8 +480,8 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>72</b><span>tests unitarios y de integración</span></div>
-    <div class="kpi"><b>24</b><span>pruebas e2e (12 escenarios × escritorio y móvil)</span></div>
+    <div class="kpi"><b>79</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>44</b><span>pruebas e2e (22 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
   </div>
@@ -490,14 +490,14 @@ npm run dev</pre>
   <div class="grid2">
     <div class="card"><h4>Motor de rutas</h4>Los 12 casos pedidos: ruta directa, varios tramos, óptima frente a alternativa más larga, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo y reconstrucción. Además: sin bucles, evitar autopistas, grafo desde datos OSM reales de Buñol, rotondas, autovías, multi-parada y ampliación del corredor.</div>
     <div class="card"><h4>Resto de la lógica</h4>Búsqueda (acentos, categorías, coordenadas), adaptadores Photon y Nominatim, 15 estilos (válidos y distintos), estado (cambiar de estilo no borra la ruta; persistencia), calibración de imágenes, progreso de navegación, limitador de peticiones, servidores escalonados y reintentos.</div>
-    <div class="card"><h4>Navegador real (e2e)</h4>Carga del mapa; búsqueda de Buñol con nombre real; cambio de 4 estilos sin perder la ruta (y recordado al recargar); ruta con parada y modo navegación; POIs reales; menú del mapa sin nombres inventados; ubicación al abrir, como origen y denegada; editor de mapas completo; teselas en pantallas retina.</div>
+    <div class="card"><h4>Navegador real (e2e)</h4>Carga del mapa; búsqueda de Buñol con nombre real; cambio de 4 estilos sin perder la ruta (y recordado al recargar); ruta con parada y modo navegación; POIs reales; menú del mapa sin nombres inventados; ubicación al abrir, como origen y denegada; editor de mapas completo y sus casos límite; teselas en pantallas retina; preferencias dañadas; móvil pequeño (375×667).</div>
     <div class="card"><h4>Sin depender de la red</h4>Las pruebas e2e responden a las búsquedas y a Overpass con el extracto real de OSM incluido, así que son reproducibles. La ruta Valencia→Buñol se verificó además en vivo contra los servicios reales.</div>
   </div>
 </section>
 
 <section>
   <h3>Problemas encontrados y corregidos</h3>
-  <p>Durante el desarrollo y la revisión final (con pruebas automáticas, capturas de los 15 estilos y pruebas en vivo) aparecieron y se corrigieron estos fallos:</p>
+  <p>Durante el desarrollo, la revisión final (pruebas automáticas, capturas de los 15 estilos y pruebas en vivo) y una sesión de pruebas exploratorias como tester (casos límite, servicios caídos, datos dañados, móvil pequeño) aparecieron y se corrigieron estos fallos. Cada uno tiene una prueba que falla con el código anterior y pasa con el arreglo:</p>
   <table>
     <tr><th style="width:40mm">Problema</th><th>Causa y solución</th></tr>
     <tr><td><span class="tag fix">fix</span> Mapas «API KEY REQUIRED»</td><td>CARTO empezó a exigir clave. Se sustituyó por proveedores libres (OSM, Esri, OpenTopoMap).</td></tr>
@@ -511,6 +511,11 @@ npm run dev</pre>
     <tr><td><span class="tag fix">fix</span> Calles duplicadas</td><td>Un mismo nombre salía del servicio remoto y de los datos locales. Se deduplica.</td></tr>
     <tr><td><span class="tag fix">fix</span> Aviso de desvío repetido</td><td>Con GPS se repetía en cada actualización. Ahora avisa una vez por desvío.</td></tr>
     <tr><td><span class="tag perf">perf</span> Bundle pesado</td><td>Los iconos usaban <code>react-dom/server</code>. Se sustituyó: 825 → 623 kB (258 → 196 kB comprimido).</td></tr>
+    <tr><td><span class="tag fix">fix</span> Preferencias dañadas</td><td>Si las preferencias guardadas en el navegador estaban dañadas (versión antigua o edición manual), la app entera quedaba en blanco. Ahora se validan al cargar y lo inválido se sustituye por valores por defecto.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Enter en el buscador</td><td>Con resultados en la lista, Enter relanzaba la búsqueda en vez de elegir el resultado resaltado.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Mismo origen y destino</td><td>Se mostraba una ruta de «0 m · 1 min» que se podía «iniciar». Ahora sale un aviso claro.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Móvil pequeño</td><td>El desplegable de búsqueda quedaba tapado por los botones del mapa; la barra de navegación se partía palabra a palabra y el botón «Salir» quedaba inaccesible; un arrastre corto del asa expandía el panel.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Editor: casos límite</td><td>JSON roto mostraba un error técnico en inglés; se aceptaban coordenadas imposibles; no se avisaba de referencias que no permiten calibrar; borrar un nodo elegido para la ruta daba un error técnico; un mapa importado sin imagen no se podía recuperar.</td></tr>
     <tr><td><span class="tag fix">fix</span> GPS en el móvil</td><td>Por red local sin HTTPS el navegador bloquea la ubicación. Se añadió <code>npm run dev:movil</code> (HTTPS) y un aviso claro.</td></tr>
   </table>
 </section>
@@ -596,7 +601,9 @@ VITE_OVERPASS_URLS=https://mi-overpass.example.org/api/interpreter,https://otro/
     <tr><td class="mono">da6cb90</td><td>feat: ubicación del dispositivo activa al abrir la web</td></tr>
     <tr><td class="mono">3a9f0f4</td><td>refactor: revisión general (bundle −200 kB, avisos GPS, caché acotada)</td></tr>
     <tr><td class="mono">e306b2e</td><td>fix: teselas en pantallas retina y clics en nodos del editor</td></tr>
-    <tr><td class="mono">—</td><td>docs: documentación en PDF y capturas (este documento)</td></tr>
+    <tr><td class="mono">1cff05d</td><td>docs: documentación en PDF y capturas actualizadas</td></tr>
+    <tr><td class="mono">0f72487</td><td>fix: fallos encontrados en pruebas exploratorias (app, buscador, móvil)</td></tr>
+    <tr><td class="mono">—</td><td>fix: casos límite del editor de mapas personalizados</td></tr>
   </table>
 
   <h3>A.5 Glosario</h3>

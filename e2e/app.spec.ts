@@ -290,3 +290,73 @@ test.describe('móvil pequeño (375×667)', () => {
     await expect(page.getByRole('button', { name: 'Contraer panel' })).toBeVisible()
   })
 })
+
+test.describe('editor de mapas: casos límite', () => {
+  async function loadImage(page: import('@playwright/test').Page) {
+    await page.locator('input[type=file][accept^="image"]').setInputFiles('e2e/assets/mapa-ficticio.png')
+    const img = page.locator('img.leaflet-image-layer')
+    await expect(img).toBeVisible()
+    await page.waitForTimeout(400)
+    return (await img.boundingBox())!
+  }
+
+  test('JSON roto: mensaje comprensible', async ({ page }) => {
+    await page.goto('/custom')
+    await page.locator('input[type=file][accept*="json"]').setInputFiles({ name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{malo') })
+    await expect(page.getByRole('alert')).toHaveText('El archivo no es un JSON válido.')
+  })
+
+  test('calibración: rechaza coordenadas imposibles y avisa de referencias inútiles', async ({ page }) => {
+    await page.goto('/custom')
+    const ib = await loadImage(page)
+    const at = () => page.mouse.click(ib.x + ib.width * 0.3, ib.y + ib.height * 0.5)
+    await at()
+    await page.getByPlaceholder(/lat, lng/).fill('200, 500')
+    await expect(page.getByRole('button', { name: 'Añadir referencia' })).toBeDisabled()
+    await expect(page.getByText(/fuera de rango/)).toBeVisible()
+    for (const c of ['39.40, -0.37', '39.41, -0.37']) {
+      await page.getByPlaceholder(/lat, lng/).fill(c)
+      await page.getByRole('button', { name: 'Añadir referencia' }).click()
+      await at()
+    }
+    await expect(page.getByText(/no permiten calibrar/)).toBeVisible()
+  })
+
+  test('borrar un nodo elegido para la ruta no muestra errores técnicos', async ({ page }) => {
+    await page.goto('/custom')
+    const ib = await loadImage(page)
+    const s = ib.width / 900
+    const click = (x: number, y: number) => page.mouse.click(ib.x + x * s, ib.y + y * s)
+    await page.getByRole('radio', { name: 'Nodos' }).click()
+    await click(120, 330)
+    await click(420, 300)
+    await page.getByRole('radio', { name: 'Vías' }).click()
+    await click(120, 330)
+    await click(420, 300)
+    await page.getByRole('radio', { name: 'Ruta' }).click()
+    await click(120, 330)
+    await click(420, 300)
+    await expect(page.getByText('Has llegado a tu destino')).toBeVisible()
+    await page.getByRole('radio', { name: 'Nodos' }).click()
+    await page.getByRole('button', { name: 'Eliminar nodo 2' }).click()
+    await page.getByRole('radio', { name: 'Ruta' }).click()
+    await expect(page.getByText(/no existe en el grafo/)).toHaveCount(0)
+  })
+
+  test('importar un mapa sin imagen y añadirla conserva los nodos', async ({ page }) => {
+    await page.goto('/custom')
+    const json = {
+      format: 'atlas-custom-map', version: 1, name: 'Sin imagen', fictional: true,
+      calibration: { mode: 'manual', references: [] }, image: { width: 900, height: 600, fileName: 'x.png' },
+      nodes: [{ id: 'a', name: 'Alfa', x: 120, y: 330 }, { id: 'b', name: 'Beta', x: 420, y: 300 }],
+      roads: [{ id: 'r', from: 'a', to: 'b', name: 'Camino', roadType: 'residential', oneWay: false, speedLimit: 50 }],
+      manualScale: 1, manualRotationDeg: 0,
+    }
+    await page.locator('input[type=file][accept*="json"]').setInputFiles({ name: 'm.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(json)) })
+    await expect(page.getByRole('alert')).toContainText('se exportó sin imagen')
+    await loadImage(page)
+    await page.getByRole('radio', { name: 'Nodos' }).click()
+    await expect(page.getByRole('textbox', { name: 'Nombre del nodo 1' })).toHaveValue('Alfa')
+    await expect(page.getByRole('textbox', { name: /Nombre del nodo/ })).toHaveCount(2)
+  })
+})
