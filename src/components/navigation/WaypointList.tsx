@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ArrowUpDown, GripVertical, LocateFixed, Plus, X } f
 import { PlaceAutocomplete } from '@/components/search/PlaceAutocomplete'
 import { Button, IconButton } from '@/components/ui/Button'
 import type { Place } from '@/features/geocoding/geocodingService'
+import { requestPosition } from '@/hooks/useGeolocation'
 import { useAppStore, type Waypoint } from '@/store/useAppStore'
 
 const MAX_STOPS = 8
@@ -29,13 +30,7 @@ function WaypointRow({ wp, index, total }: { wp: Waypoint; index: number; total:
         source: 'gps',
       })
     if (u) return apply(u.lat, u.lng)
-    navigator.geolocation?.getCurrentPosition(
-      (p) => {
-        s().setUserLocation({ lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy, heading: null })
-        apply(p.coords.latitude, p.coords.longitude)
-      },
-      () => s().notify('No se ha podido obtener tu ubicación.', 'error'),
-    )
+    requestPosition().then((pos) => pos && apply(pos.lat, pos.lng))
   }
 
   return (

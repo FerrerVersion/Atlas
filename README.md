@@ -41,6 +41,20 @@ npm install
 npm run dev          # http://localhost:5173
 ```
 
+### Ubicación del dispositivo (GPS)
+
+- **Mi ubicación** (botón de diana en los controles del mapa): pide permiso, centra el mapa y muestra un punto azul con su precisión.
+- **Usar mi ubicación como origen** (icono junto al campo *Origen* en la pestaña Ruta).
+- **Seguir mi ubicación GPS** en el modo navegación: la posición se proyecta sobre la ruta para avanzar las indicaciones.
+
+La ubicación nunca se envía a ningún servidor. Los navegadores solo la permiten en **HTTPS o `localhost`**: en el ordenador basta `npm run dev`; para probarla **desde el móvil** en la misma red wifi:
+
+```bash
+npm run dev:movil    # https://<IP-del-ordenador>:5173 (certificado autofirmado)
+```
+
+Abre la URL «Network» en el móvil, acepta el aviso del certificado y concede el permiso de ubicación.
+
 ## Build
 
 ```bash
@@ -51,7 +65,7 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 68 tests unitarios y de integración
+npm test             # Vitest: 69 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
 npm run test:e2e     # Playwright: escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint

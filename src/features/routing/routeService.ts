@@ -1,5 +1,5 @@
 import { networkStore } from '@/features/osm/networkStore'
-import { fetchRoadNetwork, type NetworkQueryPlan } from '@/features/osm/overpassService'
+import { fetchRoadNetwork, MAJOR_ROADS, type NetworkQueryPlan } from '@/features/osm/overpassService'
 import { bboxAround, bboxDiagonal, bboxOf, expandBBox } from '@/utils/geometry'
 import { concatPolylines } from '@/utils/geometry'
 import { findRoute } from './astar'
@@ -19,7 +19,22 @@ export interface RoutePreferences {
   avoidHighways: boolean
 }
 
-export class RouteError extends Error {}
+export class RouteError extends Error {
+  readonly reason?: string
+  constructor(message: string, reason?: string) {
+    super(message)
+    this.reason = reason
+  }
+}
+
+type CorridorLevel = keyof typeof MAJOR_ROADS
+/** Nivel inmediatamente más detallado del corredor (null si ya es el máximo). */
+export const FINER_LEVEL: Record<CorridorLevel, CorridorLevel | null> = {
+  trunk: 'primary',
+  primary: 'secondary',
+  secondary: 'tertiary',
+  tertiary: null,
+}
 
 /** Distancia máxima (m) entre una parada y la red para considerarla accesible. */
 export const MAX_SNAP_DISTANCE = 1500
@@ -43,8 +58,10 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
       'La distancia entre paradas es demasiado grande para descargar la red en vivo (máx. ~300 km). Importa datos OSM locales para trayectos más largos.',
     )
   }
-  const radius = diag > 60_000 ? 2000 : 1000
-  const level = diag <= 30_000 ? 'tertiary' : diag <= 90_000 ? 'secondary' : diag <= 200_000 ? 'primary' : 'trunk'
+  // Radio amplio: los enlaces autovía↔núcleo suelen ser vías terciarias fuera del corredor.
+  const radius = diag > 60_000 ? 3000 : 2000
+  // Primero el nivel más ligero razonable; si no conecta, se amplía (ver computeMultiRoute).
+  const level: CorridorLevel = diag <= 30_000 ? 'secondary' : diag <= 120_000 ? 'primary' : 'trunk'
   return {
     carOnly: true,
     detail: points.map((p) => bboxAround(p.lat, p.lng, radius)),
@@ -69,15 +86,23 @@ export async function computeMultiRoute(
 
   // Evita peticiones innecesarias: si la zona ya está cargada se usa directamente.
   const alreadyLoaded = networkStore.covers(expandBBox(bboxOf(points), 300))
-  if (opts.download !== false && !alreadyLoaded) {
-    opts.onStatus?.('Descargando red viaria de OpenStreetMap…')
-    const plan = planNetworkQuery(points, prefs.profile)
-    const ways = await fetchRoadNetwork(plan, opts.signal, (host) =>
-      opts.onStatus?.(`El servidor no responde; probando ${host}…`),
-    )
-    networkStore.addWays(ways)
-    // Solo cuenta como zona cubierta si se descargaron todas las vías (también peatonales).
-    if (!plan.carOnly) networkStore.addCoverage(plan.detail)
+  const download = opts.download !== false && !alreadyLoaded
+  const plan = download ? planNetworkQuery(points, prefs.profile) : null
+  const onRetry = (host: string) => opts.onStatus?.(`El servidor no responde; probando ${host}…`)
+
+  if (plan) {
+    // Descarga por trozos pequeños (cada uno con caché propia): más fiable con
+    // servidores Overpass saturados que una única consulta grande.
+    const parts: NetworkQueryPlan[] = [
+      ...plan.detail.map((b) => ({ detail: [b], carOnly: plan.carOnly })),
+      ...(plan.corridor ? [{ detail: [], corridor: plan.corridor }] : []),
+    ]
+    for (const [i, part] of parts.entries()) {
+      opts.onStatus?.(`Descargando red viaria de OpenStreetMap (${i + 1}/${parts.length})…`)
+      networkStore.addWays(await fetchRoadNetwork(part, opts.signal, onRetry))
+      // Solo cuenta como zona cubierta si se descargaron todas las vías (también peatonales).
+      if (!part.carOnly) networkStore.addCoverage(part.detail)
+    }
   }
   opts.signal?.throwIfAborted()
 
@@ -87,7 +112,20 @@ export async function computeMultiRoute(
     throw new RouteError('No hay datos de carreteras para esta zona. No se puede calcular la ruta.')
   }
   opts.onStatus?.('Calculando ruta óptima con A*…')
-  return routeOnGraph(graph, points, prefs)
+  let corridor = plan?.corridor
+  for (;;) {
+    try {
+      return routeOnGraph(networkStore.graph(prefs.profile), points, prefs)
+    } catch (e) {
+      // Si las vías principales no conectan las paradas, se amplía el corredor un nivel.
+      const finer = corridor && FINER_LEVEL[corridor.level]
+      if (!(e instanceof RouteError) || e.reason !== 'unreachable' || !corridor || !finer) throw e
+      corridor = { ...corridor, level: finer }
+      opts.onStatus?.('Ampliando la red de carreteras para conectar las paradas…')
+      networkStore.addWays(await fetchRoadNetwork({ detail: [], corridor }, opts.signal, onRetry))
+      opts.signal?.throwIfAborted()
+    }
+  }
 }
 
 /** Núcleo síncrono: ajuste a la red + A* por tramos + instrucciones. */
@@ -112,7 +150,7 @@ export function routeOnGraph(graph: RoadGraph, points: RoutePoint[], prefs: Omit
     })
     if (!res.ok) {
       const leg = snapped.length > 2 ? ` (tramo ${k + 1})` : ''
-      throw new RouteError(`No se ha podido calcular la ruta${leg}: ${res.message}`)
+      throw new RouteError(`No se ha podido calcular la ruta${leg}: ${res.message}`, res.reason)
     }
     legs.push({ from: snapped[k].nodeId, to: snapped[k + 1].nodeId, result: res })
     const isLast = k === snapped.length - 2

@@ -47,7 +47,7 @@ describe('planificación de descarga de red', () => {
   it('Valencia → Buñol: detalle en extremos + corredor de vías principales', () => {
     const plan = planNetworkQuery([{ lat: 39.4699, lng: -0.3763 }, { lat: 39.419, lng: -0.791 }], 'car')
     expect(plan.detail).toHaveLength(2)
-    expect(plan.corridor?.level).toBe('secondary')
+    expect(plan.corridor?.level).toBe('primary')
   })
 
   it('rechaza distancias excesivas', () => {

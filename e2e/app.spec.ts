@@ -111,3 +111,37 @@ test('el menú del mapa fija origen y destino y se cierra (sin nombres inventado
   // Nominatim (simulado) no devuelve nada: se muestran solo coordenadas.
   await expect(page.getByRole('combobox', { name: 'Origen' })).toHaveValue(/^Punto -?\d+\.\d{5}, -?\d+\.\d{5}$/)
 })
+
+test.describe('ubicación del dispositivo', () => {
+  // Posición simulada: Plaça de l'Ajuntament (València).
+  test.use({ geolocation: { latitude: 39.46975, longitude: -0.37739, accuracy: 25 }, permissions: ['geolocation'] })
+
+  test('«Mi ubicación» centra el mapa y muestra el punto azul', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Mi ubicación' }).click()
+    await expect(page.locator('.user-dot')).toBeVisible()
+    await expect
+      .poll(async () => page.evaluate(() => JSON.parse(localStorage.getItem('atlas-nav:prefs')!).state.lastView))
+      .toMatchObject({ zoom: 16 })
+    const view = await page.evaluate(() => JSON.parse(localStorage.getItem('atlas-nav:prefs')!).state.lastView)
+    expect(view.lat).toBeCloseTo(39.4697, 2)
+    expect(view.lng).toBeCloseTo(-0.3774, 2)
+  })
+
+  test('se puede usar como origen de la ruta', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('tab', { name: 'Ruta' }).click()
+    await page.getByRole('button', { name: 'Usar mi ubicación como origen' }).click()
+    await expect(page.getByRole('combobox', { name: 'Origen' })).toHaveValue('Mi ubicación')
+  })
+})
+
+test.describe('ubicación denegada', () => {
+  test.use({ permissions: [] })
+  test('avisa si no hay permiso', async ({ page, context }) => {
+    await context.clearPermissions()
+    await page.goto('/')
+    await page.getByRole('button', { name: 'Mi ubicación' }).click()
+    await expect(page.getByRole('alert')).toContainText(/ubicación/)
+  })
+})
