@@ -21,6 +21,7 @@ vi.mock('@/features/osm/overpassService', async (orig) => ({
   fetchRoadNetwork: vi.fn(async (plan: NetworkQueryPlan) => {
     calls.push(plan)
     if (plan.corridor) return plan.corridor.level === 'secondary' ? [SECONDARY] : []
+    if (plan.access) return []
     const [b] = plan.detail
     return b.south < 39.45 ? [LOCAL_B] : [LOCAL_A]
   }),
@@ -42,8 +43,18 @@ describe('computeMultiRoute', () => {
       { profile: 'car', cost: 'fastest', avoidHighways: false },
       { onStatus: (s) => status.push(s) },
     )
-    expect(calls.map((c) => c.corridor?.level ?? 'detalle')).toEqual(['detalle', 'detalle', 'primary', 'secondary'])
+    expect(calls.map((c) => c.corridor?.level ?? (c.access ? 'acceso' : 'detalle'))).toEqual([
+      'detalle', 'detalle', 'acceso', 'acceso', 'primary', 'secondary',
+    ])
     expect(route.distance).toBeGreaterThan(30_000)
     expect(status).toContain('Ampliando la red de carreteras para conectar las paradas…')
+  })
+})
+
+describe('consulta Overpass de la red', () => {
+  it('incluye los anillos de acceso con carreteras secundarias y terciarias', async () => {
+    const { buildRoadQuery } = await vi.importActual<typeof import('@/features/osm/overpassService')>('@/features/osm/overpassService')
+    const ql = buildRoadQuery({ detail: [], access: [{ south: 39.37, west: -0.85, north: 39.46, east: -0.73 }] })
+    expect(ql).toContain('way["highway"~"^(secondary|secondary_link|tertiary|tertiary_link|unclassified)$"](39.37000,-0.85000,39.46000,-0.73000);')
   })
 })

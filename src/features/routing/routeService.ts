@@ -58,13 +58,17 @@ export function planNetworkQuery(points: RoutePoint[], profile: TravelProfile): 
       'La distancia entre paradas es demasiado grande para descargar la red en vivo (máx. ~300 km). Importa datos OSM locales para trayectos más largos.',
     )
   }
-  // Radio amplio: los enlaces autovía↔núcleo suelen ser vías terciarias fuera del corredor.
-  const radius = diag > 60_000 ? 3000 : 2000
+  // Calles completas cerca de cada parada + anillo de acceso más amplio: los enlaces
+  // núcleo↔autovía suelen ser carreteras secundarias/terciarias fuera del corredor
+  // (p. ej. Buñol solo enlaza con la A-3 por la CV-425, a ~2,7 km del centro).
+  const radius = diag > 60_000 ? 1500 : 1000
+  const accessRadius = diag > 60_000 ? 8000 : 5000
   // Primero el nivel más ligero razonable; si no conecta, se amplía (ver computeMultiRoute).
   const level: CorridorLevel = diag <= 30_000 ? 'secondary' : diag <= 120_000 ? 'primary' : 'trunk'
   return {
     carOnly: true,
     detail: points.map((p) => bboxAround(p.lat, p.lng, radius)),
+    access: points.map((p) => bboxAround(p.lat, p.lng, accessRadius)),
     corridor: { bbox: expandBBox(box, Math.max(3000, diag * 0.12)), level },
   }
 }
@@ -95,6 +99,7 @@ export async function computeMultiRoute(
     // servidores Overpass saturados que una única consulta grande.
     const parts: NetworkQueryPlan[] = [
       ...plan.detail.map((b) => ({ detail: [b], carOnly: plan.carOnly })),
+      ...(plan.access ?? []).map((b) => ({ detail: [], access: [b] })),
       ...(plan.corridor ? [{ detail: [], corridor: plan.corridor }] : []),
     ]
     for (const [i, part] of parts.entries()) {

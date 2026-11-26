@@ -65,7 +65,7 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 69 tests unitarios y de integración
+npm test             # Vitest: 72 tests unitarios y de integración
 npx playwright install chromium   # solo la primera vez
 npm run test:e2e     # Playwright: escritorio y móvil, sin red (datos OSM reales simulados)
 npm run lint         # oxlint
@@ -117,7 +117,7 @@ Separación clave: **UI** (`components/`), **datos geográficos** (`features/osm
 2. **Ajuste a la red**: cada parada se ajusta al nodo más cercano de la componente conexa principal (máx. 1,5 km).
 3. **Búsqueda** (`astar.ts`): montículo binario, coste = tiempo (`distancia / velocidad`) o distancia; heurística = distancia haversine al destino (dividida por la velocidad máxima del grafo en modo «más rápida»), que nunca sobreestima → ruta óptima. Conjunto cerrado y descarte de entradas obsoletas → sin bucles infinitos. Devuelve `RouteResult` con nodos, aristas, distancia, tiempo y geometría, o un error tipado (`empty-graph`, `node-not-found`, `unreachable`, `limit-exceeded`).
 4. **Instrucciones** (`routeInstructions.ts`): ángulo entre el rumbo de llegada y el de salida (medidos a 20 m del nodo), número de alternativas en el cruce, cambios de nombre, rotondas y transiciones de autopista.
-5. **Descarga de datos** (`routeService.ts`): trayectos cortos → todas las calles del área; trayectos largos → todas las calles alrededor de cada parada + solo vías principales en el corredor (hasta ~300 km). Si la zona ya está cargada no se vuelve a pedir.
+5. **Descarga de datos** (`routeService.ts`): trayectos cortos → todas las calles del área. Trayectos largos → por trozos con caché propia: calles de coche a 1 km de cada parada, un **anillo de acceso** de 5 km (secundarias, terciarias y sin clasificar, que son las que unen cada núcleo con las autovías) y un corredor de vías principales. Si aun así las paradas no conectan, el corredor se amplía un nivel. Ejemplo real: Buñol solo enlaza con la A-3 por la CV-425, a ~2,7 km del centro; sin el anillo, la ruta Valencia→Buñol daba un rodeo de 46 km por Chiva en lugar de los 40 km reales. Si la zona ya está cargada no se vuelve a pedir.
 
 Si no hay datos de carreteras, **no se inventa una ruta**: se informa del motivo.
 
@@ -127,7 +127,7 @@ Si no hay datos de carreteras, **no se inventa una ruta**: se informa del motivo
 |---|---|---|
 | Autocompletado | [Photon](https://photon.komoot.io) (komoot, datos OSM) | Diseñado para búsqueda mientras se escribe. Antirrebote 350 ms, mín. 3 letras, caché. |
 | Búsqueda completa y geocodificación inversa | [Nominatim](https://nominatim.org) (OSMF) | [Política](https://operations.osmfoundation.org/policies/nominatim/): **máx. 1 petición/s**, sin autocompletado → solo al pulsar Enter o elegir un punto del mapa. |
-| Red viaria y POIs | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) | Peticiones espaciadas ≥ 1,2 s, timeout por servidor, espejos de reserva, caché IndexedDB de 7 días, zonas acotadas. |
+| Red viaria y POIs | [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API) | Peticiones espaciadas ≥ 1,2 s, caché IndexedDB de 7 días, zonas acotadas. Si un espejo no responde en 12 s se prueba el siguiente en paralelo (gana el primero y se cancela el resto); los errores 429/5xx se reintentan una vez. |
 | Teselas | OpenStreetMap estándar, Esri (World Imagery, Light/Dark Gray Canvas), OpenTopoMap | Ninguna requiere clave API. Los basemaps de CARTO pasaron a exigir clave y no se usan. |
 
 ### Configurar fuentes alternativas

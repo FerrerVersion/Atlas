@@ -1,5 +1,5 @@
 import { cacheGet, cacheSet, hashKey } from '@/utils/storage'
-import { HttpError, RateLimitedClient } from '@/utils/http'
+import { HttpError, RateLimitedClient, sleep } from '@/utils/http'
 import { bboxToOverpass, type BBox } from '@/utils/geometry'
 import type { OsmWay } from '@/features/routing/graph'
 import { POI_CATEGORY_MAP, poisFromOsm, type OsmPoiElement, type POI, type PoiCategory } from '@/features/poi/poiTypes'
@@ -16,6 +16,10 @@ const DEFAULT_ENDPOINTS = [
 ]
 /** Tiempo máximo por servidor antes de probar el siguiente espejo. */
 const ENDPOINT_TIMEOUT_MS = 45_000
+/** Espera antes de reintentar un servidor que respondió 429/5xx. */
+export const RETRY_DELAY_MS = 4_000
+/** Si un espejo no responde en este tiempo, se lanza el siguiente en paralelo. */
+export const HEDGE_MS = 12_000
 
 export const OVERPASS_ENDPOINTS: string[] = (import.meta.env.VITE_OVERPASS_URLS as string | undefined)
   ?.split(',')
@@ -45,24 +49,76 @@ export async function queryOverpass<T>(
 
   let lastError: unknown
   const order = OVERPASS_ENDPOINTS.map((_, i) => (preferred + i) % OVERPASS_ENDPOINTS.length)
-  for (const [n, idx] of order.entries()) {
-    const endpoint = OVERPASS_ENDPOINTS[idx]
-    if (n > 0) onRetry?.(new URL(endpoint).host)
-    try {
-      const data = await client.request<OverpassResponse<T>>(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({ data: ql }).toString(),
-        signal,
-      })
-      preferred = idx
-      await cacheSet(key, data)
-      return data
-    } catch (e) {
-      // Cancelación del usuario: se propaga. Timeout (408) o error de red: siguiente espejo.
-      if (signal?.aborted) throw e
-      lastError = e
-      if (e instanceof HttpError && e.status === 400) break
+  const attempt = async (idx: number, sig?: AbortSignal) => {
+    const data = await client.request<OverpassResponse<T>>(OVERPASS_ENDPOINTS[idx], {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ data: ql }).toString(),
+      signal: sig,
+    })
+    preferred = idx
+    await cacheSet(key, data)
+    return data
+  }
+  const retryable: number[] = []
+
+  // Ronda 1 «escalonada»: si un espejo no contesta en HEDGE_MS se lanza el siguiente
+  // en paralelo; gana el primero que responde y se cancelan los demás.
+  const hedged = () =>
+    new Promise<OverpassResponse<T> | null>((resolve, reject) => {
+      const controllers: AbortController[] = []
+      let next = 0
+      let pending = 0
+      let settled = false
+      const finish = (value: OverpassResponse<T> | null) => {
+        if (settled) return
+        settled = true
+        controllers.forEach((c) => c.abort())
+        resolve(value)
+      }
+      const launch = () => {
+        if (settled || next >= order.length) {
+          if (!settled && pending === 0) finish(null)
+          return
+        }
+        const idx = order[next++]
+        if (next > 1) onRetry?.(new URL(OVERPASS_ENDPOINTS[idx]).host)
+        const ctrl = new AbortController()
+        controllers.push(ctrl)
+        pending++
+        const timer = setTimeout(launch, HEDGE_MS)
+        attempt(idx, signal ? AbortSignal.any([signal, ctrl.signal]) : ctrl.signal).then(finish, (e) => {
+          pending--
+          clearTimeout(timer)
+          if (settled) return
+          if (signal?.aborted) {
+            settled = true
+            controllers.forEach((c) => c.abort())
+            reject(e)
+            return
+          }
+          lastError = e
+          if (e instanceof HttpError && e.status === 400) return finish(null)
+          if (e instanceof HttpError && (e.status === 429 || e.status >= 500)) retryable.push(idx)
+          launch()
+        })
+      }
+      launch()
+    })
+
+  const first = await hedged()
+  if (first) return first
+  if (!(lastError instanceof HttpError && lastError.status === 400)) {
+    // Ronda 2: solo los espejos que respondieron rápido con saturación (429/5xx).
+    for (const idx of retryable) {
+      onRetry?.(`${new URL(OVERPASS_ENDPOINTS[idx]).host} (reintento)`)
+      await sleep(RETRY_DELAY_MS, signal)
+      try {
+        return await attempt(idx, signal)
+      } catch (e) {
+        if (signal?.aborted) throw e
+        lastError = e
+      }
     }
   }
   const status = lastError instanceof HttpError ? ` (${lastError.status})` : ''
@@ -86,11 +142,18 @@ export const MAJOR_ROADS: Record<'tertiary' | 'secondary' | 'primary' | 'trunk',
 const CAR_ROADS =
   'motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service'
 
+const ACCESS_ROADS = 'secondary|secondary_link|tertiary|tertiary_link|unclassified'
+
 export interface NetworkQueryPlan {
   /** Zonas con todo el detalle de calles. */
   detail: BBox[]
   /** Solo vías para coche en las zonas de detalle. */
   carOnly?: boolean
+  /**
+   * Anillos de acceso: carreteras secundarias, terciarias y sin clasificar alrededor
+   * de cada parada. Son las que unen los núcleos con autovías y nacionales.
+   */
+  access?: BBox[]
   /** Corredor con solo vías principales para trayectos largos. */
   corridor?: { bbox: BBox; level: keyof typeof MAJOR_ROADS }
 }
@@ -98,6 +161,7 @@ export interface NetworkQueryPlan {
 export function buildRoadQuery(plan: NetworkQueryPlan): string {
   const detailFilter = plan.carOnly ? `["highway"~"^(${CAR_ROADS})$"]` : `["highway"]["highway"!~"^(${EXCLUDED})$"]`
   const parts = plan.detail.map((b) => `way${detailFilter}(${bboxToOverpass(b)});`)
+  for (const b of plan.access ?? []) parts.push(`way["highway"~"^(${ACCESS_ROADS})$"](${bboxToOverpass(b)});`)
   if (plan.corridor) {
     parts.push(`way["highway"~"^(${MAJOR_ROADS[plan.corridor.level]})$"](${bboxToOverpass(plan.corridor.bbox)});`)
   }
