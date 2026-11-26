@@ -14,7 +14,7 @@ const LAT = { photon: 450, nominatim: 900, overpass: 1500 }
 const b = await chromium.launch()
 async function page({ slow = false } = {}) {
   const ctx = await b.newContext({ viewport: { width: 1366, height: 860 }, serviceWorkers: 'block' })
-  await ctx.addInitScript(() => localStorage.setItem('atlas-nav:prefs', JSON.stringify({ state: { lastView: { lat: 39.4185, lng: -0.7915, zoom: 16 }, autoLocate: false }, version: 1 })))
+  await ctx.addInitScript(() => localStorage.setItem('atlas-nav:prefs', JSON.stringify({ state: { lastView: { lat: 39.4185, lng: -0.7915, zoom: 16 } }, version: 1 })))
   const p = await ctx.newPage()
   if (slow) {
     const cdp = await ctx.newCDPSession(p)

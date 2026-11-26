@@ -18,13 +18,13 @@ export class RateLimitedClient {
    * Espacia el INICIO de las peticiones (no las serializa): una respuesta lenta
    * no bloquea a las siguientes. Cada petición tiene un tiempo máximo.
    */
-  async request<T>(input: string, init: RequestInit = {}): Promise<T> {
+  async request<T>(input: string, init: RequestInit = {}, timeoutMs = this.timeoutMs): Promise<T> {
     const now = Date.now()
     const start = Math.max(now, this.nextSlot)
     this.nextSlot = start + this.minIntervalMs
     if (start > now) await sleep(start - now, init.signal ?? undefined)
     init.signal?.throwIfAborted()
-    const timeout = AbortSignal.timeout(this.timeoutMs)
+    const timeout = AbortSignal.timeout(timeoutMs)
     const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout
     let res: Response
     try {

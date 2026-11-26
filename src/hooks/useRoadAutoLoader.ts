@@ -16,6 +16,8 @@ export const AUTOLOAD_MARGIN_M = 600
 export function useRoadAutoLoader() {
   const zoomedIn = useAppStore((s) => s.lastView.zoom >= AUTOLOAD_MIN_ZOOM)
   const enabled = useAppStore((s) => s.autoLoadRoads)
+  // Mientras se calcula una ruta no se descarga nada más (se reanuda al terminar).
+  const routing = useAppStore((s) => s.routeStatus === 'loading')
   // Clave = celdas de la zona con margen: solo se reacciona cuando cambian.
   const key = useAppStore((s) =>
     s.viewBBox ? cellsForBBox(expandBBox(s.viewBBox, AUTOLOAD_MARGIN_M)).map((c) => c.key).join('|') : '',
@@ -23,7 +25,7 @@ export function useRoadAutoLoader() {
 
   useEffect(() => {
     const view = useAppStore.getState().viewBBox
-    if (!enabled || !view || !zoomedIn || !key) return
+    if (!enabled || routing || !view || !zoomedIn || !key) return
     const controller = new AbortController()
     const t = setTimeout(async () => {
       const { setRoadsStatus } = useAppStore.getState()
@@ -42,5 +44,5 @@ export function useRoadAutoLoader() {
       clearTimeout(t)
       controller.abort()
     }
-  }, [key, enabled, zoomedIn])
+  }, [key, enabled, zoomedIn, routing])
 }

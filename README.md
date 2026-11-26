@@ -57,7 +57,7 @@ npm run dev          # http://localhost:5173
 
 ### Ubicación del dispositivo (GPS)
 
-- **Al abrir la web** se pide permiso de ubicación; si lo concedes, el mapa se centra donde estás y el punto azul se mantiene actualizado mientras la página esté abierta (un único seguimiento compartido por toda la app). Si lo deniegas, no se insiste. Se puede desactivar en *Ajustes → Ubicación*.
+- **Antes de nada se pide la ubicación**: la app no se abre hasta que la permites (si el navegador ya la tenía concedida, entra directamente). Si se deniega, una pantalla explica cómo activarla desde el candado de la barra de direcciones. Con el permiso, el mapa se centra donde estás y el punto azul se mantiene actualizado (un único seguimiento compartido por toda la app).
 - **Mi ubicación** (botón de diana en los controles del mapa, resaltado cuando el seguimiento está activo): vuelve a centrar el mapa en tu posición.
 - **Usar mi ubicación como origen** (icono junto al campo *Origen* en la pestaña Ruta).
 - **Seguir mi ubicación GPS** en el modo navegación: la posición se proyecta sobre la ruta para avanzar las indicaciones.
@@ -120,6 +120,10 @@ Cómo:
 - **Movimiento fluido**: la posición se anima fotograma a fotograma entre lecturas del GPS y el mapa la acompaña sin tirones.
 - **Mapa precargado alrededor de la pantalla**: un anillo extra de teselas y 600 m de calles de margen; también carga mientras se arrastra.
 - **Ruta provisional**: en cuanto los datos llegados permiten una ruta real se muestra, y se afina al terminar la descarga. Al elegir el origen se precargan sus calles y su anillo de acceso; como mucho 2 consultas reales a Overpass a la vez.
+- **Tu zona de 200 km**: al conceder la ubicación se precarga en segundo plano el mapa del tema elegido en 200 km a tu alrededor: autopistas y autovías reales en vectorial (celdas fijas de 1°, de la más cercana a la más lejana, solo tipo y geometría, caché compacta de 7 días), dibujadas con el estilo del tema desde el zoom 7, y las teselas de los zooms 5-10. Se repite si te alejas más de 50 km.
+- **Prioridad a la ruta**: mientras se calcula una ruta el mapa se encuadra en el trayecto y todo lo demás (zona de 200 km, calles al mover el mapa, POIs) se pausa; una descarga de fondo en curso se cancela y se retoma después. Las descargas de fondo nunca ocupan una plaza de Overpass si hay otra consulta en marcha.
+- **5 km alrededor de la ruta**: con la ruta lista se cargan las carreteras reales a ≤ 5 km del trayecto (Overpass `around` sobre la línea simplificada, en tramos de 40 km) y las teselas a lo largo de la ruta al zoom del encuadre y uno más.
+- **Política de teselas de OSM**: nunca se precargan más de 250 teselas de zoom ≥ 13; la precarga regional se limita a zooms ≤ 10.
 - **Arranque**: pantalla inicial en el propio HTML, estilos y registro de la PWA que no bloquean el pintado, paneles secundarios y modo navegación descargados aparte (precargados en reposo) y teselas sin fundido.
 
 Para medirlo: `npx vite preview --port 4173` y `node scripts/perf-ux.mjs` (servicios simulados con latencias realistas).

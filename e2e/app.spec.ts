@@ -184,13 +184,25 @@ test.describe('ubicación del dispositivo', () => {
 
 test.describe('ubicación denegada', () => {
   test.use({ permissions: [] })
-  test('al abrir no molesta si se deniega, y avisa al pulsar el botón', async ({ page, context }) => {
+  test('antes de nada pide la ubicación; si se deniega explica cómo activarla y no abre el mapa', async ({ page, context }) => {
     await context.clearPermissions()
     await page.goto('/')
-    await page.waitForTimeout(800)
-    await expect(page.getByRole('alert')).toHaveCount(0)
-    await page.getByRole('button', { name: 'Mi ubicación' }).click()
-    await expect(page.getByRole('alert')).toContainText(/ubicación/)
+    await expect(page.getByRole('dialog', { name: 'Permite tu ubicación' })).toBeVisible()
+    await expect(page.locator('.leaflet-container')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Permitir ubicación' }).click()
+    await expect(page.getByRole('dialog', { name: 'La ubicación está bloqueada' })).toBeVisible()
+    await expect(page.getByRole('alert')).toContainText(/candado/)
+    await expect(page.locator('.leaflet-container')).toHaveCount(0)
+  })
+
+  test('al permitirla se abre el mapa centrado en el usuario', async ({ page, context }) => {
+    await context.clearPermissions()
+    await page.goto('/')
+    await expect(page.getByRole('dialog', { name: 'Permite tu ubicación' })).toBeVisible()
+    await context.grantPermissions(['geolocation'])
+    await page.getByRole('button', { name: 'Permitir ubicación' }).click()
+    await expect(page.locator('.leaflet-container')).toBeVisible()
+    await expect(page.locator('.user-dot')).toBeVisible()
   })
 })
 

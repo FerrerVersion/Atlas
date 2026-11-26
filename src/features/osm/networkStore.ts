@@ -73,6 +73,10 @@ class NetworkStore {
     return this.ways.size
   }
 
+  hasWay(id: number) {
+    return this.ways.has(id)
+  }
+
   allWays(): Iterable<OsmWay> {
     return this.ways.values()
   }

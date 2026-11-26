@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 
 /**
@@ -109,33 +109,53 @@ export function requestPosition(): Promise<{ lat: number; lng: number } | null> 
   )
 }
 
+export type GateState = 'checking' | 'ask' | 'pending' | 'denied' | 'unavailable' | 'granted'
+
+/** Estado inicial del permiso: si el navegador ya lo concedió, no hace falta preguntar. */
+async function initialGateState(): Promise<GateState> {
+  if (!window.isSecureContext || !('geolocation' in navigator)) return 'unavailable'
+  try {
+    const st = await navigator.permissions?.query?.({ name: 'geolocation' as PermissionName })
+    if (st?.state === 'granted') return 'granted'
+    if (st?.state === 'denied') return 'denied'
+  } catch {
+    /* Permissions API no disponible: se pregunta con el botón */
+  }
+  return 'ask'
+}
+
 /**
- * Al abrir la web: pide permiso y, si se concede, centra el mapa donde está el
- * usuario y mantiene la ubicación actualizada mientras la página esté abierta.
+ * Puerta de entrada: la app no arranca hasta que el usuario permite la ubicación.
+ * Cuando se concede, centra el mapa donde está y la mantiene actualizada.
  */
-export function useAutoLocation() {
-  const enabled = useAppStore((s) => s.autoLocate)
+export function useLocationGate() {
+  const [initial, setInitial] = useState<GateState>('checking')
+  const [requested, setRequested] = useState(false)
+  const status = useAppStore((s) => s.locationStatus)
+
   useEffect(() => {
-    if (!enabled) {
-      stopTracking()
-      return
-    }
     let cancelled = false
-    const start = () => !cancelled && startTracking({ fly: true, silent: true })
-    // Si el permiso ya estaba denegado, no se vuelve a preguntar (el navegador no lo haría).
-    const perms = navigator.permissions?.query?.({ name: 'geolocation' as PermissionName })
-    if (perms) {
-      perms
-        .then((st) => {
-          if (st.state === 'denied') useAppStore.getState().setLocationStatus('denied')
-          else start()
-        })
-        .catch(start)
-    } else start()
+    initialGateState().then((st) => {
+      if (cancelled) return
+      setInitial(st)
+      if (st === 'granted') startTracking({ fly: true, silent: true })
+    })
     return () => {
       cancelled = true
     }
-  }, [enabled])
+  }, [])
+
+  const request = useCallback(() => {
+    setRequested(true)
+    startTracking({ fly: true, silent: true })
+  }, [])
+
+  // Tras pulsar el botón: con el primer dato se entra; si se deniega, se explica cómo activarlo.
+  let state = initial
+  if (requested && initial !== 'granted') {
+    state = status === 'active' ? 'granted' : status === 'denied' || status === 'unavailable' ? status : 'pending'
+  }
+  return { state, request }
 }
 
 /** API para componentes (botón «Mi ubicación», navegación). */

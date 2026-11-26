@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { setBackgroundPaused } from '@/features/osm/backgroundGate'
 import { networkStore } from '@/features/osm/networkStore'
 import { OverpassError } from '@/features/osm/overpassService'
 import { computeMultiRoute, prefetchAround, RouteError } from '@/features/routing/routeService'
@@ -7,12 +8,25 @@ import { isAbortError } from '@/utils/http'
 import { filledWaypoints, useAppStore } from '@/store/useAppStore'
 
 /**
+ * Mientras se calcula una ruta, la app se centra solo en ella: se pausan la precarga
+ * regional, el corredor, la carga de calles al mover el mapa y los POIs.
+ */
+function useRouteFocus() {
+  const computing = useAppStore((s) => s.routeStatus === 'loading')
+  useEffect(() => {
+    setBackgroundPaused(computing)
+  }, [computing])
+  useEffect(() => () => setBackgroundPaused(false), [])
+}
+
+/**
  * Recalcula la ruta cuando cambian las paradas o las preferencias de navegación.
  * No depende del tema visual: cambiar de estilo nunca dispara un recálculo.
  */
 export function useRouteComputation() {
   const waypoints = useAppStore((s) => s.waypoints)
   const navPrefs = useAppStore((s) => s.navPrefs)
+  useRouteFocus()
 
   const key = JSON.stringify({
     pts: waypoints.map((w) => (w.place ? [w.place.lat.toFixed(6), w.place.lng.toFixed(6)] : null)),
@@ -41,6 +55,8 @@ export function useRouteComputation() {
     const controller = new AbortController()
     const timer = setTimeout(async () => {
       setRoute(useAppStore.getState().route, 'loading', 'Preparando ruta…')
+      // El mapa se centra en el trayecto desde el primer momento (no al terminar).
+      if (!useAppStore.getState().navigation.active) requestFitRoute(places.map((p) => [p.lat, p.lng]))
       const prefs = useAppStore.getState().navPrefs
       const onStatus = (m: string) => setRoute(useAppStore.getState().route, 'loading', m)
       // Ruta provisional: se muestra (y se encuadra) en cuanto hay una válida.

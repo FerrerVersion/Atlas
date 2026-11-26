@@ -86,9 +86,10 @@ export function FitRouteController() {
   const nonce = useAppStore((s) => s.fitRouteNonce)
   const padding = usePanelPadding()
   useEffect(() => {
-    const route = useAppStore.getState().route
-    if (!nonce || !route || route.geometry.length < 2) return
-    map.flyToBounds(L.latLngBounds(route.geometry), { ...padding(), maxZoom: 17, animate: !prefersReducedMotion(), duration: 0.9 })
+    const { route, fitPoints } = useAppStore.getState()
+    const pts = fitPoints ?? route?.geometry
+    if (!nonce || !pts || pts.length < 2) return
+    map.flyToBounds(L.latLngBounds(pts), { ...padding(), maxZoom: 17, animate: !prefersReducedMotion(), duration: 0.9 })
   }, [map, nonce, padding])
   return null
 }

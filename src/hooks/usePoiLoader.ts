@@ -21,6 +21,8 @@ export function usePoiLoader() {
   const categoriesKey = useAppStore((s) => s.activeCategories.join(','))
   // Clave estable de la zona (redondeada) para no repetir consultas al mover poco el mapa.
   const viewKey = useAppStore((s) => (s.viewBBox ? JSON.stringify(snap(s.viewBBox)) : ''))
+  // Mientras se calcula una ruta se conservan los POIs y no se consulta nada.
+  const routing = useAppStore((s) => s.routeStatus === 'loading')
 
   useEffect(() => {
     const { setPois, notify } = useAppStore.getState()
@@ -30,6 +32,7 @@ export function usePoiLoader() {
       setPois([], 'idle')
       return
     }
+    if (routing) return
     const radius = Math.max(...categories.map((c) => POI_CATEGORY_MAP[c].searchRadius))
     const box = clampBBox(view, radius)
     const controller = new AbortController()
@@ -49,5 +52,5 @@ export function usePoiLoader() {
       clearTimeout(t)
       controller.abort()
     }
-  }, [categoriesKey, viewKey])
+  }, [categoriesKey, viewKey, routing])
 }

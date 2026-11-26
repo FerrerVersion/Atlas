@@ -1,4 +1,5 @@
 import { cacheGet, cacheSet, hashKey } from '@/utils/storage'
+import { isBackgroundPaused } from './backgroundGate'
 import { HttpError, RateLimitedClient, sleep } from '@/utils/http'
 import { bboxToOverpass, type BBox } from '@/utils/geometry'
 import type { OsmWay } from '@/features/routing/graph'
@@ -73,6 +74,15 @@ async function acquireSlot() {
   }
   await new Promise<void>((resolve) => waiting.push(resolve))
 }
+/**
+ * Las descargas de fondo (precarga regional, corredor de la ruta) solo ocupan plaza
+ * cuando no hay ninguna otra consulta en marcha ni en espera, y nunca mientras se
+ * calcula una ruta: así jamás retrasan lo que el usuario está esperando.
+ */
+async function acquireBackgroundSlot(signal?: AbortSignal) {
+  while (running > 0 || waiting.length > 0 || isBackgroundPaused()) await sleep(400, signal)
+  running++
+}
 function releaseSlot() {
   const next = waiting.shift()
   if (next) next()
@@ -82,15 +92,32 @@ function releaseSlot() {
 /** Consultas en curso: si se pide la misma (p. ej. precarga + ruta), se reutiliza. */
 const inFlight = new Map<string, Promise<OverpassResponse<unknown>>>()
 
+export interface QueryOptions {
+  /** Baja prioridad: espera a que no haya otras consultas y se cancela de verdad con `signal`. */
+  background?: boolean
+  /** Tiempo máximo por espejo (las consultas regionales grandes tardan más). */
+  timeoutMs?: number
+  /** `false`: no guarda la respuesta bruta (quien llama guarda su propia versión compacta). */
+  cache?: boolean
+}
+
+/**
+ * Las consultas de fondo son grandes y lentas (10-50 s): solo se lanza otro espejo en
+ * paralelo si el primero no responde en 25 s (un servidor colgado no bloquea la zona).
+ */
+export const HEDGE_MS_BACKGROUND = 25_000
+
 export function queryOverpass<T>(
   ql: string,
   signal?: AbortSignal,
   onRetry?: (host: string) => void,
   hedgeMs = HEDGE_MS,
+  options: QueryOptions = {},
 ): Promise<OverpassResponse<T>> {
   const key = `overpass:${hashKey(ql)}`
   const pending = inFlight.get(key)
   if (pending) return abortable(pending as Promise<OverpassResponse<T>>, signal)
+  if (options.background) return backgroundQuery<T>(ql, options.cache === false ? null : key, signal, options.timeoutMs)
   // La descarga compartida no se cancela si un solo interesado se va: otro puede necesitarla.
   const shared = (async () => {
     const cached = await cacheGet<OverpassResponse<T>>(key, CACHE_TTL)
@@ -104,6 +131,17 @@ export function queryOverpass<T>(
   })().finally(() => inFlight.delete(key))
   inFlight.set(key, shared)
   return abortable(shared, signal)
+}
+
+async function backgroundQuery<T>(ql: string, key: string | null, signal?: AbortSignal, timeoutMs?: number) {
+  const cached = key ? await cacheGet<OverpassResponse<T>>(key, CACHE_TTL) : null
+  if (cached) return cached
+  await acquireBackgroundSlot(signal)
+  try {
+    return await runQuery<T>(ql, key, undefined, HEDGE_MS_BACKGROUND, signal, timeoutMs)
+  } finally {
+    releaseSlot()
+  }
 }
 
 function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
@@ -121,24 +159,33 @@ function abortable<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
 
 async function runQuery<T>(
   ql: string,
-  key: string,
+  /** Clave de caché; `null` = sin caché. */
+  key: string | null,
   onRetry: ((host: string) => void) | undefined,
   hedgeMs: number,
+  /** Cancela la descarga real (solo consultas de fondo: las normales se comparten). */
+  outer?: AbortSignal,
+  timeoutMs?: number,
 ): Promise<OverpassResponse<T>> {
-  const cached = await cacheGet<OverpassResponse<T>>(key, CACHE_TTL)
+  const cached = key ? await cacheGet<OverpassResponse<T>>(key, CACHE_TTL) : null
   if (cached) return cached
 
   let lastError: unknown
   const order = OVERPASS_ENDPOINTS.map((_, i) => (preferred + i) % OVERPASS_ENDPOINTS.length)
   const attempt = async (idx: number, sig?: AbortSignal) => {
-    const data = await client.request<OverpassResponse<T>>(OVERPASS_ENDPOINTS[idx], {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ data: ql }).toString(),
-      signal: sig,
-    })
+    const signal = outer && sig ? AbortSignal.any([outer, sig]) : (outer ?? sig)
+    const data = await client.request<OverpassResponse<T>>(
+      OVERPASS_ENDPOINTS[idx],
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ data: ql }).toString(),
+        signal,
+      },
+      timeoutMs,
+    )
     rememberPreferred(idx)
-    await cacheSet(key, data)
+    if (key) await cacheSet(key, data)
     return data
   }
   const retryable: number[] = []
@@ -167,11 +214,12 @@ async function runQuery<T>(
         const ctrl = new AbortController()
         controllers.push(ctrl)
         pending++
-        const timer = setTimeout(launch, hedgeMs)
+        const timer = Number.isFinite(hedgeMs) ? setTimeout(launch, hedgeMs) : undefined
         attempt(idx, ctrl.signal).then(finish, (e) => {
           pending--
           clearTimeout(timer)
           if (settled) return
+          if (outer?.aborted) return finish(null)
           lastError = e
           if (e instanceof HttpError && e.status === 400) return finish(null)
           if (e instanceof HttpError && (e.status === 429 || e.status >= 500)) retryable.push(idx)
@@ -183,14 +231,16 @@ async function runQuery<T>(
 
   const first = await hedged()
   if (first) return first
+  outer?.throwIfAborted()
   if (!(lastError instanceof HttpError && lastError.status === 400)) {
     // Ronda 2: solo los espejos que respondieron rápido con saturación (429/5xx).
     for (const idx of retryable) {
       onRetry?.(`${new URL(OVERPASS_ENDPOINTS[idx]).host} (reintento)`)
-      await sleep(RETRY_DELAY_MS)
+      await sleep(RETRY_DELAY_MS, outer)
       try {
         return await attempt(idx)
       } catch (e) {
+        outer?.throwIfAborted()
         lastError = e
       }
     }

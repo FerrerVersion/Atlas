@@ -13,6 +13,10 @@ export default defineConfig({
     trace: 'retain-on-failure',
     // El service worker de la PWA saltaría los mocks de red de las pruebas.
     serviceWorkers: 'block',
+    // La app exige la ubicación antes de nada: por defecto se concede (centro de Buñol,
+    // la zona del extracto real de OSM que usan las pruebas).
+    permissions: ['geolocation'],
+    geolocation: { latitude: 39.4189, longitude: -0.7909, accuracy: 20 },
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 860 } } },

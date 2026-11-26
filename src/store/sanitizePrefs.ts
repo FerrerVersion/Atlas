@@ -4,7 +4,7 @@ import type { AppState, MapView, NavPrefs, UiMode } from './useAppStore'
 
 type Prefs = Pick<
   AppState,
-  'themeId' | 'uiMode' | 'autoNightTheme' | 'showLabels' | 'autoLoadRoads' | 'autoLocate' | 'navPrefs' | 'favorites' | 'history' | 'lastView'
+  'themeId' | 'uiMode' | 'autoNightTheme' | 'showLabels' | 'autoLoadRoads' | 'navPrefs' | 'favorites' | 'history' | 'lastView'
 >
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -46,7 +46,6 @@ export function sanitizePrefs(persisted: unknown, current: Prefs): Prefs {
     autoNightTheme: bool(p.autoNightTheme, current.autoNightTheme),
     showLabels: bool(p.showLabels, current.showLabels),
     autoLoadRoads: bool(p.autoLoadRoads, current.autoLoadRoads),
-    autoLocate: bool(p.autoLocate, current.autoLocate),
     navPrefs,
     favorites: list(p.favorites, 200),
     history: list(p.history, 25),

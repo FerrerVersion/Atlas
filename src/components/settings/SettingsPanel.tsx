@@ -17,8 +17,6 @@ export function SettingsPanel() {
   const autoNight = useAppStore((s) => s.autoNightTheme)
   const showLabels = useAppStore((s) => s.showLabels)
   const autoLoad = useAppStore((s) => s.autoLoadRoads)
-  const autoLocate = useAppStore((s) => s.autoLocate)
-  const locationStatus = useAppStore((s) => s.locationStatus)
   const setPref = useAppStore((s) => s.setPref)
   const notify = useAppStore((s) => s.notify)
   useNetworkVersion()
@@ -52,18 +50,10 @@ export function SettingsPanel() {
       </Section>
 
       <Section title="Ubicación">
-        <Toggle
-          label="Usar mi ubicación al abrir"
-          description="Pide permiso al cargar la web, centra el mapa donde estás y la mantiene actualizada. Nunca se envía a servidores."
-          checked={autoLocate}
-          onChange={(v) => setPref('autoLocate', v)}
-        />
-        {locationStatus === 'denied' && (
-          <p className="rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-            El navegador tiene la ubicación bloqueada para esta web. Permítela desde el icono del candado en la barra de direcciones
-            y recarga la página.
-          </p>
-        )}
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Atlas usa tu ubicación desde que se abre: centra el mapa donde estás, precarga 200 km a tu alrededor y la mantiene
+          actualizada. Nunca se envía a ningún servidor.
+        </p>
       </Section>
 
       <Section title="Datos cartográficos">

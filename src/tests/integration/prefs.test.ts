@@ -6,7 +6,7 @@ const current = () => {
   const s = useAppStore.getState()
   return {
     themeId: 'classic', uiMode: 'system' as const, autoNightTheme: false, showLabels: true, autoLoadRoads: true,
-    autoLocate: true, navPrefs: s.navPrefs, favorites: [], history: [], lastView: { lat: 39.47, lng: -0.38, zoom: 13 },
+    navPrefs: s.navPrefs, favorites: [], history: [], lastView: { lat: 39.47, lng: -0.38, zoom: 13 },
   }
 }
 

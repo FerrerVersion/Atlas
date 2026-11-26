@@ -144,7 +144,7 @@
     <div class="card"><h4>Calcular rutas</h4>A* sobre la red viaria real: sentidos únicos, rotondas, límites de velocidad; en coche o a pie; más rápida o más corta; evitar autopistas.</div>
     <div class="card"><h4>Guiar paso a paso</h4>Giros, rotondas («toma la 2.ª salida»), entradas y salidas de autovía, paradas. Modo navegación con simulación, GPS y voz.</div>
     <div class="card"><h4>Varias paradas</h4>Añadir, quitar, reordenar e invertir. Marcadores arrastrables. Cálculo por tramos.</div>
-    <div class="card"><h4>Tu ubicación</h4>Al abrir la web pide permiso y centra el mapa donde estás; el punto azul se mantiene actualizado.</div>
+    <div class="card"><h4>Tu ubicación</h4>Antes de nada pide permiso; con él centra el mapa donde estás, precarga 200 km a tu alrededor y mantiene el punto azul actualizado.</div>
     <div class="card"><h4>Personalizar</h4>15 estilos, modo noche, favoritos, historial y un editor para crear mapas propios a partir de una imagen.</div>
   </div>
 </section>
@@ -261,11 +261,12 @@ npm run dev</pre>
   <p><b>Movimiento fluido:</b> el GPS da una lectura por segundo; la posición mostrada se anima fotograma a fotograma entre lecturas (con una duración algo mayor que el intervalo para no detenerse) y el mapa la acompaña sin tirones.</p>
 
   <h3>2.5 Ubicación del dispositivo</h3>
-  <p>Al abrir la web se pide permiso de ubicación. Si lo concedes, el mapa se centra donde estás y el punto azul (con su círculo de precisión) se actualiza mientras la página esté abierta. Detalles:</p>
+  <p>Antes de nada, la app pide permiso de ubicación: no se abre hasta que lo concedes (si el navegador ya lo tenía, entra directamente). Con el permiso, el mapa se centra donde estás y el punto azul (con su círculo de precisión) se actualiza mientras la página esté abierta. Detalles:</p>
   <ul>
     <li>Si buscas otro lugar antes de que llegue tu posición, no se te mueve el mapa.</li>
-    <li>Si lo deniegas, no se insiste ni aparecen errores. En <i>Ajustes → Ubicación</i> se explica cómo reactivarla.</li>
-    <li>Se puede desactivar con «Usar mi ubicación al abrir».</li>
+    <li>Si lo deniegas, una pantalla explica cómo activarlo desde el candado de la barra de direcciones y permite reintentar.</li>
+    <li><b>Tu zona de 200 km</b>: con el permiso se precarga en segundo plano el mapa del estilo elegido en 200 km a tu alrededor (autopistas y autovías reales en vectorial desde el zoom 7 y teselas de los zooms 5-10). Un indicador muestra el progreso.</li>
+    <li><b>Al elegir una ruta</b> el mapa se centra en el trayecto y todo lo demás se pausa hasta tenerla; después se cargan las carreteras y teselas a 5 km alrededor de la ruta.</li>
     <li>Toda la app comparte un único seguimiento GPS. La posición nunca se envía a ningún servidor.</li>
   </ul>
 
@@ -290,7 +291,6 @@ npm run dev</pre>
       <ul>
         <li>Interfaz <b>clara, noche o automática</b>, y mapa nocturno automático (20:00-7:00).</li>
         <li>Mostrar u ocultar etiquetas.</li>
-        <li>Ubicación al abrir.</li>
         <li>Carga automática de calles al acercarse.</li>
         <li><b>Demo sin conexión</b> (Buñol) y vaciar la caché de datos.</li>
         <li>Acceso al editor de mapas personalizados.</li>
@@ -506,7 +506,7 @@ npm run dev</pre>
   <div class="grid2">
     <div class="card"><h4>Motor de rutas</h4>Los 12 casos pedidos: ruta directa, varios tramos, óptima frente a alternativa más larga, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo y reconstrucción. Además: sin bucles, evitar autopistas, grafo desde datos OSM reales de Buñol, rotondas, autovías, multi-parada y ampliación del corredor.</div>
     <div class="card"><h4>Resto de la lógica</h4>Búsqueda (acentos, categorías, coordenadas), adaptadores Photon y Nominatim, 15 estilos (válidos y distintos), estado (cambiar de estilo no borra la ruta; persistencia), calibración de imágenes, progreso de navegación, limitador de peticiones, servidores escalonados y reintentos.</div>
-    <div class="card"><h4>Navegador real (e2e)</h4>Carga del mapa; búsqueda de Buñol con nombre real; cambio de 4 estilos sin perder la ruta (y recordado al recargar); ruta con parada y modo navegación; POIs reales; menú del mapa sin nombres inventados; ubicación al abrir, como origen y denegada; editor de mapas completo y sus casos límite; teselas en pantallas retina; preferencias dañadas; móvil pequeño (375×667).</div>
+    <div class="card"><h4>Navegador real (e2e)</h4>Carga del mapa; búsqueda de Buñol con nombre real; cambio de 4 estilos sin perder la ruta (y recordado al recargar); ruta con parada y modo navegación; POIs reales; menú del mapa sin nombres inventados; pantalla de permiso de ubicación (concedida y denegada), ubicación como origen; editor de mapas completo y sus casos límite; teselas en pantallas retina; preferencias dañadas; móvil pequeño (375×667).</div>
     <div class="card"><h4>Sin depender de la red</h4>Las pruebas e2e responden a las búsquedas y a Overpass con el extracto real de OSM incluido, así que son reproducibles. La ruta Valencia→Buñol se verificó además en vivo contra los servicios reales.</div>
   </div>
 </section>
