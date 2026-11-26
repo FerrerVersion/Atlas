@@ -2,6 +2,8 @@
 
 Aplicación web de navegación con **ubicaciones y nombres reales de OpenStreetMap**, motor de rutas **A\*** propio, navegación paso a paso, paradas múltiples y **15 estilos visuales de mapa** (de clásico a cyberpunk, blueprint, arcade o fantasía).
 
+**▶ Pruébala aquí: [ferrerversion.github.io/Atlas](https://ferrerversion.github.io/Atlas/)** · Funciona en ordenador y móvil, y se puede instalar como app.
+
 La originalidad está en la interfaz, los estilos y las funcionalidades. **Ningún nombre geográfico se inventa**: ciudades, calles y establecimientos proceden siempre de OpenStreetMap. Solo en el editor de *mapas personalizados* el usuario puede nombrar libremente sus propios lugares.
 
 ---
@@ -270,3 +272,8 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 - Web Worker para construir el grafo y ejecutar A* en zonas grandes.
 - Superponer mapas personalizados calibrados sobre el mapa real.
 - Importación de archivos `.osm`/`.pbf` y GeoJSON arbitrarios.
+
+## Autor
+
+**Jorge Ferrer Gil**, desarrollador de aplicaciones multiplataforma.
+[Portafolio](https://ferrerversion.github.io/FerrerVersion/) · [LinkedIn](https://www.linkedin.com/in/jorge-ferrer-gil-5008b423a/)

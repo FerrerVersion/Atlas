@@ -10,6 +10,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 // (los navegadores solo permiten la geolocalización en HTTPS o en localhost).
 const mobile = process.env.ATLAS_MOBILE === '1'
 
+// Ruta base de la web publicada (GitHub Pages sirve la app en /<repositorio>/).
+// En local sigue siendo la raíz.
+const base = process.env.BASE_PATH ?? '/'
+
 /**
  * La hoja de estilos deja de bloquear el primer pintado: la pantalla de arranque del
  * HTML se ve al instante y la app (main.tsx) espera a que los estilos estén aplicados.
@@ -28,6 +32,7 @@ const nonBlockingCss = (): Plugin => ({
 })
 
 export default defineConfig({
+  base,
   plugins: [
     react(),
     nonBlockingCss(),
@@ -48,7 +53,8 @@ export default defineConfig({
         theme_color: '#0b1020',
         background_color: '#0b1020',
         display: 'standalone',
-        start_url: '/',
+        start_url: base,
+        scope: base,
         icons: [
           { src: 'pwa-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'pwa-512.png', sizes: '512x512', type: 'image/png' },
@@ -60,7 +66,7 @@ export default defineConfig({
         // Tipografías: solo alfabetos latinos (los demás se bajan si alguna vez hacen falta).
         globPatterns: ['**/*.{js,css,html,svg}', 'pwa-192.png', '**/*-latin-*.woff2'],
         globIgnores: ['**/demo-*.js'],
-        navigateFallback: '/index.html',
+        navigateFallback: `${base}index.html`,
         runtimeCaching: [
           {
             // Teselas: primero la copia local (se renuevan a los 14 días).
