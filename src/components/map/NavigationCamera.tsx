@@ -70,6 +70,7 @@ class CameraEngine {
   private pointers = new Map<number, { x: number; y: number }>()
   private gestureMoved = false
   private engaged = false
+  private pausedLeafletDrag = false
 
   constructor(map: L.Map) {
     this.map = map
@@ -243,7 +244,7 @@ class CameraEngine {
     this.wrapper.style.position = 'absolute'
     this.wrapper.style.transformOrigin = '50% 50%'
     // El arrastre de Leaflet no entiende un mapa girado: se hace aquí (ver onPointerMove).
-    this.dragEnabledBefore = this.map.dragging.enabled()
+    this.dragEnabledBefore = this.map.dragging.enabled() || this.pausedLeafletDrag
     this.map.dragging.disable()
     // Clics, doble clic y rueda: de pantalla a mapa con la homografía inversa.
     this.map.mouseEventToContainerPoint = (e: MouseEvent | Touch) => {
@@ -302,16 +303,28 @@ class CameraEngine {
   }
 
   private onPointerDown(e: PointerEvent) {
-    if (!this.transformed) return
+    // Gestos solo durante la navegación (fuera de ella el mapa es el de siempre).
+    if (!useNavStore.getState().navigation.active) return
     const t = e.target as HTMLElement
     if (!t.closest('.leaflet-container') || t.closest('.leaflet-control')) return
+    if (this.pointers.size === 0) this.gestureMoved = false
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
-    this.gestureMoved = false
+    // Con el mapa plano, Ctrl/Alt/Cmd + arrastrar gira e inclina: Leaflet no debe desplazarlo a la vez.
+    if (!this.transformed && (e.ctrlKey || e.altKey || e.metaKey) && this.map.dragging.enabled()) {
+      this.map.dragging.disable()
+      this.pausedLeafletDrag = true
+    }
   }
 
   private onPointerMove(e: PointerEvent) {
     const prev = this.pointers.get(e.pointerId)
-    if (!prev || !this.transformed) return
+    if (!prev) return
+    const modifier = e.ctrlKey || e.altKey || e.metaKey || e.buttons === 2
+    // Con el mapa plano, el arrastre con un dedo lo hace Leaflet; aquí solo girar/inclinar.
+    if (!this.transformed && this.pointers.size < 2 && !modifier) {
+      this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      return
+    }
     const cur = { x: e.clientX, y: e.clientY }
     if (!this.gestureMoved && Math.hypot(cur.x - prev.x, cur.y - prev.y) < 4) return
     if (!this.gestureMoved) {
@@ -334,7 +347,7 @@ class CameraEngine {
         bearing: norm(fp.bearing - twist),
         tilt: Math.max(0, Math.min(MAX_TILT, fp.tilt - (cur.y - prev.y) * 0.15)),
       }
-    } else if (e.ctrlKey || e.altKey || e.metaKey || e.buttons === 2) {
+    } else if (modifier) {
       // Ratón con tecla: horizontal gira, vertical inclina.
       const fp = cameraState.freePose
       cameraState.freePose = {
@@ -353,6 +366,11 @@ class CameraEngine {
 
   private onPointerUp(e: PointerEvent) {
     if (!this.pointers.delete(e.pointerId)) return
+    if (this.pointers.size === 0 && this.pausedLeafletDrag) {
+      this.pausedLeafletDrag = false
+      if (!this.transformed) this.map.dragging.enable()
+      else this.dragEnabledBefore = true
+    }
     if (this.gestureMoved && this.pointers.size === 0) {
       // Tras arrastrar no se dispara el clic del mapa (menú contextual).
       const swallow = (ev: Event) => {

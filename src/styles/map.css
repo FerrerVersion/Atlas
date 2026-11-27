@@ -383,6 +383,12 @@
 .is-3d .map-camera {
   will-change: transform;
 }
+/* Con la cámara girada el arrastre lo gestiona la app: sin esto, en el móvil el navegador
+   se queda el gesto (desplazar la página) y lo cancela. Leaflet solo pone `touch-action:
+   none` mientras su propio arrastre está activo. */
+.is-3d .leaflet-container {
+  touch-action: none;
+}
 /* Controles de Leaflet (atribución) fuera de la parte que gira. */
 .atlas-map-controls {
   position: absolute;
