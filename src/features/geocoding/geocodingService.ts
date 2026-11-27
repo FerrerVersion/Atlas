@@ -40,6 +40,8 @@ export interface Place {
   category?: string
   /** Clave OSM principal (railway, highway, amenity…): distingue p. ej. una estación de tren de una calle. */
   osmKey?: string
+  /** Rumbo (°) de un origen GPS en marcha: el recálculo parte en tu sentido de circulación. */
+  heading?: number
 }
 
 export interface GeocodingProvider {

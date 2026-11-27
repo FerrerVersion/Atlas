@@ -15,7 +15,8 @@ La originalidad está en la interfaz, los estilos y las funcionalidades. **Ning�
 - **Mapa interactivo** (Leaflet): zoom con botones, rueda y pellizco, arrastre, centrado en el lugar seleccionado y en tu ubicación (si das permiso), ajuste automático a la ruta, menú contextual («Ruta desde aquí / hasta aquí / Añadir parada / ¿Qué hay aquí?»).
 - **Motor de rutas A\*** sobre la red viaria real: sentidos únicos, rotondas, límites de velocidad, modo coche/a pie, ruta más rápida o más corta, evitar autopistas, detección de destinos inaccesibles.
 - **Paradas múltiples**: añadir, eliminar, reordenar (botones o arrastrar), invertir; cálculo por tramos y unión sin nodos duplicados; marcadores arrastrables.
-- **Medición en tiempo real con el GPS**: en cuanto hay una ruta, cada lectura del dispositivo actualiza lo que queda (distancia, tiempo, llegada), la próxima maniobra, la velocidad, la distancia recorrida y el tiempo de viaje. Indica la calidad de la señal, descarta saltos imposibles del GPS, avisa si te desvías y **recalcula la ruta desde tu posición** (manteniendo las paradas pendientes). La pantalla se mantiene encendida durante la navegación.
+- **Medición en tiempo real con el GPS**: en cuanto hay una ruta, cada lectura del dispositivo actualiza lo que queda (distancia, tiempo, llegada), la próxima maniobra, la velocidad, la distancia recorrida y el tiempo de viaje. Indica la calidad de la señal, descarta saltos imposibles del GPS, avisa si te desvías (también si circulas por la calle de la ruta en sentido contrario) y **recalcula la ruta desde tu posición y en tu sentido de marcha** (manteniendo las paradas pendientes). Sin señal (túneles) estima el avance hasta 30 s. La pantalla se mantiene encendida durante la navegación.
+- **Cámara de navegación**: el mapa gira para que la dirección de avance quede arriba y se inclina en perspectiva; la flecha marca el rumbo real. Tres vistas: navegación, norte (plana, norte arriba) y libre (arrastrar, girar e inclinar; «Recentrar» o 15 s sin tocar vuelve a la navegación). Ver *Navegación GPS*.
 - **Navegación paso a paso** generada a partir de la geometría: giros (suaves, normales, bruscos), cambios de sentido, rotondas («toma la 2.ª salida»), incorporación y salida de autopista, llegada a paradas y destino. Modo navegación con próxima maniobra, distancia al giro, distancia y tiempo restantes, simulación del recorrido, seguimiento GPS y voz (síntesis local del navegador).
 - **10 estilos de mapa** con selector, vista previa y persistencia. Cambiar de estilo no toca la búsqueda, la ruta, las paradas, las coordenadas, los nombres ni el grafo.
 - **Modo noche** de la interfaz (claro / noche / automático) y mapa nocturno automático opcional.
@@ -81,16 +82,16 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 213 tests unitarios y de integración
+npm test             # Vitest: 259 tests unitarios y de integración
 npm run bench        # Benchmarks con una ciudad sintética de 45.000 vías (no forman parte de npm test)
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 70 pruebas (35 en escritorio y 35 en móvil), sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 72 pruebas (36 en escritorio y 36 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 
 > En macOS, si la pantalla entra en reposo Chromium deja de emitir `requestAnimationFrame` y los e2e se ralentizan o fallan. Ejecútalos con `caffeinate -dis npm run test:e2e`.
 
-Cobertura de los tests: A* (ruta directa, varios tramos, óptima frente a alternativa, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo, reconstrucción, ausencia de ciclos), construcción del grafo desde OSM, instrucciones (giros, rotondas, autopistas), multi-parada, progreso de navegación, planificación de descargas, búsqueda y normalización, adaptadores Photon/Nominatim, temas (contraste ≥ 4,5:1 del color de acento en los 10 temas, claro y oscuro), store (cambiar tema no borra ruta), persistencia (el GPS y la navegación no escriben en el navegador ni repintan la app), uso sin ubicación, calibración de imágenes, limitador de peticiones y componentes de UI.
+Cobertura de los tests: A* (ruta directa, varios tramos, óptima frente a alternativa, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo, reconstrucción, ausencia de ciclos), construcción del grafo desde OSM, instrucciones (giros, rotondas, autopistas, curvas sin aviso, bifurcaciones, giros pegados, calles reales de Buñol), rumbo y cámara (recta, curva, giro, parado en un semáforo, GPS impreciso, pérdida de señal), desvíos y recálculo según el sentido de la marcha, avisos por voz, multi-parada, progreso de navegación, planificación de descargas, búsqueda y normalización, adaptadores Photon/Nominatim, temas (contraste ≥ 4,5:1 del color de acento en los 10 temas, claro y oscuro), store (cambiar tema no borra ruta), persistencia (el GPS y la navegación no escriben en el navegador ni repintan la app), uso sin ubicación, calibración de imágenes, limitador de peticiones y componentes de UI.
 
 ## Rendimiento
 
@@ -155,6 +156,16 @@ Web Worker: evaluado y **no** implementado por ahora; con estos tiempos lo que q
 - Mientras se calcula una ruta se muestra el tiempo transcurrido y, a partir de 20 s, que los servidores públicos de OpenStreetMap van lentos (sin pedir que se repita).
 - En la simulación se muestra la velocidad estimada del tramo (no la media multiplicada por 8) y la etiqueta *Simulación ×8*.
 
+## Navegación GPS
+
+Un único bucle por fotograma (`NavigationCamera.tsx`) decide la posición mostrada, el rumbo de la flecha, el giro y la inclinación del mapa y si la vista te sigue: así la cámara, la ruta recalculada y las instrucciones nunca se contradicen.
+
+- **Rumbo** (`heading.ts`): se distinguen orientación del dispositivo (brújula, no se usa: en un coche el móvil va en cualquier posición), rumbo del GPS (solo en marcha y con buena precisión), dirección real del desplazamiento y dirección de la ruta. Si el movimiento coincide con la ruta se usa la tangente de la ruta (estable); si no, manda el movimiento. Parado se conserva el último rumbo (el mapa no gira en un semáforo). El giro se suaviza y su velocidad está limitada.
+- **Cámara** (`camera.ts`): el contenedor del mapa se transforma con `perspective · rotateX · rotateZ` y se agranda lo justo para cubrir la pantalla; los clics, el arrastre y el zoom se traducen con la homografía inversa (exacta también inclinada). El bucle solo corre mientras algo cambia.
+- **Desvíos** (`liveTracking.ts`): tolerancia según la precisión, histéresis para volver a la ruta, lecturas imprecisas que no cuentan como desvío, sentido contrario detectado tras varias lecturas y recálculo tras 3 lecturas y 6 s (o 60 m recorridos fuera de la ruta), con 15 s de espera entre recálculos.
+- **Recálculo** (`routeService.ts`): el origen GPS lleva tu rumbo; el ajuste a la vía prefiere la calle por la que circulas y A* penaliza dar la vuelta (ver *Algoritmo A\**). La primera instrucción dice «Continúa por…» o, si no hay alternativa, «Da la vuelta cuando sea posible».
+- **Voz** (`navigationProgress.ts`): aviso previo con antelación según la velocidad (~25 s), aviso al llegar (~7 s, encadenando la siguiente si va pegada), «Continúa durante 2 km» tras cada maniobra; nada se repite ni se anuncia una maniobra ya hecha.
+
 ## Arquitectura
 
 ```
@@ -196,8 +207,8 @@ Separación clave: **UI** (`components/`), **datos geográficos** (`features/osm
 1. **Grafo** (`graph.ts`): las vías OSM (`highway=*`) se dividen en las intersecciones (nodos compartidos por varias vías) y, en vías largas, cada ~250 m para mejorar el ajuste. Cada arista conserva la geometría completa, el nombre/ref real, el tipo de vía y la velocidad (`maxspeed` o valor por defecto por tipo). Las vías de doble sentido generan dos aristas dirigidas; `oneway=yes/-1`, rotondas y autopistas solo una. **Restricciones de acceso** con la jerarquía de OSM: manda la etiqueta más específica (en coche `motorcar` > `motor_vehicle` > `vehicle` > `access`; a pie `foot` > `access`). Así una zona peatonal con `access=no` + `foot=yes` se puede recorrer a pie, y una calle con `access=no` + `motor_vehicle=yes`, en coche.
 2. **Ajuste a la red**: cada parada se proyecta sobre el **punto exacto** de la calle más cercana (máx. 1,5 km) y el tramo se parte con un nodo temporal, así la ruta sale de donde estás en cualquier sentido permitido. En coche se usan también los **caminos** (`highway=track`) sin restricción de acceso, a velocidad baja (12-30 km/h según su firmeza), porque son el acceso habitual a casas de campo y urbanizaciones.
 3. **Tiempo realista** (`travelTime.ts`): en cada vértice se estima el radio de la curva y su velocidad cómoda, v = √(2,6 m/s² · R); entre curvas se acelera a 1,2 m/s² y se frena a 2 m/s², así una carretera de montaña limitada a 90 sale a ~50 km/h de media y una autovía a ~110. Cada giro, rotonda o incorporación suma unos segundos. Ejemplo real: Buñol → Yátova pasa de 7,9 min (solo límites) a 10,5 min; Valencia → Buñol, de 29 a 31 min.
-4. **Búsqueda** (`astar.ts`): montículo binario, coste = tiempo realista o distancia; heurística = distancia haversine al destino (dividida por la velocidad máxima del grafo en modo «más rápida»), que nunca sobreestima → ruta óptima. Conjunto cerrado y descarte de entradas obsoletas → sin bucles infinitos. Devuelve `RouteResult` con nodos, aristas, distancia, tiempo y geometría, o un error tipado (`empty-graph`, `node-not-found`, `unreachable`, `limit-exceeded`).
-5. **Instrucciones** (`routeInstructions.ts`): ángulo entre el rumbo de llegada y el de salida (medidos a 20 m del nodo), número de alternativas en el cruce, cambios de nombre, rotondas y transiciones de autopista.
+4. **Búsqueda** (`astar.ts`): montículo binario, coste = tiempo realista o distancia; heurística = distancia haversine al destino (dividida por la velocidad máxima del grafo en modo «más rápida»), que nunca sobreestima → ruta óptima. Conjunto cerrado y descarte de entradas obsoletas → sin bucles infinitos. En coche, volver por donde se ha venido en un cruce cuesta 40 s y, si se conoce el rumbo (recálculo en marcha), salir en sentido contrario cuesta 60 s: son penalizaciones, no prohibiciones (si no hay alternativa razonable, la ruta da la vuelta y lo dice). Devuelve `RouteResult` con nodos, aristas, distancia, tiempo y geometría, o un error tipado (`empty-graph`, `node-not-found`, `unreachable`, `limit-exceeded`).
+5. **Instrucciones** (`routeInstructions.ts`): se anuncia una maniobra solo si hay una **decisión** en el cruce. Se comparan el ángulo de la salida elegida con el de las demás salidas reales (sin contar garajes ni aparcamientos): seguir por la opción claramente más recta no es una maniobra aunque la vía haga curva; dos salidas casi rectas son una bifurcación («mantente a la izquierda»); lo demás, un giro. Los cambios de nombre solo se anuncian al pasar a otra carretera o tipo de vía; dos giros a menos de 22 m son uno; los trocitos de anillo de pocos metros no son rotondas; dos rotondas pegadas, un aviso. En 203 rutas reales de Buñol: de 12,9 a 7,6 instrucciones por ruta.
 6. **Descarga de datos** (`routeService.ts`): trayectos cortos → todas las calles del área. Trayectos largos → por trozos con caché propia: calles de coche a 1 km de cada parada, un **anillo de acceso** de 5 km (secundarias, terciarias y sin clasificar, que son las que unen cada núcleo con las autovías) y un corredor de vías principales. Si aun así las paradas no conectan, el corredor se amplía un nivel. Ejemplo real: Buñol solo enlaza con la A-3 por la CV-425, a ~2,7 km del centro; sin el anillo, la ruta Valencia→Buñol daba un rodeo de 46 km por Chiva en lugar de los 40 km reales. Si la zona ya está cargada no se vuelve a pedir. A pie se descargan todas las calles y caminos, pero solo a lo largo de cada tramo (con un margen del 10 % de su longitud, entre 600 m y 1,5 km); si no conectan, el margen se amplía una vez. Las celdas se piden por bloques de como mucho 6×6 (~10 × 8 km) y nunca se recortan. Si alguna descarga falla, la ruta se calcula con lo que llegó y se marca como **aproximada** en el resumen.
 
 Si no hay datos de carreteras, **no se inventa una ruta**: se informa del motivo.
@@ -299,13 +310,14 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 - No hay tráfico en tiempo real, restricciones de giro (`turn restrictions`) ni carriles; los tiempos no consideran pendientes (no hay datos de elevación), así que en puertos de montaña pueden quedarse algo cortos.
 - Las capas Esri Canvas tienen detalle nativo hasta zoom 16; por encima, las calles se dibujan en vectorial a partir de OSM.
 - Los colores de agua/parques/edificios de cada tema se aplican mediante filtros sobre teselas ráster (no hay teselas vectoriales).
-- Rotación del mapa no implementada (Leaflet no la soporta de forma nativa).
+- La rotación y la inclinación se hacen transformando el mapa de Leaflet con CSS 3D (Leaflet no las tiene): los textos impresos en las teselas ráster giran con el mapa y pueden verse boca abajo (las etiquetas de calle propias sí se voltean), y con el mapa inclinado se cargan más teselas.
+- La guía por voz y el GPS en navegación se han probado con GPS simulado, no en un coche con un móvil real.
 - La primera visita depende de descargar las teselas del mapa (~660 kB de imágenes); las siguientes salen de la caché local.
 
 ## Próximas mejoras
 
 - Restricciones de giro y perfiles de bicicleta.
-- Teselas vectoriales (MapLibre) para recolorear agua/parques de forma exacta y rotar el mapa.
+- Teselas vectoriales (MapLibre) para recolorear agua/parques de forma exacta y que los textos del mapa base no giren con él.
 - Web Worker para el motor local si se calculan rutas sobre zonas mucho mayores (evaluado en la fase 6: hoy no compensa).
 - Superponer mapas personalizados calibrados sobre el mapa real.
 - Importación de archivos `.osm`/`.pbf` y GeoJSON arbitrarios.

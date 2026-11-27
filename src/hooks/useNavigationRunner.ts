@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { announce, navigationState } from '@/features/navigation/navigationProgress'
-import { formatDistance } from '@/utils/distance'
-import { updateTracker } from '@/features/navigation/liveTracking'
+import { navigationState, voicePrompt } from '@/features/navigation/navigationProgress'
+import { deadReckonProgress, updateTracker } from '@/features/navigation/liveTracking'
 import { setPreciseTracking, startTracking } from './useGeolocation'
 import { smoothLocation, smoothProgress } from '@/features/navigation/smoothMotion'
 import { useAppStore } from '@/store/useAppStore'
@@ -23,7 +22,7 @@ export function useNavigationRunner() {
   const voice = useAppStore((s) => s.navPrefs.voice)
   // El avance solo interesa durante la navegación (fuera de ella no provoca renders).
   const progress = useNavStore((s) => (s.navigation.active ? s.navigation.progress : 0))
-  const lastSpoken = useRef<string>('')
+  const spoken = useRef(new Set<string>())
 
   // Simulación
   useEffect(() => {
@@ -60,6 +59,7 @@ export function useNavigationRunner() {
       lng: user.lng,
       accuracy: user.accuracy,
       speed: user.speed ?? null,
+      heading: user.heading ?? null,
       timestamp: user.timestamp ?? Date.now(),
     }
     const { state, event } = updateTracker(s.live, fix, route)
@@ -70,7 +70,10 @@ export function useNavigationRunner() {
     if (event === 'back-on-route') app.notify('De nuevo en la ruta.', 'success')
     if (event === 'arrived') app.notify('Has llegado a tu destino.', 'success')
     if (event === 'reroute') {
-      app.notify('Recalculando la ruta desde tu posición…', 'info')
+      app.notify(state.wrongWay ? 'Vas en sentido contrario: buscando la mejor ruta desde aquí…' : 'Recalculando la ruta desde tu posición…', 'info')
+      // Con el rumbo actual: la nueva ruta sigue hacia donde circulas si es razonable,
+      // en lugar de mandarte dar la vuelta en mitad de la calle.
+      const heading = state.course.moving && state.course.course !== null ? Math.round(state.course.course) : undefined
       app.rerouteFrom({
         id: `gps:${fix.lat.toFixed(6)},${fix.lng.toFixed(6)}`,
         name: 'Mi ubicación',
@@ -79,6 +82,7 @@ export function useNavigationRunner() {
         lat: fix.lat,
         lng: fix.lng,
         source: 'gps',
+        heading,
       })
     }
   }, [active, simulating, route, user])
@@ -99,6 +103,17 @@ export function useNavigationRunner() {
       speedKmh: segmentSpeedKmh(route, progress),
     })
   }, [active, simulating, route, progress])
+
+  // Sin lecturas del GPS (túnel): se estima el avance con la última velocidad, un tiempo limitado.
+  useEffect(() => {
+    if (!active || simulating || !route) return
+    const id = setInterval(() => {
+      const s = useNavStore.getState()
+      const predicted = deadReckonProgress(s.live, Date.now(), route.distance)
+      if (predicted !== null && predicted > s.navigation.progress) s.setNavProgress(predicted)
+    }, 1000)
+    return () => clearInterval(id)
+  }, [active, simulating, route])
 
   // Durante la navegación: seguimiento GPS activo y pantalla encendida.
   useEffect(() => {
@@ -131,26 +146,39 @@ export function useNavigationRunner() {
     smoothProgress.reset(active && route ? [useNavStore.getState().navigation.progress] : null)
   }, [active, route])
   useEffect(() => {
-    if (active && route) smoothProgress.setTarget([progress])
-  }, [active, route, progress])
+    if (!active || !route) return
+    // La simulación ya avanza en cada fotograma: se coloca tal cual (suavizarla solo añade retraso).
+    if (simulating) smoothProgress.reset([progress])
+    else smoothProgress.setTarget([progress])
+  }, [active, route, progress, simulating])
   useEffect(() => {
     if (user) smoothLocation.setTarget([user.lat, user.lng])
     else smoothLocation.reset(null)
   }, [user])
 
-  // Voz
+  // Voz: solo avisos que hacen falta, cada uno una vez (ver voicePrompt).
   useEffect(() => {
     if (!active || !voice || !route || typeof speechSynthesis === 'undefined') return
     const state = navigationState(route, progress)
-    const key = state.next ? `${state.nextIndex}:${state.distanceToNext < 120 ? 'near' : 'far'}` : 'arrived'
-    // Se anuncia al empezar cada tramo ("far") y otra vez a menos de 120 m ("near").
-    if (key === lastSpoken.current) return
-    lastSpoken.current = key
-    const u = new SpeechSynthesisUtterance(announce(state, formatDistance))
+    const live = useNavStore.getState().live
+    const speedMs = simulating ? segmentSpeedKmh(route, progress) / 3.6 : live.speedKmh !== null ? live.speedKmh / 3.6 : null
+    const prompt = voicePrompt(route, state, speedMs, routeKey(route))
+    if (!prompt || spoken.current.has(prompt.key)) return
+    spoken.current.add(prompt.key)
+    const u = new SpeechSynthesisUtterance(prompt.text)
     u.lang = 'es-ES'
     speechSynthesis.cancel()
     speechSynthesis.speak(u)
-  }, [active, voice, route, progress])
+  }, [active, voice, route, progress, simulating])
+}
+
+/** Identificador estable de cada ruta (las claves de voz no se mezclan entre rutas). */
+const routeIds = new WeakMap<object, string>()
+let routeSeq = 0
+function routeKey(route: object): string {
+  let id = routeIds.get(route)
+  if (!id) routeIds.set(route, (id = `r${++routeSeq}`))
+  return id
 }
 
 /** Componente sin interfaz: aísla los renders del GPS y de la simulación del resto de la app. */

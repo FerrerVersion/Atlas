@@ -1,4 +1,4 @@
-import { haversine, polylineLength, type LatLngTuple } from '@/utils/distance'
+import { bearing, haversine, polylineLength, turnAngle, type LatLngTuple } from '@/utils/distance'
 import { projectOnSegment } from '@/utils/geometry'
 import { componentsOf } from './graph'
 import { cellKey, type GraphEdge, type RoadGraph } from './routeTypes'
@@ -18,8 +18,14 @@ export interface EdgeSnap {
 
 /** Radio máximo (en celdas del índice) que se recorre antes de pasar a la búsqueda completa. */
 const MAX_INDEX_RINGS = 6
+/**
+ * Con rumbo conocido (origen GPS en marcha), una calle que cruza a más de 45° de la
+ * dirección de la marcha cuenta como si estuviera estos metros más lejos: junto a un
+ * cruce, te sitúa en la calle por la que circulas y no en la perpendicular.
+ */
+export const CROSS_STREET_PENALTY_M = 15
 
-export function nearestEdge(graph: RoadGraph, lat: number, lng: number): EdgeSnap | null {
+export function nearestEdge(graph: RoadGraph, lat: number, lng: number, heading?: number): EdgeSnap | null {
   if (graph.edges.size === 0) return null
   const cc = componentsOf(graph)
   const largest = Math.max(...cc.sizes)
@@ -27,14 +33,22 @@ export function nearestEdge(graph: RoadGraph, lat: number, lng: number): EdgeSna
   const minSize = Math.min(largest, Math.max(2, Math.floor(largest * 0.05)))
   const p: LatLngTuple = [lat, lng]
   let best: EdgeSnap | null = null
+  let bestScore = Infinity
   const consider = (edge: GraphEdge) => {
     if (cc.sizes[cc.component.get(edge.from) ?? 0] < minSize) return
     const g = edge.geometry
     // Poda barata: el tramo entero está más lejos que el mejor candidato.
-    if (best && haversine(lat, lng, g[0][0], g[0][1]) - edge.distance > best.distance) return
+    if (best && haversine(lat, lng, g[0][0], g[0][1]) - edge.distance > bestScore) return
     for (let i = 1; i < g.length; i++) {
       const proj = projectOnSegment(p, g[i - 1], g[i])
-      if (!best || proj.distance < best.distance) {
+      let score = proj.distance
+      if (heading !== undefined && score < bestScore) {
+        // Sin sentido: una calle de doble sentido vale en ambas direcciones.
+        const d = Math.abs(turnAngle(heading, bearing(g[i - 1][0], g[i - 1][1], g[i][0], g[i][1])))
+        if (Math.min(d, 180 - d) > 45) score += CROSS_STREET_PENALTY_M
+      }
+      if (score < bestScore) {
+        bestScore = score
         best = { edge, segment: i - 1, t: proj.t, point: proj.point, distance: proj.distance }
       }
     }
@@ -63,11 +77,12 @@ export function nearestEdge(graph: RoadGraph, lat: number, lng: number): EdgeSna
         }
       }
       // Todo lo que queda fuera de los anillos 0..r está al menos a r·lado.
-      if (best && (best as EdgeSnap).distance <= r * side) return best
+      if (best && bestScore <= r * side) return best
     }
   }
   // Sin índice (grafos de prueba, mapas propios) o nada cerca: búsqueda completa.
   best = null
+  bestScore = Infinity
   for (const edge of graph.edges.values()) consider(edge)
   return best
 }

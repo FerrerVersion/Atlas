@@ -72,7 +72,7 @@ export const useNavStore = create<NavState>()((set) => ({
   resetProgressForNewRoute: () =>
     set((s) => ({
       navigation: { ...s.navigation, progress: 0 },
-      live: { ...s.live, progress: 0, status: 'waiting', offRouteFixes: 0, offRouteSince: null },
+      live: { ...s.live, progress: 0, status: 'waiting', offRouteFixes: 0, offRouteSince: null, offRouteTraveled: null },
     })),
   resetNavigation: () => set({ navigation: idleNavigation() }),
 }))

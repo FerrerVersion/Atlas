@@ -731,3 +731,70 @@ test('al desplazar el mapa, las teselas del borde ya están cargadas (sin huecos
   })
   expect(blank).toBe(0)
 })
+
+test('cámara de navegación: rumbo arriba e inclinada, vista norte y vista libre con «Recentrar»', async ({ page }) => {
+  await page.goto('/')
+  await openTab(page, 'Ajustes')
+  await page.getByRole('button', { name: /Cargar demo offline/ }).click()
+  await openTab(page, 'Ruta')
+  await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+  await page.getByRole('option', { name: /Blasco Ibáñez/ }).first().click()
+  await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+  await page.getByRole('option', { name: /Doctor Beltrán/ }).first().click()
+  await expect(page.getByTestId('route-duration')).toBeVisible()
+  await page.getByRole('button', { name: 'Iniciar' }).click()
+  await page.getByRole('button', { name: 'Simular recorrido' }).click()
+
+  const camera = () =>
+    page.evaluate(() => {
+      const view = document.querySelector('.atlas-map') as HTMLElement
+      const puck = document.querySelector('.nav-puck')!.getBoundingClientRect()
+      const t = (document.querySelector('.map-camera') as HTMLElement).style.transform
+      return {
+        is3d: view.classList.contains('is-3d'),
+        tilt: Number(/rotateX\(([-\d.]+)deg\)/.exec(t)?.[1] ?? 0),
+        bearing: Number(/rotateZ\(([-\d.]+)deg\)/.exec(t)?.[1] ?? 0),
+        puckY: (puck.y + puck.height / 2) / view.clientHeight,
+        puckX: (puck.x + puck.width / 2) / view.clientWidth,
+      }
+    })
+
+  // Vista de navegación: inclinada, girada según el rumbo y con el usuario abajo-centro.
+  await expect.poll(async () => (await camera()).tilt).toBeGreaterThan(35)
+  const nav = await camera()
+  expect(nav.is3d).toBe(true)
+  expect(nav.puckX).toBeGreaterThan(0.45)
+  expect(nav.puckX).toBeLessThan(0.55)
+  expect(nav.puckY).toBeGreaterThan(0.62)
+  // El rumbo cambia con la ruta (no se queda fijo al norte).
+  const bearings = new Set<number>()
+  for (let i = 0; i < 6; i++) {
+    bearings.add(Math.round((await camera()).bearing))
+    await page.waitForTimeout(400)
+  }
+  expect(bearings.size).toBeGreaterThan(1)
+
+  // Vista norte: plana y sin transformar (exactamente la vista de siempre).
+  await page.getByRole('button', { name: 'Pausar simulación' }).click()
+  await page.getByRole('button', { name: 'Cambiar a vista norte' }).click()
+  await expect.poll(async () => (await camera()).is3d).toBe(false)
+
+  // Vista libre: al arrastrar se deja de seguir; «Recentrar» vuelve a la vista de navegación.
+  await page.getByRole('button', { name: 'Cambiar a vista de navegación' }).click()
+  await expect.poll(async () => (await camera()).tilt).toBeGreaterThan(35)
+  const box = (await page.locator('.atlas-map').boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.5)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height * 0.5 + 40, { steps: 6 })
+  await page.mouse.up()
+  const recenter = page.getByRole('button', { name: 'Recentrar' })
+  await expect(recenter).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Inclinar o aplanar el mapa' })).toBeVisible()
+  // Arrastrar no abre el menú del punto (el clic tras el gesto se descarta).
+  await expect(page.getByRole('menu', { name: 'Acciones del punto' })).toHaveCount(0)
+  await recenter.click()
+  await expect(recenter).toBeHidden()
+  await expect.poll(async () => (await camera()).puckY).toBeGreaterThan(0.62)
+  // La atribución de los datos sigue visible y derecha.
+  await expect(page.locator('.leaflet-control-attribution')).toBeVisible()
+})

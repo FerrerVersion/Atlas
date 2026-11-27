@@ -6,6 +6,7 @@ import { useGeolocation } from '@/hooks/useGeolocation'
 import { loadRoadsForBBox } from '@/hooks/useRoadAutoLoader'
 import { useAppStore } from '@/store/useAppStore'
 import { useNavStore } from '@/store/useNavStore'
+import { CameraControls } from '@/components/navigation/CameraControls'
 import { MapThemeSelector } from './MapThemeSelector'
 
 /** Controles flotantes: zoom, ubicación, recentrar, ajustar ruta, cargar calles y estilos. */
@@ -16,6 +17,7 @@ export function MapControls({ compact = false }: { compact?: boolean }) {
   const route = useAppStore((s) => s.route)
   const roadsStatus = useAppStore((s) => s.roadsStatus)
   const locationStatus = useNavStore((s) => s.locationStatus)
+  const navigating = useNavStore((s) => s.navigation.active)
 
   const loadRoads = async () => {
     if (!map) return
@@ -39,6 +41,7 @@ export function MapControls({ compact = false }: { compact?: boolean }) {
   const group = 'glass flex flex-col gap-0.5 rounded-2xl p-1'
   return (
     <div className="pointer-events-auto flex flex-col items-end gap-2">
+      {navigating && <CameraControls />}
       <div className={group}>
         <MapThemeSelector />
       </div>

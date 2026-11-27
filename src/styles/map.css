@@ -368,3 +368,50 @@
     bottom: var(--mobile-sheet-h, 0px);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Cámara de navegación: mapa girado (rumbo arriba) e inclinado          */
+/* (la transformación la aplica NavigationCamera al envoltorio).         */
+/* ------------------------------------------------------------------ */
+.atlas-map {
+  overflow: hidden;
+}
+.map-camera {
+  position: absolute;
+  inset: 0;
+}
+.is-3d .map-camera {
+  will-change: transform;
+}
+/* Controles de Leaflet (atribución) fuera de la parte que gira. */
+.atlas-map-controls {
+  position: absolute;
+  inset: 0;
+  z-index: 800;
+  pointer-events: none;
+  font-size: 12px;
+  line-height: 1.5;
+}
+/* «Niebla» del horizonte al inclinar: oculta el borde lejano y da profundidad. */
+.map-horizon {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 32%;
+  z-index: 450;
+  pointer-events: none;
+  opacity: var(--cam-horizon, 0);
+  background: linear-gradient(to bottom, var(--map-bg) 0%, var(--map-bg) 42%, color-mix(in srgb, var(--map-bg) 55%, transparent) 70%, transparent 100%);
+}
+/* Marcadores y lugares siempre derechos aunque el mapa gire o se incline. */
+.cam-upright {
+  width: 100%;
+  height: 100%;
+}
+.is-3d .cam-upright {
+  rotate: var(--cam-bearing, 0deg);
+  scale: 1 var(--cam-unsquash, 1);
+}
+/* Nombres de calle: nunca boca abajo con el mapa girado (se voltean 180° si hace falta). */
+.is-3d .street-label span {
+  transform: translate(-50%, -50%) rotate(calc(mod(var(--rot) - var(--cam-bearing, 0deg) + 90deg, 180deg) - 90deg + var(--cam-bearing, 0deg)));
+}

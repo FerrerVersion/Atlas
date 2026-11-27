@@ -1,6 +1,7 @@
-import { ChevronLeft, ChevronRight, LocateFixed, Pause, Play, Volume2, VolumeX, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LocateFixed, Navigation, Pause, Play, Volume2, VolumeX, X } from 'lucide-react'
+import { resumeFollowing } from '@/components/map/cameraFollow'
 import { IconButton } from '@/components/ui/Button'
-import { navigationState } from '@/features/navigation/navigationProgress'
+import { navigationState, streetAt } from '@/features/navigation/navigationProgress'
 import { useGeolocation } from '@/hooks/useGeolocation'
 import { formatDistance, formatDuration } from '@/utils/distance'
 import { useNow } from '@/hooks/useMediaQuery'
@@ -22,6 +23,8 @@ export function NavigationHUD() {
   const st = navigationState(route, nav.progress)
   const s = useNavStore.getState
   const target = st.next ?? st.current
+  // Calle real en este punto (los cambios de nombre sin maniobra no generan instrucción).
+  const street = streetAt(route, nav.progress) ?? st.current.street
 
   const jump = (dir: 1 | -1) => {
     const ins = route.instructions
@@ -49,12 +52,23 @@ export function NavigationHUD() {
             <p className="truncate text-sm text-slate-200" aria-live="polite">
               {st.arrived ? 'Has llegado a tu destino' : target.text}
             </p>
-            {!st.arrived && st.current.street && (
-              <p className="truncate text-xs text-slate-400">Por {st.current.street}</p>
-            )}
+            {!st.arrived && street && <p className="truncate text-xs text-slate-400">Por {street}</p>}
           </div>
         </div>
       </section>
+      {!nav.following && (
+        // Vista libre: forma clara de volver a la navegación automática.
+        <div className="pointer-events-none fixed inset-x-0 bottom-44 z-[1000] flex justify-center md:bottom-32">
+          <button
+            type="button"
+            onClick={resumeFollowing}
+            className="pointer-events-auto flex items-center gap-2 rounded-full bg-slate-900/92 px-4 py-2.5 text-sm font-semibold text-white shadow-glass backdrop-blur-xl focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            <Navigation className="h-4 w-4" aria-hidden="true" />
+            Recentrar
+          </button>
+        </div>
+      )}
       <section aria-label="Resumen y controles de navegación" className="pointer-events-auto fixed inset-x-3 bottom-3 z-[1000] mx-auto max-w-xl animate-slide-up md:bottom-6">
         {/* En pantallas estrechas: datos en una fila y botones en otra. */}
         <div className="glass-strong flex flex-wrap items-center gap-x-2 gap-y-1 rounded-3xl p-3">
@@ -85,7 +99,8 @@ export function NavigationHUD() {
             label="Seguir mi ubicación GPS"
             active={nav.following && !nav.simulating}
             onClick={() => {
-              s().setNavFlags({ following: true, simulating: false })
+              s().setNavFlags({ simulating: false })
+              resumeFollowing()
               locate({ fly: false, watch: true })
             }}
           >

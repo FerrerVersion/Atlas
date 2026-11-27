@@ -3,7 +3,8 @@ import { themeCssVars, themeFxClasses } from '@/features/map/mapUtils'
 import type { MapTheme } from '@/features/themes/themeTypes'
 import { useAppStore } from '@/store/useAppStore'
 import { MapContextPopup } from './MapContextPopup'
-import { FitRouteController, MapSync, MapTargetController, NavigationFollow } from './MapControllers'
+import { FitRouteController, MapSync, MapTargetController } from './MapControllers'
+import { NavigationCamera } from './NavigationCamera'
 import { POILayer } from './POIMarker'
 import { RoadLayer } from './RoadLayer'
 import { RouteLayer } from './RouteLayer'
@@ -23,6 +24,8 @@ export function MapView({ theme }: { theme: MapTheme }) {
 
   return (
     <div className={`atlas-map ${themeFxClasses(theme)}`} style={themeCssVars(theme)} data-theme={theme.id}>
+      {/* La cámara de navegación gira e inclina este envoltorio (ver NavigationCamera). */}
+      <div className="map-camera">
       <MapContainer
         center={[initial.lat, initial.lng]}
         zoom={initial.zoom}
@@ -46,8 +49,10 @@ export function MapView({ theme }: { theme: MapTheme }) {
         <MapSync />
         <MapTargetController />
         <FitRouteController />
-        <NavigationFollow />
+        <NavigationCamera />
       </MapContainer>
+      </div>
+      <div className="map-horizon" aria-hidden="true" />
       {fx.grid && <div className="map-fx grid" />}
       {fx.paper && <div className="map-fx paper" />}
       {fx.scanlines && <div className="map-fx scanlines" />}

@@ -23,6 +23,8 @@ export interface NavPrefs {
   cost: CostMode
   avoidHighways: boolean
   voice: boolean
+  /** Vista al navegar: rumbo arriba e inclinada, o norte arriba y cenital. */
+  cameraView: 'heading' | 'north'
 }
 
 export interface Toast {
@@ -183,7 +185,7 @@ export const useAppStore = create<AppState>()(
       autoNightTheme: false,
       showLabels: true,
       autoLoadRoads: true,
-      navPrefs: { profile: 'car', cost: 'fastest', avoidHighways: false, voice: false },
+      navPrefs: { profile: 'car', cost: 'fastest', avoidHighways: false, voice: false, cameraView: 'heading' },
       favorites: [],
       history: [],
       lastView: { lat: 39.4699, lng: -0.3763, zoom: 13 },

@@ -38,6 +38,7 @@ export function sanitizePrefs(persisted: unknown, current: Prefs): Prefs {
     cost: nav.cost === 'shortest' || nav.cost === 'fastest' ? nav.cost : current.navPrefs.cost,
     avoidHighways: bool(nav.avoidHighways, current.navPrefs.avoidHighways),
     voice: bool(nav.voice, current.navPrefs.voice),
+    cameraView: nav.cameraView === 'north' || nav.cameraView === 'heading' ? nav.cameraView : current.navPrefs.cameraView,
   }
   const list = (v: unknown, max: number) => (Array.isArray(v) ? v.filter(validPlace).slice(0, max) : [])
   return {

@@ -1,5 +1,5 @@
 import { Gauge, Route, Satellite, Timer } from 'lucide-react'
-import type { TrackerState } from '@/features/navigation/liveTracking'
+import { signalLost, type TrackerState } from '@/features/navigation/liveTracking'
 import { useNow } from '@/hooks/useMediaQuery'
 import { formatDistance } from '@/utils/distance'
 import { SIM_SPEEDUP } from '@/hooks/useNavigationRunner'
@@ -13,8 +13,10 @@ const elapsed = (ms: number) => {
 }
 
 /** Estado de la señal GPS en lenguaje llano. */
-function gpsLabel(live: TrackerState, simulating: boolean, accuracy: number | null) {
+function gpsLabel(live: TrackerState, simulating: boolean, accuracy: number | null, now: number) {
   if (simulating) return { text: `Simulación ×${SIM_SPEEDUP}`, tone: 'text-sky-500' }
+  if (live.status !== 'arrived' && signalLost(live, now)) return { text: 'Sin señal GPS · posición estimada', tone: 'text-amber-500' }
+  if (live.status === 'off-route' && live.wrongWay) return { text: 'Sentido contrario a la ruta', tone: 'text-rose-500' }
   switch (live.status) {
     case 'waiting':
       return { text: 'Esperando GPS…', tone: 'text-slate-400' }
@@ -32,7 +34,7 @@ function gpsLabel(live: TrackerState, simulating: boolean, accuracy: number | nu
 /** Medición en tiempo real: velocidad, distancia recorrida, tiempo de viaje y señal GPS. */
 export function LiveTripStats({ live, simulating, accuracy }: { live: TrackerState; simulating: boolean; accuracy: number | null }) {
   const now = useNow(1000)
-  const gps = gpsLabel(live, simulating, accuracy)
+  const gps = gpsLabel(live, simulating, accuracy, now)
   const item = 'flex items-center gap-1 whitespace-nowrap'
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-slate-600 tabular-nums dark:text-slate-400" data-testid="live-stats">

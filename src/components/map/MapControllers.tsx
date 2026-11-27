@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
-import { navigationState } from '@/features/navigation/navigationProgress'
 import { setMapInstance } from '@/features/map/mapInstance'
 import { prefersReducedMotion } from '@/features/map/mapUtils'
 import { useMediaQuery } from '@/hooks/useUiTheme'
-import { smoothProgress } from '@/features/navigation/smoothMotion'
 import { useAppStore } from '@/store/useAppStore'
 import { useNavStore } from '@/store/useNavStore'
 
@@ -90,45 +88,9 @@ export function FitRouteController() {
     const { route, fitPoints } = useAppStore.getState()
     const pts = fitPoints ?? route?.geometry
     if (!nonce || !pts || pts.length < 2) return
+    // Navegando, la cámara sigue al usuario: una ruta recalculada no debe alejar el mapa.
+    if (useNavStore.getState().navigation.active) return
     map.flyToBounds(L.latLngBounds(pts), { ...padding(), maxZoom: 17, animate: !prefersReducedMotion(), duration: 0.9 })
   }, [map, nonce, padding])
-  return null
-}
-
-/** Sigue la posición durante la navegación. */
-export function NavigationFollow() {
-  const map = useMap()
-  const active = useNavStore((s) => s.navigation.active)
-  const following = useNavStore((s) => s.navigation.following)
-  const route = useAppStore((s) => s.route)
-  const setNavFlags = useNavStore((s) => s.setNavFlags)
-
-  useMapEvents({
-    dragstart: () => {
-      if (useNavStore.getState().navigation.active) setNavFlags({ following: false })
-    },
-  })
-
-  // Al empezar a seguir: acerca el mapa a la posición.
-  useEffect(() => {
-    if (!active || !following || !route) return
-    const v = smoothProgress.get()
-    const pos = navigationState(route, v ? v[0] : useNavStore.getState().navigation.progress).position
-    if (map.getZoom() < 16) map.setView(pos, 17, { animate: !prefersReducedMotion() })
-  }, [map, active, following, route])
-
-  // Después, el mapa acompaña a la posición suavizada en cada fotograma (sin tirones).
-  useEffect(() => {
-    if (!active || !following || !route) return
-    return smoothProgress.subscribe(() => {
-      const v = smoothProgress.get()
-      if (!v) return
-      // panBy desplaza el plano unos píxeles (barato); panTo sin animación reiniciaría
-      // toda la vista en cada fotograma.
-      const p = map.latLngToContainerPoint(navigationState(route, v[0]).position)
-      const offset = p.subtract(map.getSize().divideBy(2))
-      if (Math.abs(offset.x) + Math.abs(offset.y) >= 0.5) map.panBy(offset, { animate: false })
-    })
-  }, [map, active, following, route])
   return null
 }

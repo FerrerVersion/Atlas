@@ -70,6 +70,7 @@ export class SmoothValue {
   /** Salta sin animar (cambio de ruta, salir de la navegación…). */
   reset(value: number[] | null) {
     cancelAnimationFrame(this.raf)
+    this.raf = 0
     this.tween = null
     this.value = value
     this.lastTargetAt = value ? performance.now() : null
@@ -77,8 +78,12 @@ export class SmoothValue {
   }
 
   private loop() {
-    cancelAnimationFrame(this.raf)
+    // Si ya hay un fotograma pedido, ese leerá el tramo nuevo. Cancelarlo y pedir otro en
+    // cada objetivo dejaba el valor congelado cuando el objetivo cambia en cada fotograma
+    // (la simulación): el fotograma pedido nunca llegaba a ejecutarse.
+    if (this.raf) return
     const step = () => {
+      this.raf = 0
       if (!this.tween) return
       // Mismo reloj que setTarget (performance.now) para no mezclar orígenes de tiempo.
       const now = performance.now()

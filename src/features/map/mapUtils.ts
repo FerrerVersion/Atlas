@@ -67,7 +67,8 @@ export function waypointIcon(theme: MapTheme, label: string, kind: 'origin' | 's
     kind === 'origin' ? theme.route.color : kind === 'destination' ? theme.marker.color : theme.colors.accent
   return L.divIcon({
     className: 'atlas-marker',
-    html: `<div class="mk mk-${theme.marker.shape}" style="--c:${color}"><span>${escapeHtml(label)}</span></div>`,
+    // `cam-upright`: con el mapa girado/inclinado el marcador se mantiene derecho (ver map.css).
+    html: `<div class="cam-upright" style="transform-origin:${theme.marker.shape === 'pin' ? '50% 100%' : '50% 50%'}"><div class="mk mk-${theme.marker.shape}" style="--c:${color}"><span>${escapeHtml(label)}</span></div></div>`,
     iconSize: [34, 34],
     iconAnchor: theme.marker.shape === 'pin' ? [17, 34] : [17, 17],
   })
@@ -78,7 +79,7 @@ export function poiIcon(theme: MapTheme, category: PoiCategory, selected: boolea
   const size = theme.poi.size
   return L.divIcon({
     className: 'atlas-marker',
-    html: `<div class="poi poi-${theme.poi.style}${selected ? ' is-selected' : ''}" style="--c:${def.color}">${iconSvg(def.icon)}</div>`,
+    html: `<div class="cam-upright"><div class="poi poi-${theme.poi.style}${selected ? ' is-selected' : ''}" style="--c:${def.color}">${iconSvg(def.icon)}</div></div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   })
@@ -90,7 +91,7 @@ export const userIcon = (navigating: boolean, heading = 0) =>
     className: 'atlas-marker',
     // El icono «Navigation» de Lucide apunta al noreste (45°): se compensa.
     html: navigating
-      ? `<div class="nav-puck"><span style="display:grid;transform:rotate(${Math.round(heading - 45)}deg)">${iconSvg('Navigation')}</span></div>`
+      ? `<div class="nav-puck"><span data-arrow style="display:grid;transform:rotate(${Math.round(heading - 45)}deg)">${iconSvg('Navigation')}</span></div>`
       : '<div class="user-dot pulse"></div>',
     iconSize: navigating ? [28, 28] : [20, 20],
     iconAnchor: navigating ? [14, 14] : [10, 10],

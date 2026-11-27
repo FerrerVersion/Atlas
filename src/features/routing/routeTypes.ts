@@ -93,6 +93,12 @@ export interface RouteOptions {
   avoidHighways?: boolean
   /** Límite de nodos expandidos para proteger el hilo principal. */
   maxExpansions?: number
+  /** Rumbo (°) con el que se circula en el origen: salir en sentido contrario se penaliza. */
+  startBearing?: number
+  /** Coste de dar la vuelta en mitad de la calle al salir (s en `fastest`, m en `shortest`). */
+  startReversePenalty?: number
+  /** Coste de volver por donde se ha venido en un cruce (s en `fastest`, m en `shortest`). */
+  uTurnPenalty?: number
 }
 
 export interface RouteSuccess {

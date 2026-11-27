@@ -1,5 +1,5 @@
-import { haversine } from '@/utils/distance'
-import { concatPolylines } from '@/utils/geometry'
+import { haversine, turnAngle } from '@/utils/distance'
+import { concatPolylines, endBearing, startBearing } from '@/utils/geometry'
 import { edgeTime, isHighwayType } from './graph'
 import type { GraphEdge, RoadGraph, RouteOptions, RouteResult } from './routeTypes'
 
@@ -56,7 +56,13 @@ export function edgeCost(edge: GraphEdge, mode: RouteOptions['cost']): number {
  * - Coste: tiempo (`fastest`, por defecto) o distancia (`shortest`).
  * - Heurística: distancia haversine al destino (dividida por la velocidad máxima
  *   del grafo en modo `fastest`). Nunca sobreestima → la ruta es óptima.
- * - Conjunto cerrado + entradas obsoletas descartadas → sin ciclos infinitos.
+ * - Conjunto cerrado + entradas obsoletas descartadas → sin ciclos infinitos. Como nunca
+ *   repite un cruce, la ruta no puede dar media vuelta en un cruce intermedio.
+ * - `uTurnPenalty`: volver por donde se ha venido en un cruce cuesta ese extra (con la
+ *   arista por la que se llegó al cruce: aproximación habitual en A* por nodos).
+ * - `startBearing`: salir en sentido contrario a la marcha (dar la vuelta en mitad de la
+ *   calle al recalcular) cuesta `startReversePenalty`. Es coste, no prohibición: si no
+ *   hay alternativa razonable, la ruta da la vuelta.
  */
 export function findRoute(
   graph: RoadGraph,
@@ -96,6 +102,7 @@ export function findRoute(
     return mode === 'shortest' ? d : d / speedMs
   }
 
+  const uTurnPenalty = options.uTurnPenalty ?? 0
   const gScore = new Map<string, number>([[startNodeId, 0]])
   const cameFrom = new Map<string, GraphEdge>()
   const closed = new Set<string>()
@@ -112,11 +119,23 @@ export function findRoute(
       return { ok: false, reason: 'limit-exceeded', message: 'La búsqueda superó el límite de nodos.', expanded }
     }
     const gCur = gScore.get(current)!
-    for (const edgeId of graph.outgoing.get(current) ?? []) {
+    const atStart = current === startNodeId
+    const outs = graph.outgoing.get(current) ?? []
+    // Rumbo con el que se llega a este cruce (para detectar un cambio de sentido).
+    const arrival = uTurnPenalty > 0 && !atStart && outs.length > 1 ? cameFrom.get(current) : undefined
+    const inBearing = arrival ? endBearing(arrival.geometry) : 0
+    for (const edgeId of outs) {
       const edge = graph.edges.get(edgeId)!
       if (closed.has(edge.to)) continue
       if (options.avoidHighways && isHighwayType(edge.roadType)) continue
-      const tentative = gCur + edgeCost(edge, mode)
+      let tentative = gCur + edgeCost(edge, mode)
+      // Salir en sentido contrario al de la marcha = dar la vuelta en mitad de la calle.
+      if (atStart && options.startBearing !== undefined && Math.abs(turnAngle(options.startBearing, startBearing(edge.geometry))) > REVERSE_START_DEG) {
+        tentative += options.startReversePenalty ?? 0
+      }
+      // Volver por donde se ha venido (también por encima de una calle partida por una
+      // parada): cambio de sentido en el cruce. Sin otra salida es obligado y no cuenta.
+      if (arrival && Math.abs(turnAngle(inBearing, startBearing(edge.geometry))) > U_TURN_DEG) tentative += uTurnPenalty
       if (tentative < (gScore.get(edge.to) ?? Infinity)) {
         gScore.set(edge.to, tentative)
         cameFrom.set(edge.to, edge)
@@ -125,13 +144,21 @@ export function findRoute(
     }
   }
 
-  return {
-    ok: false,
-    reason: 'unreachable',
-    message: 'El destino no es alcanzable con la red de carreteras disponible (revisa sentidos únicos o datos).',
-    expanded,
-  }
+  return unreachable(expanded)
 }
+
+/** Diferencia (°) a partir de la cual salir por una arista supone dar la vuelta respecto al rumbo. */
+export const REVERSE_START_DEG = 100
+/** Giro a partir del cual pasar de una arista a otra es volver por donde se ha venido. */
+export const U_TURN_DEG = 165
+
+const unreachable = (expanded: number): RouteResult => ({
+  ok: false,
+  reason: 'unreachable',
+  message: 'El destino no es alcanzable con la red de carreteras disponible (revisa sentidos únicos o datos).',
+  expanded,
+})
+
 
 function reconstruct(
   cameFrom: Map<string, GraphEdge>,

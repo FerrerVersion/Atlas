@@ -2,7 +2,7 @@ import { ensureRoadCells } from '@/features/osm/cellLoader'
 import { networkStore } from '@/features/osm/networkStore'
 import { fetchRoadNetwork, MAJOR_ROADS, OverpassError, type NetworkQueryPlan } from '@/features/osm/overpassService'
 import { bboxAround, bboxDiagonal, bboxOf, expandBBox, type BBox } from '@/utils/geometry'
-import { concatPolylines } from '@/utils/geometry'
+import { concatPolylines, endBearing } from '@/utils/geometry'
 import { findRoute } from './astar'
 import { attachVirtualStop, nearestEdge, type EdgeSnap, type VirtualStop } from './edgeSnap'
 import { MANEUVER_SECONDS } from './travelTime'
@@ -14,6 +14,8 @@ export interface RoutePoint {
   lat: number
   lng: number
   label?: string
+  /** Rumbo (°) de un origen GPS en marcha: la ruta parte en ese sentido si es razonable. */
+  heading?: number
 }
 
 export interface RoutePreferences {
@@ -41,6 +43,19 @@ export const FINER_LEVEL: Record<CorridorLevel, CorridorLevel | null> = {
 
 /** Distancia máxima (m) entre una parada y la red para considerarla accesible. */
 export const MAX_SNAP_DISTANCE = 1500
+
+/**
+ * En coche, dar la vuelta en mitad de la calle al salir (o al recalcular en marcha)
+ * cuesta este tiempo equivalente. Es penalización, no prohibición: si no hay
+ * alternativa razonable, la ruta da la vuelta.
+ */
+export const REVERSE_START_PENALTY_S = 60
+/** …y volver por donde se ha venido en un cruce. */
+export const U_TURN_PENALTY_S = 40
+/** Equivalencia para el modo «más corta» (m por s, ≈ 27 km/h urbanos). */
+const PENALTY_M_PER_S = 7.5
+
+type GraphPrefs = Omit<RoutePreferences, 'profile'> & { profile?: TravelProfile }
 
 /**
  * Decide qué datos descargar para un conjunto de paradas:
@@ -256,10 +271,10 @@ async function computeWithPinnedArea(points: RoutePoint[], prefs: RoutePreferenc
 }
 
 /** Núcleo síncrono: ajuste a la red + A* por tramos + instrucciones. */
-export function routeOnGraph(graph: RoadGraph, points: RoutePoint[], prefs: Omit<RoutePreferences, 'profile'>): MultiRoute {
+export function routeOnGraph(graph: RoadGraph, points: RoutePoint[], prefs: GraphPrefs): MultiRoute {
   // 1) Proyecta cada parada sobre la calle más cercana (antes de tocar el grafo).
   const snaps = points.map((p, i) => {
-    const s = nearestEdge(graph, p.lat, p.lng)
+    const s = nearestEdge(graph, p.lat, p.lng, p.heading)
     if (!s || s.distance > MAX_SNAP_DISTANCE) {
       const which = i === 0 ? 'El origen' : i === points.length - 1 ? 'El destino' : `La parada ${i}`
       throw new RouteError(`${which} está a más de ${MAX_SNAP_DISTANCE / 1000} km de cualquier vía cargada.`)
@@ -276,7 +291,7 @@ export function routeOnGraph(graph: RoadGraph, points: RoutePoint[], prefs: Omit
   // 2) Nodos temporales en esos puntos; se retiran siempre al terminar.
   const virtual = snaps.map((s, i) => attachVirtualStop(graph, s, `parada:${i}`))
   try {
-    return routeFromStops(graph, virtual, snaps, prefs)
+    return routeFromStops(graph, virtual, snaps, prefs, points[0].heading)
   } finally {
     for (const v of [...virtual].reverse()) v.remove()
   }
@@ -286,7 +301,8 @@ function routeFromStops(
   graph: RoadGraph,
   virtual: VirtualStop[],
   snaps: EdgeSnap[],
-  prefs: Omit<RoutePreferences, 'profile'>,
+  prefs: GraphPrefs,
+  originHeading?: number,
 ): MultiRoute {
   const snapped = virtual.map((v, i) => ({ lat: v.point[0], lng: v.point[1], offsetMeters: snaps[i].distance, nodeId: v.nodeId }))
 
@@ -294,10 +310,20 @@ function routeFromStops(
   const instructions: Instruction[] = []
   let offset = 0
   let time = 0
+  // A pie se da la vuelta sin problema; en coche se penaliza (ver REVERSE_START_PENALTY_S).
+  const car = prefs.profile !== 'walk'
+  const scale = prefs.cost === 'shortest' ? PENALTY_M_PER_S : 1
+  /** Rumbo al empezar cada tramo: el del GPS en el origen; en una parada, el de llegada. */
+  let legHeading = originHeading
   for (let k = 0; k < snapped.length - 1; k++) {
     const res = findRoute(graph, snapped[k].nodeId, snapped[k + 1].nodeId, {
       cost: prefs.cost,
       avoidHighways: prefs.avoidHighways,
+      ...(car && {
+        uTurnPenalty: U_TURN_PENALTY_S * scale,
+        startReversePenalty: REVERSE_START_PENALTY_S * scale,
+        startBearing: legHeading,
+      }),
     })
     if (!res.ok) {
       const leg = snapped.length > 2 ? ` (tramo ${k + 1})` : ''
@@ -313,6 +339,7 @@ function routeFromStops(
           arrivalType: isLast ? 'arrive' : 'waypoint',
           waypointIndex: k + 1,
           resumeFromWaypoint: k > 0,
+          departHeading: k === 0 ? originHeading : undefined,
         }),
       )
     } else if (!isLast) {
@@ -328,6 +355,8 @@ function routeFromStops(
     }
     offset += res.distance
     time += res.duration
+    const lastEdge = res.edges[res.edges.length - 1]
+    legHeading = lastEdge ? endBearing(lastEdge.geometry) : legHeading
   }
   if (instructions.length === 0 || instructions[instructions.length - 1].type !== 'arrive') {
     const end = snapped[snapped.length - 1]

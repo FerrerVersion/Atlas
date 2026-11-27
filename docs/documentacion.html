@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>213 + 70</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>259 + 72</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -171,7 +171,7 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>213 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm test</code></td><td>259 tests unitarios y de integración (Vitest).</td></tr>
     <tr><td><code>npm run test:e2e</code></td><td>48 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
@@ -249,14 +249,18 @@ npm run dev</pre>
         <li><b>▶ Simular</b>: recorre la ruta automáticamente (útil para probar sin moverse).</li>
         <li><b>Diana</b>: seguir tu GPS real (activo por defecto al iniciar).</li>
         <li><b>Medición en vivo</b>: velocidad, distancia recorrida, tiempo de viaje y estado de la señal GPS (precisión, señal débil, fuera de ruta).</li>
-        <li><b>Recálculo automático</b>: si te sales de la ruta durante más de unos segundos, se calcula una nueva desde tu posición conservando las paradas pendientes.</li>
-        <li><b>Altavoz</b>: indicaciones por voz con la síntesis del propio navegador.</li>
-        <li>El tramo ya recorrido se atenúa y el mapa sigue tu posición; si arrastras el mapa deja de seguirla.</li>
+        <li><b>Recálculo automático</b>: si te sales de la ruta (o vas por ella en sentido contrario) durante más de unos segundos, se calcula una nueva desde tu posición <b>y en tu sentido de marcha</b>, conservando las paradas pendientes. Solo manda dar la vuelta si no hay una alternativa razonable.</li>
+        <li><b>Altavoz</b>: indicaciones por voz con la síntesis del propio navegador: un aviso previo según la velocidad, otro al llegar y «Continúa durante 2 km» tras cada maniobra, sin repetir nada.</li>
+        <li><b>Brújula</b> (a la derecha): alterna la <b>vista de navegación</b> (el mapa gira con tu rumbo arriba y se inclina en perspectiva) y la <b>vista norte</b> (plana, norte arriba).</li>
+        <li><b>Vista libre</b>: al arrastrar, girar (dos dedos, o Ctrl + arrastrar) o inclinar el mapa se deja de seguir tu posición; <b>Recentrar</b> (o 15 s sin tocar el mapa) vuelve a la navegación.</li>
+        <li>El tramo ya recorrido se atenúa y el mapa sigue tu posición.</li>
       </ul>
     </div>
   </div>
 
   <div class="callout"><strong>Medición en tiempo real</strong>En cuanto eliges una ruta, cada lectura del GPS se sitúa sobre ella (dando prioridad al tramo por el que vas, para no «saltar» si la ruta pasa dos veces por la misma calle). Se descartan lecturas con señal débil y los saltos imposibles (más de 250 km/h entre dos lecturas). Aunque no pulses «Iniciar», el resumen muestra «En ruta ahora: quedan X · llegada hh:mm». Durante la navegación la pantalla del móvil se mantiene encendida.</div>
+
+  <div class="callout"><strong>Rumbo e instrucciones</strong>La flecha y la cámara usan el rumbo del GPS cuando es fiable o la dirección real de tu desplazamiento; si coincide con la ruta, la dirección de la calle (más estable). Parado, el mapa no gira. Las instrucciones solo aparecen cuando hay una decisión en un cruce (giro, bifurcación, rotonda, incorporación o salida, cambio de carretera): las curvas de una misma calle y los cambios de nombre en una calle que sigue recta no interrumpen.</div>
 
   <p><b>Movimiento fluido:</b> el GPS da una lectura por segundo; la posición mostrada se anima fotograma a fotograma entre lecturas (con una duración algo mayor que el intervalo para no detenerse) y el mapa la acompaña sin tirones.</p>
 
@@ -491,8 +495,8 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>213</b><span>tests unitarios y de integración</span></div>
-    <div class="kpi"><b>70</b><span>pruebas e2e (35 escenarios × escritorio y móvil)</span></div>
+    <div class="kpi"><b>259</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>72</b><span>pruebas e2e (36 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
   </div>
@@ -578,7 +582,7 @@ npm run dev</pre>
   <h3>Próximas mejoras sugeridas</h3>
   <ul>
     <li>Restricciones de giro y perfil de bicicleta.</li>
-    <li>Mapas vectoriales (MapLibre) para recolorear con exactitud y permitir rotación.</li>
+    <li>Mapas vectoriales (MapLibre) para recolorear con exactitud y que los textos del mapa base no giren con la cámara de navegación.</li>
     <li>Calcular el grafo y A* en un Web Worker para zonas muy grandes.</li>
     <li>Superponer los mapas personalizados calibrados sobre el mapa real.</li>
     <li>Importar archivos <code>.osm</code>, <code>.pbf</code> y GeoJSON.</li>
