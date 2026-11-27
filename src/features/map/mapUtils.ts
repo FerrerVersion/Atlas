@@ -34,7 +34,6 @@ export function themeFxClasses(theme: MapTheme): string {
     `theme-${theme.id}`,
     theme.isDark ? 'is-dark' : '',
     theme.effects.glow ? 'fx-glow' : '',
-    theme.effects.hueCycle ? 'fx-hue-cycle' : '',
   ]
     .filter(Boolean)
     .join(' ')

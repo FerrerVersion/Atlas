@@ -1,58 +1,13 @@
 import { defineTheme, FONT, NO_OVERLAY, roads } from './helpers'
 
-export const vintage = defineTheme({
-  id: 'vintage',
-  name: 'Vintage',
-  description: 'Cartografía de mediados del siglo XX: tonos sepia suaves y tipografía con serifa.',
-  category: 'classic',
-  colors: {
-    background: '#efe6d2', water: '#a9c2c0', parks: '#c5c99a', buildings: '#d8c7a6', roads: '#fbf6ea',
-    mainRoads: '#e5c48b', highways: '#c58b4a', route: '#7f1d1d', routeCasing: '#fef3c7', labels: '#4a3728',
-    labelHalo: '#f4ecdb', markers: '#7f1d1d', accent: '#7f1d1d',
-  },
-  typography: { fontFamily: FONT.serif, labelSize: 12, labelWeight: 600 },
-  detail: 'medium',
-  base: { provider: 'osm', filter: 'sepia(0.65) saturate(0.75) contrast(0.92) brightness(0.97)' },
-  labels: null,
-  overlay: NO_OVERLAY,
-  route: { color: '#7f1d1d', casing: '#fef3c7', width: 5 },
-  marker: { shape: 'seal', color: '#7f1d1d', textColor: '#fef3c7' },
-  effects: { glow: false, shadows: true, animations: false, paper: true },
-  poi: { style: 'ink', size: 28 },
-  isDark: false,
-})
-
-export const noir = defineTheme({
-  id: 'noir',
-  name: 'Blanco y negro',
-  description: 'Alto contraste monocromo, como una fotocopia nítida del callejero.',
-  category: 'classic',
-  colors: {
-    background: '#ffffff', water: '#d4d4d4', parks: '#e5e5e5', buildings: '#f0f0f0', roads: '#ffffff',
-    mainRoads: '#737373', highways: '#171717', route: '#000000', routeCasing: '#ffffff', labels: '#000000',
-    labelHalo: '#ffffff', markers: '#000000', accent: '#000000',
-  },
-  typography: { fontFamily: FONT.sans, labelSize: 12, labelWeight: 700 },
-  detail: 'low',
-  base: { provider: 'osm', filter: 'grayscale(1) contrast(1.45)' },
-  labels: null,
-  overlay: NO_OVERLAY,
-  route: { color: '#000000', casing: '#ffffff', width: 6, dash: '1 0' },
-  marker: { shape: 'dot', color: '#000000', textColor: '#ffffff' },
-  effects: { glow: false, shadows: false, animations: false },
-  poi: { style: 'outline', size: 26 },
-  isDark: false,
-})
-
 export const topographic = defineTheme({
   id: 'topographic',
   name: 'Topográfico',
   description: 'Curvas de nivel y sombreado del relieve real (OpenTopoMap) para rutas por montaña.',
   category: 'realistic',
   colors: {
-    background: '#f5f1e6', water: '#97c4e8', parks: '#bcd9a0', buildings: '#d6c8b4', roads: '#ffffff',
-    mainRoads: '#f7c66b', highways: '#e8643a', route: '#dc2626', routeCasing: '#ffffff', labels: '#1f2937',
-    labelHalo: '#ffffff', markers: '#dc2626', accent: '#dc2626',
+    background: '#f5f1e6', water: '#97c4e8', parks: '#bcd9a0', buildings: '#d6c8b4', roads: '#ffffff', highways: '#e8643a', labels: '#1f2937',
+    labelHalo: '#ffffff', accent: '#dc2626',
   },
   typography: { fontFamily: FONT.sans, labelSize: 12, labelWeight: 500 },
   detail: 'medium',
@@ -61,7 +16,7 @@ export const topographic = defineTheme({
   overlay: NO_OVERLAY,
   route: { color: '#dc2626', casing: '#ffffff', width: 6 },
   marker: { shape: 'pin', color: '#dc2626', textColor: '#ffffff' },
-  effects: { glow: false, shadows: true, animations: false },
+  effects: { glow: false, animations: false },
   poi: { style: 'filled', size: 28 },
   isDark: false,
 })
@@ -72,9 +27,8 @@ export const handDrawn = defineTheme({
   description: 'Boceto en cuaderno: trazos irregulares a lápiz, papel y rotulación manuscrita.',
   category: 'creative',
   colors: {
-    background: '#fbf8f1', water: '#bfdbfe', parks: '#d9f99d', buildings: '#f5f5f4', roads: '#334155',
-    mainRoads: '#1e293b', highways: '#0f172a', route: '#ef4444', routeCasing: '#fbf8f1', labels: '#1e293b',
-    labelHalo: '#fbf8f1', markers: '#ef4444', accent: '#ef4444',
+    background: '#fbf8f1', water: '#bfdbfe', parks: '#d9f99d', buildings: '#f5f5f4', roads: '#334155', highways: '#0f172a', labels: '#1e293b',
+    labelHalo: '#fbf8f1', accent: '#ef4444',
   },
   typography: { fontFamily: FONT.hand, labelSize: 17, labelWeight: 700 },
   detail: 'medium',
@@ -94,42 +48,7 @@ export const handDrawn = defineTheme({
   },
   route: { color: '#ef4444', casing: '#fbf8f1', width: 5, dash: '20 4 2 4' },
   marker: { shape: 'pin', color: '#ef4444', textColor: '#ffffff' },
-  effects: { glow: false, shadows: false, animations: false, paper: true },
+  effects: { glow: false, animations: false, paper: true },
   poi: { style: 'ink', size: 28 },
   isDark: false,
-})
-
-export const holographic = defineTheme({
-  id: 'holographic',
-  name: 'Holográfico',
-  description: 'Proyección holográfica translúcida en verde azulado con resplandor y líneas de exploración.',
-  category: 'futuristic',
-  colors: {
-    background: '#021014', water: '#03222b', parks: '#05261f', buildings: '#06302f', roads: '#14b8a6',
-    mainRoads: '#5eead4', highways: '#ccfbf1', route: '#fbbf24', routeCasing: '#042f2e', labels: '#99f6e4',
-    labelHalo: '#021014', markers: '#5eead4', accent: '#5eead4',
-  },
-  typography: { fontFamily: FONT.mono, labelSize: 10, labelWeight: 500, uppercase: true, letterSpacing: '0.18em' },
-  detail: 'high',
-  base: { provider: 'esri-dark-gray', filter: 'sepia(1) hue-rotate(120deg) saturate(2.5) brightness(0.55)' },
-  labels: { provider: 'esri-dark-gray-labels', filter: 'sepia(1) hue-rotate(120deg) saturate(4) brightness(1.4)', maxZoom: 15 },
-  overlay: {
-    enabled: true,
-    opacity: 0.8,
-    showNodes: true,
-    nodeColor: '#5eead4',
-    customLabels: true,
-    classes: roads({
-      highway: { color: '#ccfbf1', width: 2.8 },
-      major: { color: '#5eead4', width: 2.2 },
-      minor: { color: '#2dd4bf', width: 1.5, opacity: 0.8 },
-      local: { color: '#14b8a6', width: 1, opacity: 0.65 },
-      path: { color: '#0f766e', width: 0.7, dash: '1 3' },
-    }),
-  },
-  route: { color: '#fbbf24', casing: '#042f2e', width: 5, glow: true, animated: true, dash: '20 8' },
-  marker: { shape: 'glow', color: '#5eead4', textColor: '#021014' },
-  effects: { glow: true, shadows: false, animations: true, scanlines: true },
-  poi: { style: 'neon', size: 26 },
-  isDark: true,
 })

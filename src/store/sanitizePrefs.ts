@@ -1,5 +1,5 @@
 import type { Place } from '@/features/geocoding/geocodingService'
-import { hasTheme } from '@/features/themes/themeRegistry'
+import { resolveThemeId } from '@/features/themes/themeRegistry'
 import type { AppState, MapView, NavPrefs, UiMode } from './useAppStore'
 
 type Prefs = Pick<
@@ -41,7 +41,8 @@ export function sanitizePrefs(persisted: unknown, current: Prefs): Prefs {
   }
   const list = (v: unknown, max: number) => (Array.isArray(v) ? v.filter(validPlace).slice(0, max) : [])
   return {
-    themeId: typeof p.themeId === 'string' && hasTheme(p.themeId) ? p.themeId : current.themeId,
+    // Un tema fusionado se cambia por su equivalente.
+    themeId: (typeof p.themeId === 'string' && resolveThemeId(p.themeId)) || current.themeId,
     uiMode: (['light', 'dark', 'system'] as UiMode[]).includes(p.uiMode as UiMode) ? (p.uiMode as UiMode) : current.uiMode,
     autoNightTheme: bool(p.autoNightTheme, current.autoNightTheme),
     showLabels: bool(p.showLabels, current.showLabels),

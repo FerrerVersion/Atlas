@@ -6,9 +6,8 @@ export const cyberpunk = defineTheme({
   description: 'Neón magenta, violeta y cian sobre la noche urbana. Ruta con pulso de energía y etiquetas futuristas.',
   category: 'futuristic',
   colors: {
-    background: '#07010f', water: '#120a3a', parks: '#160629', buildings: '#1c0b33', roads: '#7c3aed',
-    mainRoads: '#e879f9', highways: '#22d3ee', route: '#22d3ee', routeCasing: '#f0abfc', labels: '#67e8f9',
-    labelHalo: '#07010f', markers: '#f0abfc', accent: '#e879f9',
+    background: '#07010f', water: '#120a3a', parks: '#160629', buildings: '#1c0b33', roads: '#7c3aed', highways: '#22d3ee', labels: '#67e8f9',
+    labelHalo: '#07010f', accent: '#e879f9',
   },
   typography: { fontFamily: FONT.orbitron, labelSize: 11, labelWeight: 600, uppercase: true, letterSpacing: '0.12em' },
   detail: 'high',
@@ -32,7 +31,7 @@ export const cyberpunk = defineTheme({
   },
   route: { color: '#22d3ee', casing: '#f0abfc', width: 6, animated: true, glow: true, dash: '14 10' },
   marker: { shape: 'glow', color: '#f0abfc', textColor: '#07010f' },
-  effects: { glow: true, shadows: false, animations: true, scanlines: true },
+  effects: { glow: true, animations: true, scanlines: true },
   poi: { style: 'neon', size: 28 },
   isDark: true,
 })

@@ -6,9 +6,8 @@ export const minimal = defineTheme({
   description: 'Escala de grises, sin decoración y con la máxima legibilidad: solo lo esencial.',
   category: 'classic',
   colors: {
-    background: '#fafafa', water: '#e5e7eb', parks: '#f1f5f1', buildings: '#f4f4f5', roads: '#ffffff',
-    mainRoads: '#d4d4d8', highways: '#a1a1aa', route: '#111827', routeCasing: '#ffffff', labels: '#3f3f46',
-    labelHalo: '#ffffff', markers: '#111827', accent: '#111827',
+    background: '#fafafa', water: '#e5e7eb', parks: '#f1f5f1', buildings: '#f4f4f5', roads: '#ffffff', highways: '#a1a1aa', labels: '#3f3f46',
+    labelHalo: '#ffffff', accent: '#111827',
   },
   typography: { fontFamily: FONT.sans, labelSize: 11, labelWeight: 500, letterSpacing: '0.01em' },
   detail: 'low',
@@ -17,7 +16,7 @@ export const minimal = defineTheme({
   overlay: { ...NO_OVERLAY, customLabels: true },
   route: { color: '#111827', casing: '#ffffff', width: 5 },
   marker: { shape: 'dot', color: '#111827', textColor: '#ffffff' },
-  effects: { glow: false, shadows: false, animations: false },
+  effects: { glow: false, animations: false },
   poi: { style: 'outline', size: 24 },
   isDark: false,
 })

@@ -36,13 +36,9 @@ export interface MapTheme {
     parks: string
     buildings: string
     roads: string
-    mainRoads: string
     highways: string
-    route: string
-    routeCasing: string
     labels: string
     labelHalo: string
-    markers: string
     accent: string
   }
   typography: {
@@ -77,13 +73,11 @@ export interface MapTheme {
   marker: { shape: MarkerShape; color: string; textColor: string }
   effects: {
     glow: boolean
-    shadows: boolean
     animations: boolean
     scanlines?: boolean
     grid?: boolean
     vignette?: boolean
     paper?: boolean
-    hueCycle?: boolean
   }
   /** Iconos de POI: estilo de la burbuja. */
   poi: { style: 'filled' | 'outline' | 'neon' | 'pixel' | 'ink'; size: number }

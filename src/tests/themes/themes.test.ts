@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { TILE_PROVIDERS } from '@/features/map/tileProviders'
-import { DEFAULT_THEME_ID, getTheme, THEMES } from '@/features/themes/themeRegistry'
+import { DEFAULT_THEME_ID, getTheme, resolveThemeId, THEME_ALIASES, THEMES } from '@/features/themes/themeRegistry'
+import { sanitizePrefs } from '@/store/sanitizePrefs'
+import { useAppStore } from '@/store/useAppStore'
 
 const REQUIRED = [
-  'classic', 'satellite', 'dark-premium', 'minimal', 'cyberpunk', 'open-world', 'blueprint', 'retro-arcade', 'fantasy', 'chaos',
+  'classic', 'satellite', 'dark-premium', 'minimal', 'cyberpunk', 'blueprint', 'retro-arcade', 'fantasy', 'topographic', 'hand-drawn',
 ]
 
 describe('registro de temas', () => {
-  it('incluye al menos los 10 estilos obligatorios', () => {
-    expect(THEMES.length).toBeGreaterThanOrEqual(10)
+  it('incluye los 10 estilos (tras fusionar los redundantes)', () => {
+    expect(THEMES.length).toBe(10)
     for (const id of REQUIRED) expect(THEMES.some((t) => t.id === id)).toBe(true)
   })
 
@@ -39,5 +41,31 @@ describe('registro de temas', () => {
 
   it('getTheme cae al clásico si el id no existe', () => {
     expect(getTheme('no-existe').id).toBe(DEFAULT_THEME_ID)
+  })
+})
+
+describe('temas fusionados', () => {
+  it.each(Object.entries(THEME_ALIASES))('«%s» ya no existe y se resuelve a «%s»', (old, target) => {
+    expect(THEMES.some((t) => t.id === old)).toBe(false)
+    expect(resolveThemeId(old)).toBe(target)
+    expect(getTheme(old).id).toBe(target)
+  })
+
+  it('una preferencia guardada con un tema fusionado pasa a su equivalente (no al por defecto)', () => {
+    const current = useAppStore.getState()
+    const prefs = sanitizePrefs({ themeId: 'holographic' }, current)
+    expect(prefs.themeId).toBe('cyberpunk')
+    expect(sanitizePrefs({ themeId: 'vintage' }, current).themeId).toBe('fantasy')
+    expect(sanitizePrefs({ themeId: 'no-existe' }, current).themeId).toBe(current.themeId)
+  })
+
+  it('elegir un tema fusionado (p. ej. desde un enlace antiguo) aplica su equivalente', () => {
+    useAppStore.getState().setTheme('noir')
+    expect(useAppStore.getState().themeId).toBe('minimal')
+    useAppStore.getState().setTheme('classic')
+  })
+
+  it('ningún tema anima el color del mapa entero', () => {
+    for (const t of THEMES) expect(JSON.stringify(t.effects)).not.toMatch(/hueCycle/)
   })
 })

@@ -6,9 +6,8 @@ export const darkPremium = defineTheme({
   description: 'Fondo grafito, calles discretas, autopistas ámbar y ruta en cian eléctrico. Ideal de noche.',
   category: 'dark',
   colors: {
-    background: '#0e1116', water: '#0b1d2c', parks: '#13231a', buildings: '#1b1f27', roads: '#3a404d',
-    mainRoads: '#6b7280', highways: '#f59e0b', route: '#22d3ee', routeCasing: '#083344', labels: '#cbd5e1',
-    labelHalo: '#0e1116', markers: '#22d3ee', accent: '#22d3ee',
+    background: '#0e1116', water: '#0b1d2c', parks: '#13231a', buildings: '#1b1f27', roads: '#3a404d', highways: '#f59e0b', labels: '#cbd5e1',
+    labelHalo: '#0e1116', accent: '#22d3ee',
   },
   typography: { fontFamily: FONT.sans, labelSize: 12, labelWeight: 500 },
   detail: 'medium',
@@ -28,7 +27,7 @@ export const darkPremium = defineTheme({
   },
   route: { color: '#22d3ee', casing: '#083344', width: 6, glow: true },
   marker: { shape: 'glow', color: '#22d3ee', textColor: '#0e1116' },
-  effects: { glow: true, shadows: true, animations: false },
+  effects: { glow: true, animations: false },
   poi: { style: 'outline', size: 28 },
   isDark: true,
 })

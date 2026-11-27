@@ -209,6 +209,36 @@ test.describe('fase 7: flujo «Ir aquí», progreso y accesibilidad', () => {
   })
 })
 
+test('la ruta animada (Cyberpunk) se detiene durante la navegación y vuelve al salir', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('atlas-nav:prefs', JSON.stringify({ state: { themeId: 'cyberpunk' }, version: 1 })),
+  )
+  await page.goto('/')
+  await openTab(page, 'Ajustes')
+  await page.getByRole('button', { name: /Cargar demo offline/ }).click()
+  await openTab(page, 'Ruta')
+  await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+  await page.getByRole('option', { name: /Blasco Ibáñez/ }).first().click()
+  await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+  await page.getByRole('option', { name: /Doctor Beltrán/ }).first().click()
+  await expect(page.getByTestId('route-duration')).toBeVisible({ timeout: 15_000 })
+  await expect(page.locator('path.route-line.route-animated')).toHaveCount(1)
+  await page.getByRole('button', { name: 'Iniciar' }).click()
+  await expect(page.getByTestId('nav-hud')).toBeVisible()
+  await expect(page.locator('path.route-line')).toHaveCount(1)
+  await expect(page.locator('path.route-line.route-animated')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Salir de la navegación' }).click()
+  await expect(page.locator('path.route-line.route-animated')).toHaveCount(1)
+})
+
+test('un tema fusionado guardado (Holográfico) se abre como su equivalente (Cyberpunk)', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem('atlas-nav:prefs', JSON.stringify({ state: { themeId: 'holographic' }, version: 1 })),
+  )
+  await page.goto('/')
+  await expect(page.locator('.atlas-map')).toHaveAttribute('data-theme', 'cyberpunk')
+})
+
 test('filtro de POIs muestra establecimientos reales', async ({ page }) => {
   await page.goto('/')
   await openTab(page, 'Ajustes')

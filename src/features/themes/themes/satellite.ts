@@ -6,9 +6,8 @@ export const satellite = defineTheme({
   description: 'Imagen aérea de Esri World Imagery con calles reales de OSM superpuestas y etiquetas opcionales.',
   category: 'realistic',
   colors: {
-    background: '#1f2a1c', water: '#163a52', parks: '#3d5a2a', buildings: '#8a8172', roads: '#f8fafc',
-    mainRoads: '#fde68a', highways: '#facc15', route: '#22d3ee', routeCasing: '#0f172a', labels: '#ffffff',
-    labelHalo: '#000000', markers: '#f43f5e', accent: '#22d3ee',
+    background: '#1f2a1c', water: '#163a52', parks: '#3d5a2a', buildings: '#8a8172', roads: '#f8fafc', highways: '#facc15', labels: '#ffffff',
+    labelHalo: '#000000', accent: '#22d3ee',
   },
   typography: { fontFamily: FONT.sans, labelSize: 12, labelWeight: 600 },
   detail: 'medium',
@@ -28,7 +27,7 @@ export const satellite = defineTheme({
   },
   route: { color: '#22d3ee', casing: '#0f172a', width: 7 },
   marker: { shape: 'pin', color: '#f43f5e', textColor: '#ffffff' },
-  effects: { glow: false, shadows: true, animations: false },
+  effects: { glow: false, animations: false },
   poi: { style: 'filled', size: 30 },
   isDark: true,
 })

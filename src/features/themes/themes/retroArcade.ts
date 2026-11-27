@@ -6,9 +6,8 @@ export const retroArcade = defineTheme({
   description: 'Colores intensos, píxeles visibles, iconos pixelados y tipografía de recreativa clásica.',
   category: 'creative',
   colors: {
-    background: '#120338', water: '#1d4ed8', parks: '#15803d', buildings: '#3b0764', roads: '#2563eb',
-    mainRoads: '#facc15', highways: '#ef4444', route: '#f472b6', routeCasing: '#000000', labels: '#fde047',
-    labelHalo: '#000000', markers: '#22c55e', accent: '#f472b6',
+    background: '#120338', water: '#1d4ed8', parks: '#15803d', buildings: '#3b0764', roads: '#2563eb', highways: '#ef4444', labels: '#fde047',
+    labelHalo: '#000000', accent: '#f472b6',
   },
   typography: { fontFamily: FONT.arcade, labelSize: 8, labelWeight: 400, uppercase: true },
   detail: 'medium',
@@ -32,7 +31,7 @@ export const retroArcade = defineTheme({
   },
   route: { color: '#f472b6', casing: '#000000', width: 8, dash: '8 8', animated: true },
   marker: { shape: 'pixel', color: '#22c55e', textColor: '#000000' },
-  effects: { glow: false, shadows: false, animations: true, scanlines: true },
+  effects: { glow: false, animations: true, scanlines: true },
   poi: { style: 'pixel', size: 28 },
   isDark: true,
 })

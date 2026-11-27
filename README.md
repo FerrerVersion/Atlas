@@ -1,6 +1,6 @@
 # Atlas · Navegación
 
-Aplicación web de navegación con **ubicaciones y nombres reales de OpenStreetMap**, motor de rutas **A\*** propio, navegación paso a paso, paradas múltiples y **15 estilos visuales de mapa** (de clásico a cyberpunk, blueprint, arcade o fantasía).
+Aplicación web de navegación con **ubicaciones y nombres reales de OpenStreetMap**, motor de rutas **A\*** propio, navegación paso a paso, paradas múltiples y **10 estilos visuales de mapa** (de clásico a cyberpunk, blueprint, arcade o fantasía).
 
 **▶ Pruébala aquí: [ferrerversion.github.io/Atlas](https://ferrerversion.github.io/Atlas/)** · Funciona en ordenador y móvil, y se puede instalar como app.
 
@@ -17,7 +17,7 @@ La originalidad está en la interfaz, los estilos y las funcionalidades. **Ning�
 - **Paradas múltiples**: añadir, eliminar, reordenar (botones o arrastrar), invertir; cálculo por tramos y unión sin nodos duplicados; marcadores arrastrables.
 - **Medición en tiempo real con el GPS**: en cuanto hay una ruta, cada lectura del dispositivo actualiza lo que queda (distancia, tiempo, llegada), la próxima maniobra, la velocidad, la distancia recorrida y el tiempo de viaje. Indica la calidad de la señal, descarta saltos imposibles del GPS, avisa si te desvías y **recalcula la ruta desde tu posición** (manteniendo las paradas pendientes). La pantalla se mantiene encendida durante la navegación.
 - **Navegación paso a paso** generada a partir de la geometría: giros (suaves, normales, bruscos), cambios de sentido, rotondas («toma la 2.ª salida»), incorporación y salida de autopista, llegada a paradas y destino. Modo navegación con próxima maniobra, distancia al giro, distancia y tiempo restantes, simulación del recorrido, seguimiento GPS y voz (síntesis local del navegador).
-- **15 estilos de mapa** con selector, vista previa y persistencia. Cambiar de estilo no toca la búsqueda, la ruta, las paradas, las coordenadas, los nombres ni el grafo.
+- **10 estilos de mapa** con selector, vista previa y persistencia. Cambiar de estilo no toca la búsqueda, la ruta, las paradas, las coordenadas, los nombres ni el grafo.
 - **Modo noche** de la interfaz (claro / noche / automático) y mapa nocturno automático opcional.
 - **Favoritos, historial y preferencias** persistidos en LocalStorage; datos geográficos cacheados en IndexedDB con caducidad (7 días) y límites (400 consultas, ~200 MB); lo caducado se borra al abrir la app. La red viaria en memoria tiene un tope (50.000 vías): al superarlo se liberan las zonas alejadas de lo que ves y de tu ruta.
 - **Mapas personalizados**: carga local de PNG/JPG/WebP, calibración por puntos de referencia, nodos, vías, rutas A* y exportación/importación JSON.
@@ -81,10 +81,10 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 184 tests unitarios y de integración
+npm test             # Vitest: 192 tests unitarios y de integración
 npm run bench        # Benchmarks con una ciudad sintética de 45.000 vías (no forman parte de npm test)
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 64 pruebas (32 en escritorio y 32 en móvil), sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 68 pruebas (34 en escritorio y 34 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 
@@ -144,7 +144,7 @@ Para medirlo: `npx vite preview --port 4173` y `node scripts/perf-ux.mjs` (servi
 | A* de esquina a esquina (29,5 km) | 18 ms | 20 ms |
 | Construir el grafo entero de golpe | 155 ms | 185-215 ms |
 
-El grafo es **incremental**: al llegar vías nuevas solo se procesan esas y las ya cargadas que pasan por un cruce nuevo (un test comprueba que el resultado es idéntico a construirlo de cero, en cualquier orden). Construirlo entero cuesta algo más que antes por el índice y la contabilidad, pero solo ocurre tras liberar memoria. El mapa **solo dibuja las vías de la zona visible** y una pantalla de margen: con 45.000 vías cargadas, el JavaScript al alejar, arrastrar y acercar baja de ~315 ms a ~125 ms y desaparecen las tareas largas. Con los temas que usan filtros CSS (Cyberpunk, Blueprint, Retro arcade…) el arrastre sigue siendo menos fluido por el coste de pintar esos filtros, no del código.
+El grafo es **incremental**: al llegar vías nuevas solo se procesan esas y las ya cargadas que pasan por un cruce nuevo (un test comprueba que el resultado es idéntico a construirlo de cero, en cualquier orden). Construirlo entero cuesta algo más que antes por el índice y la contabilidad, pero solo ocurre tras liberar memoria. El mapa **solo dibuja las vías de la zona visible** y una pantalla de margen: con 45.000 vías cargadas, el JavaScript al alejar, arrastrar y acercar baja de ~315 ms a ~125 ms y desaparecen las tareas largas. El coste de los temas con resplandor (filtros CSS `drop-shadow`) se resolvió en la revisión de temas: ver *Sistema de temas*.
 
 Web Worker: evaluado y **no** implementado por ahora; con estos tiempos lo que queda en el hilo principal durante una ruta es A* (≈20 ms aquí) y obligaría a duplicar la red viaria en memoria (el mapa y la búsqueda también la usan).
 
@@ -245,7 +245,7 @@ La atribución se muestra siempre en el mapa y en *Ajustes → Fuentes y licenci
 
 ## Sistema de temas
 
-Cada tema (`src/features/themes/themes/*.ts`) define: colores (fondo, agua, parques, edificios, calles, principales, autopistas, ruta, etiquetas, marcadores, acento), tipografía (familia, tamaño, peso, mayúsculas, espaciado), nivel de detalle, capa base y de etiquetas (proveedor, filtro CSS, opacidad, zoom máximo, pixelado), capa vectorial propia por clase de vía (color, grosor, discontinuidad, carcasa), nodos visibles, etiquetas de calle propias, estilo de ruta (color, carcasa, animación, resplandor), forma de marcador, estilo de POI y efectos (resplandor, sombras, animaciones, scanlines, rejilla, viñeta, papel, ciclo de color).
+Cada tema (`src/features/themes/themes/*.ts`) define: colores (fondo, agua, parques, edificios, calles, autopistas, etiquetas, acento; los usa también la vista previa de la galería), tipografía (familia, tamaño, peso, mayúsculas, espaciado), nivel de detalle, capa base y de etiquetas (proveedor, filtro CSS, opacidad, zoom máximo, pixelado), capa vectorial propia por clase de vía (color, grosor, discontinuidad, carcasa), nodos visibles, etiquetas de calle propias, estilo de ruta (color, carcasa, animación, resplandor), forma de marcador, estilo de POI y efectos (resplandor, animaciones, scanlines, rejilla, viñeta, papel).
 
 | Estilo | Base | Rasgos |
 |---|---|---|
@@ -254,14 +254,15 @@ Cada tema (`src/features/themes/themes/*.ts`) define: colores (fondo, agua, parq
 | Oscuro Premium | Esri Dark Gray | Autopistas ámbar, ruta cian con resplandor |
 | Minimalista | Esri Light Gray | Gris, sin decoración |
 | Cyberpunk | Dark Gray recoloreado | Neón magenta/cian, ruta animada, Orbitron, scanlines |
-| Mundo Abierto | OSM saturado | Carreteras gruesas con carcasa, viñeta, marcadores rombo |
 | Blueprint | Dark Gray azulado | Trazos técnicos, rejilla, intersecciones, monoespaciada |
 | Retro Arcade | Teselas pixeladas | Colores intensos, iconos y tipografía de 8 bits |
 | Fantasía | OpenTopoMap sepia | Relieve real, caminos a tinta, papel, sellos de lacre |
-| Caótico / Experimental | OSM con ciclo de color | Trazos discontinuos, marcadores que respiran |
-| Vintage, Blanco y negro, Topográfico, Dibujo a mano, Holográfico | — | Estilos adicionales |
+| Topográfico | OpenTopoMap | Curvas de nivel y relieve para rutas por montaña |
+| Dibujo a mano | Esri Light Gray tenue | Trazos a lápiz, papel, rotulación manuscrita |
 
-Los efectos se desactivan con `prefers-reduced-motion`.
+**Temas fusionados** (eran casi iguales a otro o perjudicaban la navegación): Mundo abierto → Clásico, Vintage → Fantasía, Blanco y negro → Minimalista, Holográfico → Cyberpunk y Caótico (colores que mutaban sin parar) → Clásico. Quien tuviera guardado uno de ellos pasa automáticamente a su equivalente.
+
+**Rendimiento de los efectos**: el resplandor de las calles y de la ruta se dibuja como una línea ancha y translúcida (no con filtros CSS `drop-shadow`, que se recalculaban en cada fotograma al mover el mapa) y la ruta animada se detiene durante la navegación. Los efectos se desactivan con `prefers-reduced-motion`.
 
 ### Cómo añadir un estilo
 

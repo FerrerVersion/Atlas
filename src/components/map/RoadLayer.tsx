@@ -76,19 +76,26 @@ export function RoadLayer({ theme }: { theme: MapTheme }) {
       lines.push(w.geometry.map((p) => [p.lat, p.lon] as L.LatLngTuple))
     }
 
-    // Primero todas las «carcasas», luego los trazos, para cruces limpios.
-    for (const pass of ['casing', 'line'] as const) {
+    // Temas con resplandor: primero un halo ancho y translúcido; después las «carcasas»
+    // y por último los trazos, para cruces limpios.
+    const passes = theme.effects.glow ? (['glow', 'casing', 'line'] as const) : (['casing', 'line'] as const)
+    for (const pass of passes) {
       for (const c of DRAW_ORDER) {
         const lines = byClass.get(c)
         const st = overlay.classes[c]
         if (!lines?.length || !st || st.width <= 0) continue
         if (pass === 'casing' && !st.casing) continue
+        if (pass === 'glow' && c === 'path') continue
         L.polyline(lines, {
           renderer,
           interactive: false,
-          color: pass === 'casing' ? st.casing : st.color,
-          weight: (st.width + (pass === 'casing' ? (st.casingWidth ?? 1) * 2 : 0)) * scale,
-          opacity: (st.opacity ?? 1) * overlay.opacity,
+          // El halo usa el color de acento del tema (como hacía el antiguo drop-shadow CSS).
+          color: pass === 'glow' ? theme.colors.accent : pass === 'casing' ? st.casing : st.color,
+          weight:
+            pass === 'glow'
+              ? (st.width + 5) * scale
+              : (st.width + (pass === 'casing' ? (st.casingWidth ?? 1) * 2 : 0)) * scale,
+          opacity: pass === 'glow' ? 0.22 * overlay.opacity : (st.opacity ?? 1) * overlay.opacity,
           dashArray: pass === 'line' ? st.dash : undefined,
           lineCap: theme.marker.shape === 'pixel' ? 'square' : 'round',
           lineJoin: theme.marker.shape === 'pixel' ? 'miter' : 'round',

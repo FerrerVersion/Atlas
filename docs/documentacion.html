@@ -98,7 +98,7 @@
   <div class="logo"><i></i> ATLAS</div>
   <div class="inner">
     <h1>Atlas · Navegación<br /><em>Documentación completa</em></h1>
-    <p>Aplicación web de navegación con ubicaciones y nombres reales de OpenStreetMap, motor de rutas A* propio, navegación paso a paso y 15 estilos visuales de mapa.</p>
+    <p>Aplicación web de navegación con ubicaciones y nombres reales de OpenStreetMap, motor de rutas A* propio, navegación paso a paso y 10 estilos visuales de mapa.</p>
     <div class="meta">
       <div>Versión<b>noviembre 2026</b></div>
       <div>Stack<b>React · TypeScript · Leaflet</b></div>
@@ -128,7 +128,7 @@
   <div class="toc">
     <div><span>1</span>Cómo ponerlo en marcha</div>
     <div><span>2</span>Guía de uso</div>
-    <div><span>3</span>Los 15 estilos de mapa</div>
+    <div><span>3</span>Los 10 estilos de mapa</div>
     <div><span>4</span>Cómo funciona por dentro</div>
     <div><span>5</span>El motor de rutas A*</div>
     <div><span>6</span>Datos reales y servicios</div>
@@ -145,7 +145,7 @@
     <div class="card"><h4>Guiar paso a paso</h4>Giros, rotondas («toma la 2.ª salida»), entradas y salidas de autovía, paradas. Modo navegación con simulación, GPS y voz.</div>
     <div class="card"><h4>Varias paradas</h4>Añadir, quitar, reordenar e invertir. Marcadores arrastrables. Cálculo por tramos.</div>
     <div class="card"><h4>Tu ubicación</h4>Antes de nada pide permiso; con él centra el mapa donde estás, precarga 200 km a tu alrededor y mantiene el punto azul actualizado.</div>
-    <div class="card"><h4>Personalizar</h4>15 estilos, modo noche, favoritos, historial y un editor para crear mapas propios a partir de una imagen.</div>
+    <div class="card"><h4>Personalizar</h4>10 estilos, modo noche, favoritos, historial y un editor para crear mapas propios a partir de una imagen.</div>
   </div>
 </section>
 
@@ -302,7 +302,7 @@ npm run dev</pre>
 
 <!-- ============================== 3. ESTILOS ============================== -->
 <section class="section">
-  <h2><span class="num">3</span>Los 15 estilos de mapa</h2>
+  <h2><span class="num">3</span>Los 10 estilos de mapa</h2>
   <p class="lead">Cada estilo cambia mucho más que el fondo: proveedor de imagen, filtros de color, cómo se dibujan las calles (grosor, color, trazos, contornos), etiquetas con su propia tipografía, forma de los marcadores, iconos de POI, estilo de la ruta y efectos de pantalla. La misma ruta de Buñol en todos ellos:</p>
   <div class="themes">
     <figure><img src="img/temas/classic.jpg" /><figcaption><b>Clásico</b> · OSM, familiar y legible</figcaption></figure>
@@ -310,16 +310,11 @@ npm run dev</pre>
     <figure><img src="img/temas/dark-premium.jpg" /><figcaption><b>Oscuro Premium</b> · grafito, ruta cian</figcaption></figure>
     <figure><img src="img/temas/minimal.jpg" /><figcaption><b>Minimalista</b> · gris, sin decoración</figcaption></figure>
     <figure><img src="img/temas/cyberpunk.jpg" /><figcaption><b>Cyberpunk</b> · neón, ruta animada, Orbitron</figcaption></figure>
-    <figure><img src="img/temas/open-world.jpg" /><figcaption><b>Mundo Abierto</b> · carreteras gruesas, viñeta</figcaption></figure>
     <figure><img src="img/temas/blueprint.jpg" /><figcaption><b>Blueprint</b> · plano técnico, nodos, rejilla</figcaption></figure>
     <figure><img src="img/temas/retro-arcade.jpg" /><figcaption><b>Retro Arcade</b> · píxeles y tipografía 8 bits</figcaption></figure>
     <figure><img src="img/temas/fantasy.jpg" /><figcaption><b>Fantasía</b> · relieve real en sepia, tinta</figcaption></figure>
-    <figure><img src="img/temas/chaos.jpg" /><figcaption><b>Caótico</b> · colores que mutan (opcional)</figcaption></figure>
-    <figure><img src="img/temas/vintage.jpg" /><figcaption><b>Vintage</b> · cartografía de época</figcaption></figure>
-    <figure><img src="img/temas/noir.jpg" /><figcaption><b>Blanco y negro</b> · alto contraste</figcaption></figure>
     <figure><img src="img/temas/topographic.jpg" /><figcaption><b>Topográfico</b> · curvas de nivel</figcaption></figure>
     <figure><img src="img/temas/hand-drawn.jpg" /><figcaption><b>Dibujo a mano</b> · trazo a lápiz</figcaption></figure>
-    <figure><img src="img/temas/holographic.jpg" /><figcaption><b>Holográfico</b> · verde azulado translúcido</figcaption></figure>
   </div>
   <p class="small muted" style="margin-top:3mm">Las animaciones se desactivan si el sistema tiene activada la opción «reducir movimiento».</p>
 </section>
@@ -505,7 +500,7 @@ npm run dev</pre>
   <h3>Qué se prueba</h3>
   <div class="grid2">
     <div class="card"><h4>Motor de rutas</h4>Los 12 casos pedidos: ruta directa, varios tramos, óptima frente a alternativa más larga, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo y reconstrucción. Además: sin bucles, evitar autopistas, grafo desde datos OSM reales de Buñol, rotondas, autovías, multi-parada y ampliación del corredor.</div>
-    <div class="card"><h4>Resto de la lógica</h4>Búsqueda (acentos, categorías, coordenadas), adaptadores Photon y Nominatim, 15 estilos (válidos y distintos), estado (cambiar de estilo no borra la ruta; persistencia), calibración de imágenes, progreso de navegación, limitador de peticiones, servidores escalonados y reintentos.</div>
+    <div class="card"><h4>Resto de la lógica</h4>Búsqueda (acentos, categorías, coordenadas), adaptadores Photon y Nominatim, 10 estilos (válidos y distintos), estado (cambiar de estilo no borra la ruta; persistencia), calibración de imágenes, progreso de navegación, limitador de peticiones, servidores escalonados y reintentos.</div>
     <div class="card"><h4>Navegador real (e2e)</h4>Carga del mapa; búsqueda de Buñol con nombre real; cambio de 4 estilos sin perder la ruta (y recordado al recargar); ruta con parada y modo navegación; POIs reales; menú del mapa sin nombres inventados; pantalla de permiso de ubicación (concedida y denegada), ubicación como origen; editor de mapas completo y sus casos límite; teselas en pantallas retina; preferencias dañadas; móvil pequeño (375×667).</div>
     <div class="card"><h4>Sin depender de la red</h4>Las pruebas e2e responden a las búsquedas y a Overpass con el extracto real de OSM incluido, así que son reproducibles. La ruta Valencia→Buñol se verificó además en vivo contra los servicios reales.</div>
   </div>

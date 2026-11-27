@@ -3,7 +3,7 @@ import { persist, type PersistStorage, type StorageValue } from 'zustand/middlew
 import type { Place } from '@/features/geocoding/geocodingService'
 import type { POI, PoiCategory } from '@/features/poi/poiTypes'
 import type { CostMode, MultiRoute, TravelProfile } from '@/features/routing/routeTypes'
-import { DEFAULT_THEME_ID, hasTheme } from '@/features/themes/themeRegistry'
+import { DEFAULT_THEME_ID, resolveThemeId } from '@/features/themes/themeRegistry'
 import type { BBox } from '@/utils/geometry'
 import type { LatLngTuple } from '@/utils/distance'
 import { sanitizePrefs } from './sanitizePrefs'
@@ -221,7 +221,8 @@ export const useAppStore = create<AppState>()(
 
       // El cambio de tema SOLO modifica themeId: ruta, búsqueda y paradas se conservan.
       setTheme: (id) => {
-        if (hasTheme(id)) set({ themeId: id })
+        const resolved = resolveThemeId(id)
+        if (resolved) set({ themeId: resolved })
       },
       setUiMode: (uiMode) => set({ uiMode }),
       setPref: (k, v) => set({ [k]: v } as Pick<AppState, typeof k>),

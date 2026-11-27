@@ -7,7 +7,7 @@ import { resolve } from 'node:path'
 const out = process.argv[2] ?? 'test-results/themes'
 const data = resolve(import.meta.dirname, '../src/data')
 const roads = JSON.parse(readFileSync(resolve(data, 'demoRoads.json'), 'utf8'))
-const ids = ['classic','satellite','dark-premium','minimal','cyberpunk','open-world','blueprint','retro-arcade','fantasy','chaos','vintage','noir','topographic','hand-drawn','holographic']
+const ids = ['classic','satellite','dark-premium','minimal','cyberpunk','blueprint','retro-arcade','fantasy','topographic','hand-drawn']
 
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1100, height: 700 } })

@@ -24,9 +24,19 @@ export function RouteLayer({ theme }: { theme: MapTheme }) {
 
   if (positions.length < 2) return null
   const r = theme.route
-  const lineClass = ['route-line', r.animated ? 'route-animated' : '', r.glow ? 'route-glow' : ''].join(' ')
+  // La ruta «animada» se detiene durante la navegación: el marcador ya indica el
+  // movimiento y una animación continua obliga a repintar la ruta en cada fotograma.
+  const lineClass = ['route-line', r.animated && !navActive ? 'route-animated' : ''].join(' ')
   return (
     <>
+      {r.glow && (
+        // Resplandor: línea ancha y translúcida debajo (antes, filtros CSS drop-shadow).
+        <Polyline
+          positions={positions}
+          interactive={false}
+          pathOptions={{ color: r.color, weight: r.width + 16, opacity: 0.18, lineCap: 'round', lineJoin: 'round' }}
+        />
+      )}
       <Polyline
         positions={positions}
         interactive={false}

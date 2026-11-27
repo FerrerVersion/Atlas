@@ -39,9 +39,8 @@
 .atlas-map .leaflet-nodes-pane {
   pointer-events: none;
 }
-.fx-glow .leaflet-roads-pane canvas {
-  filter: drop-shadow(0 0 3px var(--map-accent)) drop-shadow(0 0 6px color-mix(in srgb, var(--map-accent) 50%, transparent));
-}
+/* El resplandor de las calles se dibuja en el propio canvas (RoadLayer): un filtro CSS
+   drop-shadow sobre todo el lienzo se recalculaba en cada fotograma al mover el mapa. */
 
 /* ------------------------------------------------------------------ */
 /* Efectos de pantalla                                                 */
@@ -74,13 +73,6 @@
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.33 0 0 0 0 0.18 0 0 0 0.16 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   mix-blend-mode: multiply;
 }
-.fx-hue-cycle .leaflet-tile-pane {
-  animation: hue-cycle 18s linear infinite;
-}
-@keyframes hue-cycle {
-  from { filter: hue-rotate(0deg); }
-  to { filter: hue-rotate(360deg); }
-}
 
 /* ------------------------------------------------------------------ */
 /* Ruta                                                               */
@@ -91,9 +83,7 @@
 @keyframes route-flow {
   to { stroke-dashoffset: -48; }
 }
-.route-glow {
-  filter: drop-shadow(0 0 4px var(--route-color)) drop-shadow(0 0 10px var(--route-color));
-}
+/* El resplandor de la ruta es una línea ancha y translúcida debajo (RouteLayer), no un filtro. */
 .route-progress {
   opacity: 0.35;
 }

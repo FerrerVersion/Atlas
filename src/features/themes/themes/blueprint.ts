@@ -6,9 +6,8 @@ export const blueprint = defineTheme({
   description: 'Plano técnico de ingeniería urbana: trazos blancos, rejilla, nodos e intersecciones visibles.',
   category: 'futuristic',
   colors: {
-    background: '#0b3a6e', water: '#0a2f59', parks: '#0d4278', buildings: '#114a85', roads: '#bfdbfe',
-    mainRoads: '#e0f2fe', highways: '#ffffff', route: '#fde047', routeCasing: '#0b3a6e', labels: '#e0f2fe',
-    labelHalo: '#0b3a6e', markers: '#fde047', accent: '#7dd3fc',
+    background: '#0b3a6e', water: '#0a2f59', parks: '#0d4278', buildings: '#114a85', roads: '#bfdbfe', highways: '#ffffff', labels: '#e0f2fe',
+    labelHalo: '#0b3a6e', accent: '#7dd3fc',
   },
   typography: { fontFamily: FONT.mono, labelSize: 10, labelWeight: 500, uppercase: true, letterSpacing: '0.14em' },
   detail: 'high',
@@ -30,7 +29,7 @@ export const blueprint = defineTheme({
   },
   route: { color: '#fde047', casing: '#0b3a6e', width: 4, dash: '10 6' },
   marker: { shape: 'crosshair', color: '#fde047', textColor: '#0b3a6e' },
-  effects: { glow: false, shadows: false, animations: false, grid: true },
+  effects: { glow: false, animations: false, grid: true },
   poi: { style: 'outline', size: 26 },
   isDark: true,
 })

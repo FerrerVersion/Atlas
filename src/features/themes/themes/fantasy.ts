@@ -6,9 +6,8 @@ export const fantasy = defineTheme({
   description: 'Pergamino ilustrado: relieve topográfico real en tonos sepia, caminos a tinta y sellos de lacre.',
   category: 'creative',
   colors: {
-    background: '#efe0bb', water: '#7fa7a0', parks: '#8f9f62', buildings: '#c9a978', roads: '#7c4a21',
-    mainRoads: '#6b3a12', highways: '#4a2408', route: '#9f1239', routeCasing: '#fef3c7', labels: '#3b2412',
-    labelHalo: '#f5e7c4', markers: '#9f1239', accent: '#9f1239',
+    background: '#efe0bb', water: '#7fa7a0', parks: '#8f9f62', buildings: '#c9a978', roads: '#7c4a21', highways: '#4a2408', labels: '#3b2412',
+    labelHalo: '#f5e7c4', accent: '#9f1239',
   },
   typography: { fontFamily: FONT.cinzel, labelSize: 12, labelWeight: 700, letterSpacing: '0.05em' },
   detail: 'medium',
@@ -27,7 +26,7 @@ export const fantasy = defineTheme({
   },
   route: { color: '#9f1239', casing: '#fef3c7', width: 5, dash: '12 8' },
   marker: { shape: 'seal', color: '#9f1239', textColor: '#fef3c7' },
-  effects: { glow: false, shadows: true, animations: false, paper: true, vignette: true },
+  effects: { glow: false, animations: false, paper: true, vignette: true },
   poi: { style: 'ink', size: 30 },
   isDark: false,
 })
