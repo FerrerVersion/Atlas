@@ -41,9 +41,15 @@ export function PlaceCard() {
           </p>
           <button
             type="button"
-            onClick={() => navigator.clipboard?.writeText(`${place.lat.toFixed(6)}, ${place.lng.toFixed(6)}`)}
-            className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-slate-400 hover:text-accent"
+            onClick={() =>
+              navigator.clipboard
+                ?.writeText(`${place.lat.toFixed(6)}, ${place.lng.toFixed(6)}`)
+                .then(() => s().notify('Coordenadas copiadas.', 'success'))
+                .catch(() => s().notify('No se han podido copiar las coordenadas.', 'error'))
+            }
+            className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-slate-500 hover:text-accent dark:text-slate-400"
             title="Copiar coordenadas"
+            aria-label={`Copiar coordenadas ${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}`}
           >
             {place.lat.toFixed(5)}, {place.lng.toFixed(5)} <Copy className="h-3 w-3" />
           </button>
@@ -59,10 +65,7 @@ export function PlaceCard() {
         <Button
           variant="primary"
           icon={<Flag className="h-4 w-4" />}
-          onClick={() => {
-            s().setDestination(place)
-            s().setPanelTab('route')
-          }}
+          onClick={() => s().goTo(place)}
         >
           Ir aquí
         </Button>
@@ -88,7 +91,7 @@ export function PlaceCard() {
           Cargar calles
         </Button>
       </div>
-      <p className="text-[10px] text-slate-400">
+      <p className="text-[10px] text-slate-500 dark:text-slate-400">
         Fuente: {place.source === 'local' ? 'datos OSM cargados' : place.source === 'map' ? 'Nominatim (inversa)' : place.source} · ©
         OpenStreetMap contributors
       </p>

@@ -2,6 +2,7 @@ import { Gauge, Route, Satellite, Timer } from 'lucide-react'
 import type { TrackerState } from '@/features/navigation/liveTracking'
 import { useNow } from '@/hooks/useMediaQuery'
 import { formatDistance } from '@/utils/distance'
+import { SIM_SPEEDUP } from '@/hooks/useNavigationRunner'
 
 const elapsed = (ms: number) => {
   const s = Math.max(0, Math.round(ms / 1000))
@@ -13,7 +14,7 @@ const elapsed = (ms: number) => {
 
 /** Estado de la señal GPS en lenguaje llano. */
 function gpsLabel(live: TrackerState, simulating: boolean, accuracy: number | null) {
-  if (simulating) return { text: 'Simulación', tone: 'text-sky-500' }
+  if (simulating) return { text: `Simulación ×${SIM_SPEEDUP}`, tone: 'text-sky-500' }
   switch (live.status) {
     case 'waiting':
       return { text: 'Esperando GPS…', tone: 'text-slate-400' }

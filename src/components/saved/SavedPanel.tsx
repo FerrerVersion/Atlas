@@ -21,11 +21,7 @@ function PlaceRow({ place, actions }: { place: Place; actions?: React.ReactNode 
       <IconButton
         label={`Ir a ${place.name}`}
         size="sm"
-        onClick={() => {
-          const s = useAppStore.getState()
-          s.setDestination(place)
-          s.setPanelTab('route')
-        }}
+        onClick={() => useAppStore.getState().goTo(place)}
       >
         <Flag className="h-4 w-4" />
       </IconButton>

@@ -65,7 +65,7 @@ export function SearchResults({ id, results, activeIndex, onPick, onHover }: Pro
               </span>
             </span>
             {p.distanceMeters !== undefined && (
-              <span className="shrink-0 text-[11px] tabular-nums text-slate-400">{formatDistance(p.distanceMeters)}</span>
+              <span className="shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">{formatDistance(p.distanceMeters)}</span>
             )}
           </button>
         </li>

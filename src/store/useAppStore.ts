@@ -101,6 +101,11 @@ export interface AppState {
   updatePlace: (place: Place) => void
   setOrigin: (place: Place) => void
   setDestination: (place: Place) => void
+  /**
+   * «Ir aquí»: pone el destino y, si no hay origen y la ubicación ya está activa,
+   * usa «Mi ubicación» como origen (nunca activa el GPS por su cuenta).
+   */
+  goTo: (place: Place, opts?: { openPanel?: boolean }) => void
   addStop: (place?: Place | null) => void
   removeWaypoint: (index: number) => void
   moveWaypoint: (from: number, to: number) => void
@@ -246,6 +251,12 @@ export const useAppStore = create<AppState>()(
         })),
       setOrigin: (place) => get().setWaypoint(0, place),
       setDestination: (place) => get().setWaypoint(get().waypoints.length - 1, place),
+      goTo: (place, opts = {}) => {
+        get().setDestination(place)
+        const me = useNavStore.getState().userLocation
+        if (!get().waypoints[0].place && me) get().setOrigin(myLocationPlace(me.lat, me.lng))
+        if (opts.openPanel !== false) set({ panelTab: 'route', sheetExpanded: true })
+      },
       addStop: (place = null) =>
         set((s) => {
           const wps = [...s.waypoints]
@@ -347,6 +358,19 @@ export function zoomForKind(kind: Place['kind']): number {
       return 17
     default:
       return 17
+  }
+}
+
+/** Lugar «Mi ubicación» (posición del GPS) para usar como parada. */
+export function myLocationPlace(lat: number, lng: number): Place {
+  return {
+    id: `gps:${lat.toFixed(6)},${lng.toFixed(6)}`,
+    name: 'Mi ubicación',
+    kind: 'coordinates',
+    kindLabel: 'Ubicación GPS',
+    lat,
+    lng,
+    source: 'gps',
   }
 }
 

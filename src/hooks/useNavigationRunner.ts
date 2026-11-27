@@ -8,7 +8,7 @@ import { useAppStore } from '@/store/useAppStore'
 import { useNavStore } from '@/store/useNavStore'
 
 /** Velocidad de la simulación (multiplicador sobre el tiempo real estimado). */
-const SIM_SPEEDUP = 8
+export const SIM_SPEEDUP = 8
 
 /**
  * Avanza el progreso de navegación: simulación sobre la ruta o seguimiento GPS en
@@ -94,7 +94,9 @@ export function useNavigationRunner() {
       progress,
       traveled: progress,
       status: progress >= route.distance ? 'arrived' : 'tracking',
-      speedKmh: (route.distance / Math.max(route.duration, 1)) * 3.6 * SIM_SPEEDUP,
+      // Velocidad real estimada del tramo por el que va (la simulación avanza ×8, pero la
+      // velocidad mostrada es la del coche: antes salía la media ×8, p. ej. «173 km/h»).
+      speedKmh: segmentSpeedKmh(route, progress),
     })
   }, [active, simulating, route, progress])
 
@@ -155,4 +157,11 @@ export function useNavigationRunner() {
 export function NavigationRunner() {
   useNavigationRunner()
   return null
+}
+
+/** Velocidad media estimada (km/h) del tramo de la ruta en el que está el avance. */
+export function segmentSpeedKmh(route: Parameters<typeof navigationState>[0], progress: number): number {
+  const seg = navigationState(route, progress).current
+  if (seg.distance > 0 && seg.duration > 0) return (seg.distance / seg.duration) * 3.6
+  return (route.distance / Math.max(route.duration, 1)) * 3.6
 }

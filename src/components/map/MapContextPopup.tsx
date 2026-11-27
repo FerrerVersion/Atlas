@@ -45,7 +45,7 @@ export function MapContextPopup() {
       return
     }
     if (kind === 'origin') st.setOrigin(place)
-    else if (kind === 'destination') st.setDestination(place)
+    else if (kind === 'destination') st.goTo(place, { openPanel: false })
     else {
       const emptyMiddle = st.waypoints.findIndex((w, i) => i > 0 && i < st.waypoints.length - 1 && !w.place)
       if (emptyMiddle >= 0) st.setWaypoint(emptyMiddle, place)
@@ -73,7 +73,7 @@ export function MapContextPopup() {
         <button type="button" role="menuitem" className={item} onClick={() => act('info')}>
           <Search className="h-4 w-4 text-slate-500" /> ¿Qué hay aquí?
         </button>
-        <p className="flex items-center gap-1 px-4 pt-1 pb-2 text-[10px] text-slate-400">
+        <p className="flex items-center gap-1 px-4 pt-1 pb-2 text-[10px] text-slate-500 dark:text-slate-400">
           <MapPin className="h-3 w-3" /> Nombre real vía Nominatim
         </p>
       </div>

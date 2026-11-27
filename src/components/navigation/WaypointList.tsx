@@ -4,7 +4,7 @@ import { PlaceAutocomplete } from '@/components/search/PlaceAutocomplete'
 import { Button, IconButton } from '@/components/ui/Button'
 import type { Place } from '@/features/geocoding/geocodingService'
 import { requestPosition } from '@/hooks/useGeolocation'
-import { useAppStore, type Waypoint } from '@/store/useAppStore'
+import { myLocationPlace, useAppStore, type Waypoint } from '@/store/useAppStore'
 import { useNavStore } from '@/store/useNavStore'
 
 const MAX_STOPS = 8
@@ -20,16 +20,7 @@ function WaypointRow({ wp, index, total }: { wp: Waypoint; index: number; total:
 
   const useMyLocation = () => {
     const u = useNavStore.getState().userLocation
-    const apply = (lat: number, lng: number) =>
-      s().setWaypoint(index, {
-        id: `gps:${lat.toFixed(6)},${lng.toFixed(6)}`,
-        name: 'Mi ubicación',
-        kind: 'coordinates',
-        kindLabel: 'Ubicación GPS',
-        lat,
-        lng,
-        source: 'gps',
-      })
+    const apply = (lat: number, lng: number) => s().setWaypoint(index, myLocationPlace(lat, lng))
     if (u) return apply(u.lat, u.lng)
     requestPosition().then((pos) => pos && apply(pos.lat, pos.lng))
   }

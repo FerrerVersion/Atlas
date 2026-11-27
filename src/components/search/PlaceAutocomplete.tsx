@@ -83,7 +83,7 @@ export function PlaceAutocomplete({ value, onValueChange, onPick, placeholder, a
               setOpen(false)
             }
           }}
-          className={`min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-400 ${size === 'lg' ? 'text-base' : 'text-sm'}`}
+          className={`min-w-0 flex-1 bg-transparent outline-none placeholder:text-slate-500 dark:placeholder:text-slate-400 ${size === 'lg' ? 'text-base' : 'text-sm'}`}
         />
         {status === 'loading' && <Spinner className="h-4 w-4 text-slate-400" />}
         {value && (
@@ -113,7 +113,7 @@ export function PlaceAutocomplete({ value, onValueChange, onPick, placeholder, a
           ) : (
             <p className="px-4 py-3 text-sm text-slate-500">Escribe al menos 3 letras…</p>
           )}
-          <div className="border-t border-slate-200/70 px-4 py-1.5 text-[10px] text-slate-400 dark:border-white/10">
+          <div className="border-t border-slate-200/70 px-4 py-1.5 text-[10px] text-slate-500 dark:text-slate-400 dark:border-white/10">
             {footer ?? (submitNonce > 0 ? 'Resultados de Nominatim' : 'Autocompletado: Photon · Enter: Nominatim')} · © OpenStreetMap
           </div>
         </div>

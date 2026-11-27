@@ -38,16 +38,36 @@ export function PanelTabs({ variant = 'top' }: { variant?: 'top' | 'bottom' }) {
   const setTab = useAppStore((s) => s.setPanelTab)
   const hasRoute = useAppStore((s) => s.route !== null)
   return (
-    <nav role="tablist" aria-label="Secciones" className={`flex ${variant === 'top' ? 'gap-1' : 'justify-around'}`}>
+    <nav
+      role="tablist"
+      aria-label="Secciones"
+      className={`flex ${variant === 'top' ? 'gap-1' : 'justify-around'}`}
+      onKeyDown={(e) => {
+        // Teclado (patrón WAI-ARIA de pestañas): flechas, Inicio y Fin.
+        const i = TABS.findIndex((t) => t.id === tab)
+        const next =
+          e.key === 'ArrowRight' ? (i + 1) % TABS.length
+          : e.key === 'ArrowLeft' ? (i - 1 + TABS.length) % TABS.length
+          : e.key === 'Home' ? 0
+          : e.key === 'End' ? TABS.length - 1
+          : -1
+        if (next < 0) return
+        e.preventDefault()
+        setTab(TABS[next].id)
+        e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus()
+      }}
+    >
       {TABS.map((t) => {
         const active = tab === t.id
         return (
           <button
             key={t.id}
+            id={`tab-${t.id}`}
             role="tab"
             type="button"
             aria-selected={active}
             aria-controls="panel-content"
+            tabIndex={active ? 0 : -1}
             onClick={() => setTab(t.id)}
             className={`focus-ring relative flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-medium transition ${
               active ? 'text-accent' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
@@ -66,7 +86,7 @@ export function PanelTabs({ variant = 'top' }: { variant?: 'top' | 'bottom' }) {
 export function PanelContent() {
   const tab = useAppStore((s) => s.panelTab)
   return (
-    <div id="panel-content" role="tabpanel" className="animate-fade-in" key={tab}>
+    <div id="panel-content" role="tabpanel" aria-labelledby={`tab-${tab}`} className="animate-fade-in" key={tab}>
       <Suspense fallback={<Spinner className="mx-auto my-8 block h-5 w-5 text-slate-400" />}>
         {tab === 'explore' && <ExplorePanel />}
         {tab === 'route' && <RoutePanel />}

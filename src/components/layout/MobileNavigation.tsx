@@ -35,7 +35,8 @@ export function MobileNavigation() {
           type="button"
           aria-label={expanded ? 'Contraer panel' : 'Expandir panel'}
           aria-expanded={expanded}
-          className="flex h-6 w-full shrink-0 touch-none items-center justify-center"
+          // 44 px de zona táctil (mínimo recomendado); los 20 px extra sobresalen por arriba.
+          className="-mt-5 flex h-11 w-full shrink-0 touch-none items-end justify-center pb-2"
           onClick={() => {
             if (dragged.current) {
               dragged.current = false

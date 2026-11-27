@@ -60,7 +60,7 @@ npm run dev          # http://localhost:5173
 - **La ubicación es opcional**: el mapa se abre siempre y se puede buscar y calcular rutas entre dos lugares sin dar permiso. El GPS solo se usa cuando lo pides: al pulsar *Mi ubicación*, *Usar mi ubicación como origen* o *Iniciar* la navegación. Si lo deniegas, se explica cómo activarlo y la app sigue funcionando. Hay un único seguimiento compartido por toda la app.
 - **Ahorro de batería**: fuera de la navegación se usa la ubicación de precisión normal; el GPS de alta precisión (lecturas cada segundo) solo mientras navegas.
 - **Mi ubicación** (botón de diana en los controles del mapa, resaltado cuando el seguimiento está activo): vuelve a centrar el mapa en tu posición.
-- **Usar mi ubicación como origen** (icono junto al campo *Origen* en la pestaña Ruta).
+- **Usar mi ubicación como origen** (icono junto al campo *Origen* en la pestaña Ruta). Al pulsar **Ir aquí**, si la ubicación ya está activa se usa como origen; si no, el panel indica que falta el punto de partida y ofrece *Salir desde mi ubicación* (la ubicación solo se pide al pulsarlo).
 - **Seguir mi ubicación GPS** en el modo navegación: la posición se proyecta sobre la ruta para avanzar las indicaciones.
 
 La ubicación nunca se envía a ningún servidor. Los navegadores solo la permiten en **HTTPS o `localhost`**: en el ordenador basta `npm run dev`; para probarla **desde el móvil** en la misma red wifi:
@@ -84,7 +84,7 @@ npm run preview
 npm test             # Vitest: 184 tests unitarios y de integración
 npm run bench        # Benchmarks con una ciudad sintética de 45.000 vías (no forman parte de npm test)
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 52 pruebas (26 en escritorio y 26 en móvil), sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 64 pruebas (32 en escritorio y 32 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 
@@ -147,6 +147,13 @@ Para medirlo: `npx vite preview --port 4173` y `node scripts/perf-ux.mjs` (servi
 El grafo es **incremental**: al llegar vías nuevas solo se procesan esas y las ya cargadas que pasan por un cruce nuevo (un test comprueba que el resultado es idéntico a construirlo de cero, en cualquier orden). Construirlo entero cuesta algo más que antes por el índice y la contabilidad, pero solo ocurre tras liberar memoria. El mapa **solo dibuja las vías de la zona visible** y una pantalla de margen: con 45.000 vías cargadas, el JavaScript al alejar, arrastrar y acercar baja de ~315 ms a ~125 ms y desaparecen las tareas largas. Con los temas que usan filtros CSS (Cyberpunk, Blueprint, Retro arcade…) el arrastre sigue siendo menos fluido por el coste de pintar esos filtros, no del código.
 
 Web Worker: evaluado y **no** implementado por ahora; con estos tiempos lo que queda en el hilo principal durante una ruta es A* (≈20 ms aquí) y obligaría a duplicar la red viaria en memoria (el mapa y la búsqueda también la usan).
+
+## Accesibilidad e interfaz
+
+- Pestañas con el patrón WAI-ARIA: flechas, Inicio y Fin para cambiar; solo la activa entra en el orden de tabulación; el panel indica a qué pestaña pertenece.
+- Zona táctil del asa del panel móvil de 44 px; los textos informativos en gris sobre fondo claro cumplen el contraste mínimo (4,5:1).
+- Mientras se calcula una ruta se muestra el tiempo transcurrido y, a partir de 20 s, que los servidores públicos de OpenStreetMap van lentos (sin pedir que se repita).
+- En la simulación se muestra la velocidad estimada del tramo (no la media multiplicada por 8) y la etiqueta *Simulación ×8*.
 
 ## Arquitectura
 

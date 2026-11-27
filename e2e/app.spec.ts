@@ -126,6 +126,89 @@ test('la simulación y el GPS no escriben en el almacenamiento del navegador', a
   expect(await writes()).toBe(before)
 })
 
+test.describe('fase 7: flujo «Ir aquí», progreso y accesibilidad', () => {
+  test('«Ir aquí» sin ubicación activa explica qué falta y permite salir desde mi ubicación', async ({ page }) => {
+    await page.goto('/')
+    const input = page.getByRole('combobox', { name: 'Buscar un lugar' })
+    await input.fill('Buñol')
+    await page.getByRole('option', { name: /Buñol.*Municipio/ }).click()
+    await page.getByRole('button', { name: 'Ir aquí' }).click()
+    await expect(page.getByRole('combobox', { name: 'Destino' })).toHaveValue('Buñol')
+    await expect(page.getByRole('combobox', { name: 'Origen' })).toHaveValue('')
+    await expect(page.getByTestId('origin-missing')).toContainText('Falta el punto de partida')
+    // Pulsarlo es lo que pide la ubicación (el test la concede).
+    await page.getByRole('button', { name: 'Salir desde mi ubicación' }).click()
+    await expect(page.getByRole('combobox', { name: 'Origen' })).toHaveValue('Mi ubicación')
+  })
+
+  test('«Ir aquí» con la ubicación ya activa la usa como origen', async ({ page }) => {
+    await page.goto('/')
+    const collapse = page.getByRole('button', { name: 'Contraer panel' })
+    if (await collapse.isVisible()) await collapse.click()
+    await page.getByRole('button', { name: 'Mi ubicación', exact: true }).click()
+    await expect(page.locator('.user-dot')).toBeVisible()
+    const input = page.getByRole('combobox', { name: 'Buscar un lugar' })
+    await input.fill('Buñol')
+    await page.getByRole('option', { name: /Buñol.*Municipio/ }).click()
+    await page.getByRole('button', { name: 'Ir aquí' }).click()
+    await expect(page.getByRole('combobox', { name: 'Origen' })).toHaveValue('Mi ubicación')
+    await expect(page.getByRole('combobox', { name: 'Destino' })).toHaveValue('Buñol')
+  })
+
+  test('mientras se calcula muestra el tiempo y, si tarda, explica por qué', async ({ page }) => {
+    await page.clock.install()
+    // Overpass no responde (servidores saturados): la ruta se queda calculando.
+    await page.route(/overpass|maps\.mail\.ru/, () => undefined)
+    await page.goto('/')
+    await openTab(page, 'Ruta')
+    await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+    await page.getByRole('option', { name: /Avenida de Vicente Blasco Ibáñez/ }).click()
+    await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+    await page.getByRole('option', { name: /Avenida del Doctor Beltrán Báguena/ }).click()
+    const progress = page.getByTestId('route-progress')
+    await expect(progress).toBeVisible()
+    await page.clock.runFor(5_000)
+    await expect(progress).toContainText(/\d+ s/)
+    await expect(progress).not.toContainText('servidores públicos')
+    await page.clock.runFor(20_000)
+    await expect(progress).toContainText('servidores públicos de OpenStreetMap')
+  })
+
+  test('la simulación muestra la velocidad real del tramo (no la media ×8)', async ({ page }) => {
+    await page.goto('/')
+    await openTab(page, 'Ajustes')
+    await page.getByRole('button', { name: /Cargar demo offline/ }).click()
+    await openTab(page, 'Ruta')
+    await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+    await page.getByRole('option', { name: /Blasco Ibáñez/ }).first().click()
+    await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+    await page.getByRole('option', { name: /Doctor Beltrán/ }).first().click()
+    await expect(page.getByTestId('route-duration')).toBeVisible({ timeout: 15_000 })
+    await page.getByRole('button', { name: 'Iniciar' }).click()
+    await page.getByRole('button', { name: 'Simular recorrido' }).click()
+    await page.waitForTimeout(1200)
+    await expect(page.getByTestId('live-gps')).toContainText('Simulación ×8')
+    const kmh = Number((await page.getByTestId('live-speed').innerText()).replace(/\D/g, ''))
+    // Calles urbanas de Buñol: velocidades de ciudad, no la media multiplicada por 8.
+    expect(kmh).toBeGreaterThan(5)
+    expect(kmh).toBeLessThan(70)
+  })
+
+  test('las pestañas se manejan con el teclado y el panel indica cuál es', async ({ page }) => {
+    await page.goto('/')
+    const explore = page.getByRole('tab', { name: 'Explorar' })
+    await explore.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByRole('tab', { name: 'Ruta' })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: 'Ruta' })).toBeFocused()
+    await expect(page.getByRole('tabpanel', { name: 'Ruta' })).toBeVisible()
+    await page.keyboard.press('End')
+    await expect(page.getByRole('tab', { name: 'Ajustes' })).toHaveAttribute('aria-selected', 'true')
+    // Solo la pestaña activa está en el orden de tabulación.
+    await expect(page.getByRole('tab', { name: 'Explorar' })).toHaveAttribute('tabindex', '-1')
+  })
+})
+
 test('filtro de POIs muestra establecimientos reales', async ({ page }) => {
   await page.goto('/')
   await openTab(page, 'Ajustes')
@@ -359,6 +442,13 @@ test.describe('móvil pequeño (375×667)', () => {
     await expect(page.getByRole('button', { name: 'Cargar calles reales de esta zona' })).toHaveCount(0)
     await page.getByRole('button', { name: 'Salir de la navegación' }).click({ timeout: 3000 })
     await expect(hud).toBeHidden()
+  })
+
+  test('el asa del panel tiene una zona táctil de al menos 44 px', async ({ page }) => {
+    await page.goto('/')
+    const handle = page.getByRole('button', { name: /(Expandir|Contraer) panel/ })
+    const box = await handle.boundingBox()
+    expect(box!.height).toBeGreaterThanOrEqual(44)
   })
 
   test('un arrastre corto del asa no expande el panel', async ({ page }) => {

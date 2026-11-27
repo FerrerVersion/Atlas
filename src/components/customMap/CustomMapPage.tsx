@@ -135,7 +135,7 @@ export default function CustomMapPage() {
                 <ul className="space-y-1">
                   {map.nodes.map((n, i) => (
                     <li key={n.id} className="flex items-center gap-2">
-                      <span className="w-6 text-right text-[11px] text-slate-400">{i + 1}</span>
+                      <span className="w-6 text-right text-[11px] text-slate-500 dark:text-slate-400">{i + 1}</span>
                       <input
                         value={n.name}
                         placeholder="Sin nombre"
@@ -239,7 +239,7 @@ export default function CustomMapPage() {
               {ed.saved.map((m) => (
                 <li key={m.id} className="flex items-center gap-2">
                   <button type="button" className="min-w-0 flex-1 truncate text-left hover:text-accent" onClick={() => ed.setMap(m)}>
-                    {m.name} <span className="text-xs text-slate-400">· {m.nodes.length} nodos</span>
+                    {m.name} <span className="text-xs text-slate-500 dark:text-slate-400">· {m.nodes.length} nodos</span>
                   </button>
                   <IconButton
                     label={`Borrar ${m.name}`}
@@ -257,7 +257,7 @@ export default function CustomMapPage() {
           </Section>
         )}
 
-        <p className="text-[11px] text-slate-400">
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">
           Limitaciones: la calibración asume una proyección plana local (válida para zonas de pocos km); las vías se dibujan como
           tramos rectos entre nodos.
         </p>
