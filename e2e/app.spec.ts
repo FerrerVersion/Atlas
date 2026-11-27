@@ -798,3 +798,153 @@ test('cámara de navegación: rumbo arriba e inclinada, vista norte y vista libr
   // La atribución de los datos sigue visible y derecha.
   await expect(page.locator('.leaflet-control-attribution')).toBeVisible()
 })
+
+test.describe('Modo Rally', () => {
+  // Sin GPS (una ubicación lejana marcaría «fuera de ruta», que se prueba aparte).
+  test.use({ permissions: [] })
+
+  /** Ruta de la demo (calles reales de Buñol) e inicio de la navegación. */
+  async function startRoute(page: import('@playwright/test').Page) {
+    await page.goto('/')
+    await openTab(page, 'Ajustes')
+    await page.getByRole('button', { name: /Cargar demo offline/ }).click()
+    await openTab(page, 'Ruta')
+    await page.getByRole('combobox', { name: 'Origen' }).fill('Blasco')
+    await page.getByRole('option', { name: /Blasco Ibáñez/ }).first().click()
+    await page.getByRole('combobox', { name: 'Destino' }).fill('Doctor Beltr')
+    await page.getByRole('option', { name: /Doctor Beltrán/ }).first().click()
+    await expect(page.getByTestId('route-duration')).toBeVisible()
+    await page.getByRole('button', { name: 'Iniciar' }).click()
+  }
+
+  /** Ningún elemento del modo rally se sale de la pantalla ni desborda su columna. */
+  const layoutIssues = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => {
+      const out: string[] = []
+      for (const el of document.querySelectorAll<HTMLElement>('.rally *')) {
+        const r = el.getBoundingClientRect()
+        if (r.width && (r.right > innerWidth + 1 || r.bottom > innerHeight + 1 || r.left < -1 || r.top < -1)) out.push(`fuera: ${el.className}`)
+      }
+      for (const s of document.querySelectorAll<HTMLElement>('.rally-body > section, .rally-top')) {
+        if (s.scrollHeight > s.clientHeight + 2 || s.scrollWidth > s.clientWidth + 2) out.push(`desborda: ${s.className}`)
+      }
+      return out
+    })
+
+  for (const [name, viewport] of [
+    ['teléfono en horizontal', { width: 915, height: 412 }],
+    ['teléfono pequeño en horizontal', { width: 667, height: 375 }],
+    ['tablet en horizontal', { width: 1180, height: 820 }],
+    ['teléfono en vertical', { width: 412, height: 915 }],
+  ] as const) {
+    test(`se activa, avanza con la ruta y no se desordena (${name})`, async ({ page }) => {
+      await page.setViewportSize(viewport)
+      await startRoute(page)
+      await page.getByRole('button', { name: 'Modo Rally' }).click()
+      const rally = page.getByTestId('rally')
+      await expect(rally).toBeVisible()
+      // La navegación normal se oculta (no hay dos interfaces a la vez).
+      await expect(page.getByTestId('nav-hud')).toHaveCount(0)
+      // Curva actual con su dirección o tipo, y la distancia hasta ella.
+      await expect(page.getByTestId('rally-note')).toHaveText(/IZQUIERDA|DERECHA|HORQUILLA|ROTONDA|MANTENTE|CAMBIO|LLEGADA|INCORPORACIÓN|SALIDA|PARADA/)
+      await expect(page.getByTestId('rally-distance')).toHaveText(/\d+(,\d)? k?m/)
+      expect(await layoutIssues(page)).toEqual([])
+      // Avanza: la nota o la distancia cambian con el progreso de la simulación.
+      const before = `${await page.getByTestId('rally-note').innerText()}|${await page.getByTestId('rally-distance').innerText()}`
+      await page.getByRole('button', { name: 'Simular recorrido' }).click()
+      await expect
+        .poll(async () => `${await page.getByTestId('rally-note').innerText()}|${await page.getByTestId('rally-distance').innerText()}`)
+        .not.toBe(before)
+      await expect(page.getByTestId('rally-speed')).toHaveText(/^\d+$/)
+      expect(await layoutIssues(page)).toEqual([])
+      if (viewport.width > viewport.height) {
+        await expect(page.getByTestId('rally-next')).toBeVisible()
+        await expect(page.getByText('Gira el teléfono en horizontal para el modo rally completo')).toBeHidden()
+      } else {
+        await expect(page.getByText('Gira el teléfono en horizontal para el modo rally completo')).toBeVisible()
+      }
+    })
+  }
+
+  test('pantalla limpia, temas y noche; al salir vuelve la navegación normal intacta', async ({ page }) => {
+    await page.setViewportSize({ width: 915, height: 412 })
+    await startRoute(page)
+    await page.getByRole('button', { name: 'Modo Rally' }).click()
+    const rally = page.getByTestId('rally')
+    await page.getByRole('button', { name: 'Pantalla limpia' }).click()
+    await expect(page.getByTestId('rally-next')).toHaveCount(0)
+    await expect(page.getByTestId('rally-note')).toBeVisible()
+    await expect(page.getByTestId('rally-speed')).toBeVisible()
+    await expect(page.getByTestId('rally-distance')).toBeVisible()
+    await page.getByRole('button', { name: /Color: Rally Red/ }).click()
+    await expect(rally).toHaveAttribute('data-theme', 'yellow')
+    await page.getByRole('button', { name: 'Modo nocturno' }).click()
+    await expect(rally).toHaveClass(/is-night/)
+    // Se recuerdan tras recargar (preferencias).
+    const prefs = await page.evaluate(() => JSON.parse(localStorage.getItem('atlas-nav:prefs')!).state.navPrefs.rally)
+    expect(prefs).toEqual({ theme: 'yellow', night: true, clean: true })
+
+    await page.getByRole('button', { name: 'Salir del modo rally' }).click()
+    await expect(rally).toHaveCount(0)
+    await expect(page.getByTestId('nav-hud')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Cambiar a vista norte' })).toBeVisible()
+  })
+
+  test.describe('con el GPS real', () => {
+    test.use({ geolocation: { latitude: 0, longitude: 0 }, permissions: ['geolocation'] })
+    test('la velocidad sale del GPS; con señal débil muestra «—»', async ({ page, context }) => {
+      test.setTimeout(60_000)
+      await page.setViewportSize({ width: 915, height: 412 })
+      const load = (p: string) => import(p) as Promise<Record<string, (...a: any[]) => any>>
+      const { buildGraphFromOsm, nearestNode } = await load('../src/features/routing/graph.ts')
+      const { findRoute } = await load('../src/features/routing/astar.ts')
+      const { pointAlong } = await load('../src/utils/geometry.ts')
+      type Way = { tags: Record<string, string>; geometry: { lat: number; lon: number }[] }
+      const ways = (JSON.parse(readFileSync('src/data/demoRoads.json', 'utf8')) as { elements: Way[] }).elements
+      const mid = (name: string) => {
+        const w = ways.find((x) => x.tags.name === name)!
+        const p = w.geometry[Math.floor(w.geometry.length / 2)]
+        return { lat: p.lat, lng: p.lon }
+      }
+      const g = buildGraphFromOsm(ways)
+      const A = mid('Avenida de Vicente Blasco Ibáñez')
+      const B = mid('Avenida del Doctor Beltrán Báguena')
+      const r = findRoute(g, nearestNode(g, A.lat, A.lng)!.node.id, nearestNode(g, B.lat, B.lng)!.node.id)
+      const at = async (m: number, accuracy = 8) => {
+        const [latitude, longitude] = pointAlong(r.geometry, m)
+        await context.setGeolocation({ latitude, longitude, accuracy })
+      }
+      await at(0)
+      await startRoute(page)
+      await page.getByRole('button', { name: 'Modo Rally' }).click()
+      // Lecturas reales cada ~1 s avanzando ~12 m: la velocidad mostrada sale de ellas.
+      for (let k = 1; k <= 6; k++) {
+        await at(r.distance * 0.2 + k * 12)
+        await page.waitForTimeout(1000)
+      }
+      await expect.poll(async () => Number(await page.getByTestId('rally-speed').innerText())).toBeGreaterThan(20)
+      await expect(page.getByTestId('rally-gps')).toContainText(/GPS bueno|GPS aceptable/)
+      // Señal débil: no se inventa una velocidad.
+      await at(r.distance * 0.2 + 84, 120)
+      await expect(page.getByTestId('rally-speed')).toHaveText('—')
+      await expect(page.getByText('Señal GPS insuficiente')).toBeVisible()
+
+      // Desvío: el usuario se va por otra calle real (fuera de la ruta). Las notas viejas se
+      // retiran («FUERA DE RUTA») y, tras recalcular desde su posición, salen las de la ruta nueva.
+      const other = ways.find((x) => x.tags.name === 'Calle de Miguel Hernández')!.geometry
+      const off = (i: number) => context.setGeolocation({ latitude: other[i % other.length].lat, longitude: other[i % other.length].lon, accuracy: 8 })
+      await off(0)
+      await page.waitForTimeout(1200)
+      await off(1)
+      await expect(page.getByTestId('rally-rerouting')).toBeVisible()
+      await expect(page.getByTestId('rally-note')).toHaveCount(0)
+      for (let i = 1; i < 6; i++) {
+        await off(Math.min(i, other.length - 1))
+        await page.waitForTimeout(2000)
+      }
+      await expect(page.getByTestId('rally-note')).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByTestId('rally')).toBeVisible()
+      await expect(page.getByTestId('rally-rerouting')).toHaveCount(0)
+    })
+  })
+})

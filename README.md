@@ -17,6 +17,7 @@ La originalidad está en la interfaz, los estilos y las funcionalidades. **Ning�
 - **Paradas múltiples**: añadir, eliminar, reordenar (botones o arrastrar), invertir; cálculo por tramos y unión sin nodos duplicados; marcadores arrastrables.
 - **Medición en tiempo real con el GPS**: en cuanto hay una ruta, cada lectura del dispositivo actualiza lo que queda (distancia, tiempo, llegada), la próxima maniobra, la velocidad, la distancia recorrida y el tiempo de viaje. Indica la calidad de la señal, descarta saltos imposibles del GPS, avisa si te desvías (también si circulas por la calle de la ruta en sentido contrario) y **recalcula la ruta desde tu posición y en tu sentido de marcha** (manteniendo las paradas pendientes). Sin señal (túneles) estima el avance hasta 30 s. La pantalla se mantiene encendida durante la navegación.
 - **Cámara de navegación**: el mapa gira para que la dirección de avance quede arriba y se inclina en perspectiva; la flecha marca el rumbo real. Tres vistas: navegación, norte (plana, norte arriba) y libre (arrastrar, girar e inclinar; «Recentrar» o 15 s sin tocar vuelve a la navegación). Ver *Navegación GPS*.
+- **Modo Rally**: copiloto digital a pantalla completa para el móvil en horizontal: la próxima curva grande (forma, dirección, ángulo y tipo), la siguiente más pequeña, la distancia con barra de anticipación, la velocidad del GPS y una secuencia de notas («DER 60 Y IZQ 90»). Notas generadas de la geometría real de la ruta. Ver *Modo Rally*.
 - **Navegación paso a paso** generada a partir de la geometría: giros (suaves, normales, bruscos), cambios de sentido, rotondas («toma la 2.ª salida»), incorporación y salida de autopista, llegada a paradas y destino. Modo navegación con próxima maniobra, distancia al giro, distancia y tiempo restantes, simulación del recorrido, seguimiento GPS y voz (síntesis local del navegador).
 - **10 estilos de mapa** con selector, vista previa y persistencia. Cambiar de estilo no toca la búsqueda, la ruta, las paradas, las coordenadas, los nombres ni el grafo.
 - **Modo noche** de la interfaz (claro / noche / automático) y mapa nocturno automático opcional.
@@ -82,10 +83,10 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 259 tests unitarios y de integración
+npm test             # Vitest: 279 tests unitarios y de integración
 npm run bench        # Benchmarks con una ciudad sintética de 45.000 vías (no forman parte de npm test)
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 72 pruebas (36 en escritorio y 36 en móvil), sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 84 pruebas (42 en escritorio y 42 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 
@@ -165,6 +166,16 @@ Un único bucle por fotograma (`NavigationCamera.tsx`) decide la posición mostr
 - **Desvíos** (`liveTracking.ts`): tolerancia según la precisión, histéresis para volver a la ruta, lecturas imprecisas que no cuentan como desvío, sentido contrario detectado tras varias lecturas y recálculo tras 3 lecturas y 6 s (o 60 m recorridos fuera de la ruta), con 15 s de espera entre recálculos.
 - **Recálculo** (`routeService.ts`): el origen GPS lleva tu rumbo; el ajuste a la vía prefiere la calle por la que circulas y A* penaliza dar la vuelta (ver *Algoritmo A\**). La primera instrucción dice «Continúa por…» o, si no hay alternativa, «Da la vuelta cuando sea posible».
 - **Voz** (`navigationProgress.ts`): aviso previo con antelación según la velocidad (~25 s), aviso al llegar (~7 s, encadenando la siguiente si va pegada), «Continúa durante 2 km» tras cada maniobra; nada se repite ni se anuncia una maniobra ya hecha.
+
+## Modo Rally
+
+Se activa con el botón de la bandera durante la navegación y se sale con ✕ (vuelve la navegación normal tal cual). Usa la misma ruta, el mismo avance, la misma medición GPS y los mismos recálculos: solo cambia la presentación (`components/rally/RallyHUD.tsx`).
+
+- **Notas de copiloto** (`features/navigation/pacenotes.ts`): en cada vértice de la geometría OSM se mide el cambio de rumbo; los vértices consecutivos que giran al mismo lado (sin huecos de más de 30 m) forman una curva, con su ángulo total y su radio (arco / ángulo). Menos de 20° no se canta. Las maniobras de la ruta (giros en cruces, rotondas, incorporaciones, salidas, cambio de vía, paradas, llegada) salen de las instrucciones y absorben la curva de la geometría en ese punto. Dos notas a menos de 40 m se encadenan («DER 60 Y IZQ 90»).
+- **Clase de curva**: por el ángulo (muy suave < 35°, suave < 60°, media < 90°, cerrada < 120°, muy cerrada < 150°, horquilla) y por el radio cuando la geometría lo permite medir; se toma la más suave de las dos (una curva larga y abierta de 160° no es una horquilla). Los ángulos se redondean (de 5 en 5 hasta 45°, luego de 15 en 15) y se marcan «≈» si salen de una sola esquina.
+- **Velocidad** (`telemetry.ts`): la del GPS (o derivada de las lecturas); «—» si la última lectura tiene más de 5 s o precisión peor que 50 m; 0 por debajo de 3 km/h. La media solo con ≥ 1 min y ≥ 300 m medidos. En simulación se indica que es simulada. No hay límite de velocidad (Atlas no tiene datos fiables).
+- **Recálculo**: fuera de la ruta o recalculando no se muestra ninguna nota vieja («FUERA DE RUTA · Recalculando»); con la ruta nueva, las notas se generan de nuevo.
+- **Pantalla**: en un móvil se pide pantalla completa y orientación horizontal; si el navegador no lo permite (iOS), un aviso pide girar el teléfono y la interfaz se apila en vertical. Distribución propia para horizontal (velocidad · curva actual · siguiente y datos), reducida en teléfonos pequeños y ampliada en tablets. Pantalla limpia (solo curva, velocidad y distancia), colores Rally Red / Yellow / Blue / Monochrome y modo nocturno, que se recuerdan.
 
 ## Arquitectura
 
@@ -311,7 +322,8 @@ Limitaciones: proyección plana local (precisa para zonas de pocos km); las vía
 - Las capas Esri Canvas tienen detalle nativo hasta zoom 16; por encima, las calles se dibujan en vectorial a partir de OSM.
 - Los colores de agua/parques/edificios de cada tema se aplican mediante filtros sobre teselas ráster (no hay teselas vectoriales).
 - La rotación y la inclinación se hacen transformando el mapa de Leaflet con CSS 3D (Leaflet no las tiene): los textos impresos en las teselas ráster giran con el mapa y pueden verse boca abajo (las etiquetas de calle propias sí se voltean), y con el mapa inclinado se cargan más teselas.
-- La guía por voz y el GPS en navegación se han probado con GPS simulado, no en un coche con un móvil real.
+- La guía por voz, el GPS en navegación y el Modo Rally se han probado con GPS simulado, no en un coche con un móvil real.
+- Modo Rally: las notas dependen del detalle de la geometría de OSM (en tramos con pocos nodos el ángulo es aproximado); no hay notas de cambio de rasante ni de firme (no hay datos de elevación); la voz lee las instrucciones normales, no las notas.
 - La primera visita depende de descargar las teselas del mapa (~660 kB de imágenes); las siguientes salen de la caché local.
 
 ## Próximas mejoras

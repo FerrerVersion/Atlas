@@ -7,6 +7,7 @@ export function Toasts() {
   return (
     <div
       aria-live="polite"
+      data-toasts
       className="pointer-events-none fixed inset-x-0 bottom-28 z-[1200] flex flex-col items-center gap-2 px-4 md:bottom-6 md:left-auto md:right-20 md:items-end"
     >
       {toasts.map((t) => {

@@ -27,6 +27,8 @@ export interface NavigationFlags {
   progress: number
   following: boolean
   simulating: boolean
+  /** Modo Rally (interfaz de copiloto). Solo durante esta navegación. */
+  rally: boolean
 }
 
 export interface NavState {
@@ -40,7 +42,7 @@ export interface NavState {
   setLocationStatus: (s: LocationStatus) => void
   setLive: (t: TrackerState) => void
   setNavProgress: (meters: number) => void
-  setNavFlags: (f: Partial<Pick<NavigationFlags, 'following' | 'simulating'>>) => void
+  setNavFlags: (f: Partial<Pick<NavigationFlags, 'following' | 'simulating' | 'rally'>>) => void
   startNavigation: () => void
   stopNavigation: () => void
   /** Ruta nueva (p. ej. recalculada al desviarse): el avance vuelve a 0, se conserva el viaje. */
@@ -49,7 +51,7 @@ export interface NavState {
   resetNavigation: () => void
 }
 
-const idleNavigation = (): NavigationFlags => ({ active: false, progress: 0, following: true, simulating: false })
+const idleNavigation = (): NavigationFlags => ({ active: false, progress: 0, following: true, simulating: false, rally: false })
 
 export const useNavStore = create<NavState>()((set) => ({
   userLocation: null,
@@ -64,11 +66,11 @@ export const useNavStore = create<NavState>()((set) => ({
   setNavFlags: (f) => set((s) => ({ navigation: { ...s.navigation, ...f } })),
   startNavigation: () =>
     set((s) => ({
-      navigation: { active: true, progress: s.live.status === 'tracking' ? s.live.progress : 0, following: true, simulating: false },
+      navigation: { active: true, progress: s.live.status === 'tracking' ? s.live.progress : 0, following: true, simulating: false, rally: false },
       // Al iniciar se mide el viaje desde cero (recorrido y tiempo).
       live: { ...initialTracker(), progress: s.live.progress, status: s.live.status },
     })),
-  stopNavigation: () => set((s) => ({ navigation: { ...s.navigation, active: false, simulating: false } })),
+  stopNavigation: () => set((s) => ({ navigation: { ...s.navigation, active: false, simulating: false, rally: false } })),
   resetProgressForNewRoute: () =>
     set((s) => ({
       navigation: { ...s.navigation, progress: 0 },

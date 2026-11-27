@@ -1,6 +1,6 @@
 import type { Place } from '@/features/geocoding/geocodingService'
 import { resolveThemeId } from '@/features/themes/themeRegistry'
-import type { AppState, MapView, NavPrefs, UiMode } from './useAppStore'
+import type { AppState, MapView, NavPrefs, RallyPrefs, RallyTheme, UiMode } from './useAppStore'
 
 type Prefs = Pick<
   AppState,
@@ -29,6 +29,16 @@ function validView(v: unknown, fallback: MapView): MapView {
  * versiones antiguas o editados a mano nunca deben romper la app: lo que no es
  * válido se sustituye por el valor por defecto.
  */
+const RALLY_THEMES: RallyTheme[] = ['red', 'yellow', 'blue', 'mono']
+function sanitizeRally(v: unknown, current: RallyPrefs): RallyPrefs {
+  const r = isObj(v) ? v : {}
+  return {
+    theme: RALLY_THEMES.includes(r.theme as RallyTheme) ? (r.theme as RallyTheme) : current.theme,
+    night: bool(r.night, current.night),
+    clean: bool(r.clean, current.clean),
+  }
+}
+
 export function sanitizePrefs(persisted: unknown, current: Prefs): Prefs {
   if (!isObj(persisted)) return current
   const p = persisted
@@ -39,6 +49,7 @@ export function sanitizePrefs(persisted: unknown, current: Prefs): Prefs {
     avoidHighways: bool(nav.avoidHighways, current.navPrefs.avoidHighways),
     voice: bool(nav.voice, current.navPrefs.voice),
     cameraView: nav.cameraView === 'north' || nav.cameraView === 'heading' ? nav.cameraView : current.navPrefs.cameraView,
+    rally: sanitizeRally(nav.rally, current.navPrefs.rally),
   }
   const list = (v: unknown, max: number) => (Array.isArray(v) ? v.filter(validPlace).slice(0, max) : [])
   return {

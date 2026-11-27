@@ -16,11 +16,14 @@ import { Sidebar } from './Sidebar'
 
 // El modo navegación solo se descarga al iniciarlo (o en reposo, ver PanelContent).
 const NavigationHUD = lazy(() => import('@/components/navigation/NavigationHUD').then((m) => ({ default: m.NavigationHUD })))
+// El Modo Rally (y su hoja de estilos) solo se descarga si se usa.
+const RallyHUD = lazy(() => import('@/components/rally/RallyHUD').then((m) => ({ default: m.RallyHUD })))
 
 export function AppShell() {
   const theme = useMapTheme()
   const desktop = useMediaQuery('(min-width: 768px)')
   const navigating = useNavStore((s) => s.navigation.active)
+  const rally = useNavStore((s) => s.navigation.active && s.navigation.rally)
   const sheetExpanded = useAppStore((s) => s.sheetExpanded)
 
   return (
@@ -31,7 +34,7 @@ export function AppShell() {
       <div className="pointer-events-none absolute inset-0">
         {!navigating && (desktop ? <Sidebar /> : <MobileNavigation />)}
         <div
-          hidden={!desktop && sheetExpanded && !navigating}
+          hidden={(!desktop && sheetExpanded && !navigating) || rally}
           className={`absolute right-3 z-[950] md:right-4 ${
             navigating ? 'top-32' : desktop ? 'top-4' : 'top-[calc(max(0.75rem,env(safe-area-inset-top))+4.25rem)]'
           }`}
@@ -39,11 +42,7 @@ export function AppShell() {
           <MapControls compact={navigating && !desktop} />
         </div>
       </div>
-      {navigating && (
-        <Suspense fallback={null}>
-          <NavigationHUD />
-        </Suspense>
-      )}
+      {navigating && <Suspense fallback={null}>{rally ? <RallyHUD /> : <NavigationHUD />}</Suspense>}
       <Toasts />
       <Orchestrators />
     </div>

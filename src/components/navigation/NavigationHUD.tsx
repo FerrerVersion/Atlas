@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, LocateFixed, Navigation, Pause, Play, Volume2, VolumeX, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Flag, LocateFixed, Navigation, Pause, Play, Volume2, VolumeX, X } from 'lucide-react'
 import { resumeFollowing } from '@/components/map/cameraFollow'
 import { IconButton } from '@/components/ui/Button'
 import { navigationState, streetAt } from '@/features/navigation/navigationProgress'
@@ -108,6 +108,9 @@ export function NavigationHUD() {
           </IconButton>
           <IconButton label={voice ? 'Silenciar voz' : 'Activar voz'} onClick={() => useAppStore.getState().setNavPrefs({ voice: !voice })}>
             {voice ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+          </IconButton>
+          <IconButton label="Modo Rally" onClick={() => s().setNavFlags({ rally: true })}>
+            <Flag className="h-5 w-5" />
           </IconButton>
           <IconButton label="Salir de la navegación" onClick={() => s().stopNavigation()} className="text-rose-500">
             <X className="h-5 w-5" />

@@ -25,6 +25,15 @@ export interface NavPrefs {
   voice: boolean
   /** Vista al navegar: rumbo arriba e inclinada, o norte arriba y cenital. */
   cameraView: 'heading' | 'north'
+  /** Modo Rally: color, modo noche y pantalla limpia (se recuerdan). */
+  rally: RallyPrefs
+}
+
+export type RallyTheme = 'red' | 'yellow' | 'blue' | 'mono'
+export interface RallyPrefs {
+  theme: RallyTheme
+  night: boolean
+  clean: boolean
 }
 
 export interface Toast {
@@ -185,7 +194,14 @@ export const useAppStore = create<AppState>()(
       autoNightTheme: false,
       showLabels: true,
       autoLoadRoads: true,
-      navPrefs: { profile: 'car', cost: 'fastest', avoidHighways: false, voice: false, cameraView: 'heading' },
+      navPrefs: {
+        profile: 'car',
+        cost: 'fastest',
+        avoidHighways: false,
+        voice: false,
+        cameraView: 'heading',
+        rally: { theme: 'red', night: false, clean: false },
+      },
       favorites: [],
       history: [],
       lastView: { lat: 39.4699, lng: -0.3763, zoom: 13 },

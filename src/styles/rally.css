@@ -1,0 +1,468 @@
+/* ------------------------------------------------------------------ */
+/* Modo Rally: copiloto digital a pantalla completa, pensado en horizontal */
+/* ------------------------------------------------------------------ */
+
+.rally {
+  --rb: #0b0d10; /* fondo */
+  grid-template-columns: minmax(0, 1fr);
+  --rp: #14171c; /* paneles */
+  --rl: rgb(255 255 255 / 0.1); /* líneas */
+  --rt: #f4f5f7; /* texto */
+  --rm: #a4abb6; /* texto secundario (≥ 7:1 sobre el fondo) */
+  --ra: #ff3b3b; /* acento */
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgb(255 255 255 / 0.04), transparent 60%),
+    var(--rb);
+  color: var(--rt);
+  font-family: 'Inter Variable', Inter, system-ui, sans-serif;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+.rally[data-theme='yellow'] {
+  --ra: #ffd400;
+}
+.rally[data-theme='blue'] {
+  --ra: #3ea6ff;
+}
+.rally[data-theme='mono'] {
+  --ra: #f4f5f7;
+}
+/* Noche: negro puro, textos y acento atenuados (sin deslumbrar). */
+.rally.is-night {
+  --rb: #000;
+  --rp: #07080a;
+  --rt: #c9ccd2;
+  --rm: #8a919c;
+  --ra: color-mix(in srgb, var(--ra-day, #ff3b3b) 62%, #000);
+  background: #000;
+}
+.rally.is-night[data-theme='yellow'] {
+  --ra-day: #ffd400;
+}
+.rally.is-night[data-theme='blue'] {
+  --ra-day: #3ea6ff;
+}
+.rally.is-night[data-theme='mono'] {
+  --ra-day: #f4f5f7;
+}
+
+.rally-tech {
+  font-family: 'Orbitron', 'Inter Variable', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Barra superior ---------------------------------------------------- */
+.rally-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid var(--rl);
+}
+.rally-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--rt);
+}
+.rally-brand i {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 1px;
+  background: var(--ra);
+  transform: skewX(-18deg);
+}
+.rally-status {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--rm);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rally-buttons {
+  display: flex;
+  gap: 0.35rem;
+}
+.rally-btn {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.75rem;
+  background: var(--rp);
+  border: 1px solid var(--rl);
+  color: var(--rt);
+}
+.rally-btn[aria-pressed='true'] {
+  border-color: var(--ra);
+  color: var(--ra);
+}
+.rally-btn:focus-visible {
+  outline: 2px solid var(--ra);
+  outline-offset: 2px;
+}
+.rally-btn.is-exit {
+  color: #ff6b6b;
+}
+
+/* Cuerpo: velocidad | curva actual | siguiente y datos ------------------ */
+.rally-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.45fr) minmax(0, 1fr);
+  min-height: 0;
+}
+.rally-body > section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(0.5rem, 2vh, 1.25rem) clamp(0.6rem, 1.6vw, 1.5rem);
+}
+.rally-body > section + section {
+  border-left: 1px solid var(--rl);
+}
+.rally.is-clean .rally-body {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.6fr);
+}
+
+.rally-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--rm);
+}
+
+/* Velocidad */
+.rally-speed {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+.rally-speed-value {
+  font-size: clamp(3.5rem, min(24vh, 13vw), 11rem);
+  line-height: 0.95;
+  color: var(--rt);
+}
+.rally-speed-value.is-missing {
+  color: var(--rm);
+}
+.rally-speed-unit {
+  margin-top: 0.4rem;
+  font-size: clamp(0.9rem, 3.2vh, 1.4rem);
+  color: var(--ra);
+}
+.rally-speed-note {
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+  color: var(--rm);
+}
+
+/* Curva actual (protagonista) */
+.rally-current {
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.2rem, 1.2vh, 0.6rem);
+  position: relative;
+}
+.rally-glyph {
+  width: min(44vh, 26vw, 100%);
+  aspect-ratio: 1;
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.rally-glyph path {
+  fill: none;
+  stroke: var(--rt);
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+  stroke-width: 11;
+  transition: stroke 160ms ease;
+}
+.rally-glyph .road {
+  stroke: rgb(255 255 255 / 0.08);
+  stroke-width: 22;
+  stroke-linecap: butt;
+}
+.rally-glyph polygon {
+  fill: var(--ra);
+}
+.rally-current[data-near='true'] .rally-glyph path:not(.road) {
+  stroke: var(--ra);
+}
+.rally-note {
+  font-size: clamp(1.15rem, 5.4vh, 2.4rem);
+  line-height: 1.05;
+  text-align: center;
+}
+.rally-detail {
+  font-size: clamp(0.85rem, 2.6vh, 1.05rem);
+  color: var(--rm);
+  text-align: center;
+}
+.rally-into {
+  font-size: clamp(0.85rem, 2.8vh, 1.15rem);
+  color: var(--ra);
+}
+.rally-distance {
+  font-size: clamp(1.6rem, 8.5vh, 3.6rem);
+  line-height: 1;
+}
+.rally-now {
+  position: absolute;
+  top: clamp(0.4rem, 2vh, 1rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  background: var(--ra);
+  color: #000;
+  font-size: 0.85rem;
+}
+.rally-straight {
+  font-size: clamp(0.8rem, 2.6vh, 1rem);
+  color: var(--rm);
+}
+
+/* Barra de anticipación */
+.rally-bar {
+  position: relative;
+  width: min(100%, 26rem);
+  height: 0.5rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.08);
+  overflow: hidden;
+}
+.rally-bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--ra);
+  border-radius: inherit;
+  transition: width 200ms linear;
+}
+/* Dentro de la curva la barra se vacía (lo que queda de maniobra), con trazo rayado. */
+.rally-bar.is-inside > i {
+  background: repeating-linear-gradient(-45deg, var(--ra) 0 6px, color-mix(in srgb, var(--ra) 60%, transparent) 6px 12px);
+}
+.rally-bar::after {
+  /* Marcas cada 25 % (no depende solo del color). */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(to right, transparent 0 calc(25% - 1px), rgb(0 0 0 / 0.55) calc(25% - 1px) 25%);
+}
+
+/* Columna derecha */
+.rally-side {
+  gap: clamp(0.4rem, 1.6vh, 0.9rem);
+}
+.rally-next {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: clamp(0.4rem, 1.4vh, 0.75rem);
+  border: 1px solid var(--rl);
+  border-radius: 1rem;
+  background: var(--rp);
+  opacity: 0.92;
+}
+.rally-next .rally-glyph {
+  width: clamp(3.2rem, 15vh, 6.5rem);
+}
+.rally-next .rally-glyph path {
+  stroke-width: 12;
+  stroke: var(--rm);
+}
+.rally-next-text {
+  min-width: 0;
+}
+.rally-next-text b {
+  display: block;
+  font-size: clamp(0.95rem, 3.6vh, 1.35rem);
+}
+.rally-next-text span {
+  font-size: 0.85rem;
+  color: var(--rm);
+}
+.rally-seq {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.4rem;
+  font-size: 0.8rem;
+}
+.rally-seq b {
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.4rem;
+  border: 1px solid var(--rl);
+  color: var(--rm);
+  font-weight: 600;
+}
+.rally-seq b:first-child {
+  border-color: var(--ra);
+  color: var(--rt);
+}
+.rally-seq span {
+  color: var(--rm);
+}
+.rally-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin-top: auto;
+}
+.rally-info div {
+  min-width: 0;
+}
+.rally-info b {
+  display: block;
+  font-size: clamp(0.95rem, 3.4vh, 1.3rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rally-info .wide {
+  grid-column: 1 / -1;
+}
+.rally-gps {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.rally-gps i {
+  display: inline-block;
+  width: 0.22rem;
+  border-radius: 1px;
+  background: var(--rl);
+}
+.rally-gps i.on {
+  background: var(--rt);
+}
+
+/* Fuera de ruta / recalculando: sustituye a la nota (nunca se muestra una nota vieja). */
+.rally-alert {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  color: var(--rt);
+}
+.rally-alert b {
+  font-size: clamp(1.2rem, 6vh, 2.4rem);
+  color: var(--ra);
+}
+
+/* Avisos de la app: abajo a la izquierda, sin tapar la curva ni la velocidad. */
+body:has(.rally) [data-toasts] {
+  inset: auto auto calc(0.75rem + env(safe-area-inset-bottom)) calc(0.75rem + env(safe-area-inset-left));
+  align-items: flex-start;
+  padding: 0;
+  max-width: min(22rem, 40vw);
+}
+
+/* Aviso para girar el teléfono */
+.rally-rotate {
+  display: none;
+}
+
+/* Teléfono pequeño en horizontal: menos datos secundarios, mismas cifras grandes. */
+@media (orientation: landscape) and (max-height: 400px) {
+  .rally-top {
+    min-height: 2.6rem;
+    padding-block: 0.2rem;
+  }
+  .rally-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+  .rally-seq,
+  .rally-info .optional {
+    display: none;
+  }
+  .rally-status .optional {
+    display: none;
+  }
+}
+
+/* Vertical: se apila y se pide girar el teléfono (sin romper nada si no se gira). */
+@media (orientation: portrait) {
+  .rally-rotate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--rp);
+    border-bottom: 1px solid var(--rl);
+    font-size: 0.9rem;
+    color: var(--rt);
+  }
+  .rally {
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* En vertical la barra no cabe en una línea: se reparte en dos y los botones encogen. */
+  .rally-top {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+  .rally-status {
+    margin-left: auto;
+  }
+  .rally-buttons {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .rally-btn {
+    width: 2.6rem;
+    height: 2.6rem;
+  }
+  body:has(.rally) [data-toasts] {
+    max-width: calc(100vw - 1.5rem);
+  }
+  .rally-body,
+  .rally.is-clean .rally-body {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: minmax(0, 1.5fr) minmax(0, 1fr);
+  }
+  .rally-current {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    order: -1;
+  }
+  .rally-body > section + section {
+    border-left: none;
+    border-top: 1px solid var(--rl);
+  }
+  .rally-glyph {
+    width: min(34vh, 70vw);
+  }
+  .rally-speed-value {
+    font-size: clamp(3rem, 11vh, 6rem);
+  }
+  .rally-status .optional,
+  .rally-seq,
+  .rally-info {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rally * {
+    transition: none !important;
+  }
+}
