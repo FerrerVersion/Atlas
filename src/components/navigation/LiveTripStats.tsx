@@ -35,7 +35,7 @@ export function LiveTripStats({ live, simulating, accuracy }: { live: TrackerSta
   const gps = gpsLabel(live, simulating, accuracy)
   const item = 'flex items-center gap-1 whitespace-nowrap'
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-slate-500 tabular-nums dark:text-slate-400" data-testid="live-stats">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-slate-600 tabular-nums dark:text-slate-400" data-testid="live-stats">
       <span className={item} title="Velocidad actual">
         <Gauge className="h-3.5 w-3.5" />
         <span data-testid="live-speed">{live.speedKmh === null ? '— km/h' : `${Math.round(live.speedKmh)} km/h`}</span>

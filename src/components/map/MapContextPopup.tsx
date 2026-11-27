@@ -58,7 +58,7 @@ export function MapContextPopup() {
   return (
     <Popup key={`${point.lat},${point.lng}`} position={[point.lat, point.lng]} eventHandlers={{ remove: () => setPoint(null) }} closeButton={false}>
       <div className="min-w-[200px] py-1" role="menu" aria-label="Acciones del punto">
-        <p className="px-4 pt-2 pb-1 font-mono text-[11px] text-slate-500">
+        <p className="px-4 pt-2 pb-1 font-mono text-[11px] text-slate-600 dark:text-slate-400">
           {point.lat.toFixed(5)}, {point.lng.toFixed(5)}
         </p>
         <button type="button" role="menuitem" className={item} onClick={() => act('origin')}>
@@ -71,9 +71,9 @@ export function MapContextPopup() {
           <Plus className="h-4 w-4 text-sky-500" /> Añadir como parada
         </button>
         <button type="button" role="menuitem" className={item} onClick={() => act('info')}>
-          <Search className="h-4 w-4 text-slate-500" /> ¿Qué hay aquí?
+          <Search className="h-4 w-4 text-slate-600 dark:text-slate-400" /> ¿Qué hay aquí?
         </button>
-        <p className="flex items-center gap-1 px-4 pt-1 pb-2 text-[10px] text-slate-500 dark:text-slate-400">
+        <p className="flex items-center gap-1 px-4 pt-1 pb-2 text-[10px] text-slate-600 dark:text-slate-400">
           <MapPin className="h-3 w-3" /> Nombre real vía Nominatim
         </p>
       </div>

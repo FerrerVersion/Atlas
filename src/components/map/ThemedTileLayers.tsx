@@ -10,13 +10,23 @@ export const EDGE_BUFFER_TILES = 1
 
 /**
  * Capa de teselas que también carga un margen fuera de la pantalla: al desplazar el
- * mapa ya están listas. Leaflet ordena la cola por cercanía al centro, así que lo
- * visible sigue llegando primero.
+ * mapa ya están listas. El margen se empieza a cargar cuando han llegado las teselas
+ * visibles (evento «load»): en una conexión lenta, pedirlo todo a la vez repartía el
+ * ancho de banda y retrasaba lo que se ve (Lighthouse: LCP en móvil).
  */
-type GridInternals = { _getTiledPixelBounds(center: L.LatLng): L.Bounds }
+type GridInternals = { _getTiledPixelBounds(center: L.LatLng): L.Bounds; _update(center?: L.LatLng): void }
 const BufferedTileLayer = L.TileLayer.extend({
-  _getTiledPixelBounds(this: L.TileLayer & GridInternals, center: L.LatLng) {
+  initialize(this: L.TileLayer & { _atlasMargin: boolean }, url: string, options: L.TileLayerOptions) {
+    ;(L.TileLayer.prototype as unknown as { initialize: (u: string, o: L.TileLayerOptions) => void }).initialize.call(this, url, options)
+    this._atlasMargin = false
+    this.once('load', () => {
+      this._atlasMargin = true
+      ;(this as unknown as GridInternals)._update()
+    })
+  },
+  _getTiledPixelBounds(this: L.TileLayer & GridInternals & { _atlasMargin: boolean }, center: L.LatLng) {
     const bounds = (L.TileLayer.prototype as unknown as GridInternals)._getTiledPixelBounds.call(this, center)
+    if (!this._atlasMargin) return bounds
     const pad = EDGE_BUFFER_TILES * this.getTileSize().x
     return L.bounds(bounds.min!.subtract([pad, pad]), bounds.max!.add([pad, pad]))
   },

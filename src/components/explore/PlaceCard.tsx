@@ -35,7 +35,7 @@ export function PlaceCard() {
           <h2 className="text-base leading-tight font-semibold" data-testid="place-name">
             {place.name}
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
             {place.kindLabel}
             {place.address ? ` · ${place.address}` : ''}
           </p>
@@ -47,7 +47,7 @@ export function PlaceCard() {
                 .then(() => s().notify('Coordenadas copiadas.', 'success'))
                 .catch(() => s().notify('No se han podido copiar las coordenadas.', 'error'))
             }
-            className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-slate-500 hover:text-accent dark:text-slate-400"
+            className="mt-1 inline-flex items-center gap-1 font-mono text-[11px] text-slate-600 hover:text-accent dark:text-slate-400"
             title="Copiar coordenadas"
             aria-label={`Copiar coordenadas ${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}`}
           >
@@ -91,7 +91,7 @@ export function PlaceCard() {
           Cargar calles
         </Button>
       </div>
-      <p className="text-[10px] text-slate-500 dark:text-slate-400">
+      <p className="text-[10px] text-slate-600 dark:text-slate-400">
         Fuente: {place.source === 'local' ? 'datos OSM cargados' : place.source === 'map' ? 'Nominatim (inversa)' : place.source} · ©
         OpenStreetMap contributors
       </p>

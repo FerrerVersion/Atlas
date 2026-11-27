@@ -22,7 +22,7 @@ export function CalibrationPanel({ map, transform, calibrated, pendingRef, onAdd
 
   return (
     <div className="space-y-3 text-sm">
-      <p className="text-xs text-slate-500 dark:text-slate-400">
+      <p className="text-xs text-slate-600 dark:text-slate-400">
         Pulsa un punto reconocible de la imagen y escribe sus coordenadas reales. Con 2 puntos se calcula escala y rotación; con 3 o
         más, una transformación afín por mínimos cuadrados.
       </p>
@@ -48,7 +48,7 @@ export function CalibrationPanel({ map, transform, calibrated, pendingRef, onAdd
             />
           </label>
           {outOfRange && (
-            <p role="alert" className="text-xs text-rose-600">
+            <p role="alert" className="text-xs text-rose-800 dark:text-rose-300">
               Coordenadas fuera de rango: la latitud va de -90 a 90 y la longitud de -180 a 180.
             </p>
           )}
@@ -114,20 +114,20 @@ export function CalibrationPanel({ map, transform, calibrated, pendingRef, onAdd
       )}
       <dl className="grid grid-cols-3 gap-2 text-center text-[11px]">
         <div className="rounded-lg bg-slate-900/5 p-2 dark:bg-white/5">
-          <dt className="text-slate-500">Modo</dt>
+          <dt className="text-slate-600 dark:text-slate-400">Modo</dt>
           <dd className="font-semibold">{calibrated ? 'Geográfico' : 'Manual'}</dd>
         </div>
         <div className="rounded-lg bg-slate-900/5 p-2 dark:bg-white/5">
-          <dt className="text-slate-500">Escala</dt>
+          <dt className="text-slate-600 dark:text-slate-400">Escala</dt>
           <dd className="font-semibold tabular-nums">{transform.metersPerPixel.toFixed(3)} m/px</dd>
         </div>
         <div className="rounded-lg bg-slate-900/5 p-2 dark:bg-white/5">
-          <dt className="text-slate-500">Rotación</dt>
+          <dt className="text-slate-600 dark:text-slate-400">Rotación</dt>
           <dd className="font-semibold tabular-nums">{transform.rotationDeg.toFixed(1)}°</dd>
         </div>
       </dl>
       {map.references.length >= 3 && (
-        <p className="text-[11px] text-slate-500">Error medio de ajuste: {transform.rmse.toFixed(2)} m</p>
+        <p className="text-[11px] text-slate-600 dark:text-slate-400">Error medio de ajuste: {transform.rmse.toFixed(2)} m</p>
       )}
     </div>
   )

@@ -114,7 +114,7 @@
 
   <div class="kpis">
     <div class="kpi"><b>15</b><span>estilos de mapa</span></div>
-    <div class="kpi"><b>120 + 48</b><span>tests unitarios + e2e, todos en verde</span></div>
+    <div class="kpi"><b>213 + 70</b><span>tests unitarios + e2e, todos en verde</span></div>
     <div class="kpi"><b>0</b><span>nombres geográficos inventados</span></div>
     <div class="kpi"><b>0 €</b><span>sin claves API ni servicios de pago</span></div>
   </div>
@@ -144,7 +144,7 @@
     <div class="card"><h4>Calcular rutas</h4>A* sobre la red viaria real: sentidos únicos, rotondas, límites de velocidad; en coche o a pie; más rápida o más corta; evitar autopistas.</div>
     <div class="card"><h4>Guiar paso a paso</h4>Giros, rotondas («toma la 2.ª salida»), entradas y salidas de autovía, paradas. Modo navegación con simulación, GPS y voz.</div>
     <div class="card"><h4>Varias paradas</h4>Añadir, quitar, reordenar e invertir. Marcadores arrastrables. Cálculo por tramos.</div>
-    <div class="card"><h4>Tu ubicación</h4>Antes de nada pide permiso; con él centra el mapa donde estás, precarga 200 km a tu alrededor y mantiene el punto azul actualizado.</div>
+    <div class="card"><h4>Tu ubicación (opcional)</h4>El mapa se abre siempre y se puede buscar y calcular rutas sin dar permiso. El GPS solo se usa al pulsar «Mi ubicación», «Usar mi ubicación» o «Iniciar».</div>
     <div class="card"><h4>Personalizar</h4>10 estilos, modo noche, favoritos, historial y un editor para crear mapas propios a partir de una imagen.</div>
   </div>
 </section>
@@ -171,7 +171,7 @@ npm run dev</pre>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td><code>npm run build</code></td><td>Comprueba tipos (TypeScript estricto) y genera la web optimizada en <code>dist/</code>.</td></tr>
     <tr><td><code>npm run preview</code></td><td>Sirve la versión de producción para revisarla.</td></tr>
-    <tr><td><code>npm test</code></td><td>120 tests unitarios y de integración (Vitest).</td></tr>
+    <tr><td><code>npm test</code></td><td>213 tests unitarios y de integración (Vitest).</td></tr>
     <tr><td><code>npm run test:e2e</code></td><td>48 pruebas en navegador real (Playwright), en escritorio y móvil, sin depender de la red. La primera vez: <code>npx playwright install chromium</code>.</td></tr>
     <tr><td><code>npm run lint</code></td><td>Análisis estático (oxlint): 0 avisos.</td></tr>
     <tr><td><code>npm run data:demo</code></td><td>Vuelve a descargar el extracto real de OSM usado como demo sin conexión.</td></tr>
@@ -261,12 +261,12 @@ npm run dev</pre>
   <p><b>Movimiento fluido:</b> el GPS da una lectura por segundo; la posición mostrada se anima fotograma a fotograma entre lecturas (con una duración algo mayor que el intervalo para no detenerse) y el mapa la acompaña sin tirones.</p>
 
   <h3>2.5 Ubicación del dispositivo</h3>
-  <p>Antes de nada, la app pide permiso de ubicación: no se abre hasta que lo concedes (si el navegador ya lo tenía, entra directamente). Con el permiso, el mapa se centra donde estás y el punto azul (con su círculo de precisión) se actualiza mientras la página esté abierta. Detalles:</p>
+  <p>La ubicación es <b>opcional</b>: el mapa se abre siempre y se pueden buscar lugares y calcular rutas entre dos sitios sin dar permiso. El GPS solo se activa cuando lo pides:</p>
   <ul>
-    <li>Si buscas otro lugar antes de que llegue tu posición, no se te mueve el mapa.</li>
-    <li>Si lo deniegas, una pantalla explica cómo activarlo desde el candado de la barra de direcciones y permite reintentar.</li>
-    <li><b>Tu zona de 200 km</b>: con el permiso se precarga en segundo plano el mapa del estilo elegido en 200 km a tu alrededor (autopistas y autovías reales en vectorial desde el zoom 7 y teselas de los zooms 5-10). Un indicador muestra el progreso.</li>
-    <li><b>Al elegir una ruta</b> el mapa se centra en el trayecto y todo lo demás se pausa hasta tenerla; después se cargan las carreteras y teselas a 5 km alrededor de la ruta.</li>
+    <li><b>Mi ubicación</b> centra el mapa y muestra el punto azul (con su círculo de precisión), que se mantiene actualizado.</li>
+    <li><b>Usar mi ubicación como origen</b> (junto al campo Origen) o <b>Salir desde mi ubicación</b> si al pulsar «Ir aquí» falta el punto de partida. Si la ubicación ya está activa, «Ir aquí» la usa como origen automáticamente.</li>
+    <li><b>Iniciar</b> la navegación pide el GPS de alta precisión (una lectura por segundo); fuera de la navegación se usa la precisión normal, que gasta menos batería.</li>
+    <li>Si lo deniegas, se explica cómo activarlo y la app sigue funcionando. Si buscas otro lugar antes de que llegue tu posición, no se te mueve el mapa.</li>
     <li>Toda la app comparte un único seguimiento GPS. La posición nunca se envía a ningún servidor.</li>
   </ul>
 
@@ -329,7 +329,7 @@ npm run dev</pre>
     <tr><td>Ruta</td><td>Color, contorno, discontinuidad, animación «de energía» y resplandor.</td></tr>
     <tr><td>Marcadores</td><td>Chincheta, punto, rombo, píxel, brillo, sello de lacre, punto de mira, mancha.</td></tr>
     <tr><td>Efectos</td><td>Scanlines, rejilla técnica, viñeta, textura de papel, ciclo de color.</td></tr>
-    <tr><td>Nodos</td><td>Blueprint y Holográfico muestran las intersecciones reales del grafo.</td></tr>
+    <tr><td>Nodos</td><td>Blueprint muestra las intersecciones reales del grafo.</td></tr>
   </table>
   <figure><img src="img/ruta-blueprint.jpg" style="max-height:70mm" /><figcaption>Blueprint: calles reales como plano técnico, intersecciones del grafo visibles y ruta discontinua.</figcaption></figure>
 
@@ -447,7 +447,7 @@ npm run dev</pre>
     <tr><th>Uso</th><th>Servicio</th><th>Cómo se usa</th></tr>
     <tr><td>Autocompletado</td><td>Photon (komoot, datos OSM)</td><td>Pensado para «buscar mientras escribes». Antirrebote de 220 ms, mínimo 3 letras, caché y sesgo hacia la zona visible.</td></tr>
     <tr><td>Búsqueda completa y «¿qué hay aquí?»</td><td>Nominatim (OSMF)</td><td>Su política prohíbe autocompletar: solo se usa al pulsar Enter o al elegir un punto. Máximo 1 petición por segundo.</td></tr>
-    <tr><td>Calles y POIs</td><td>Overpass API (3 servidores)</td><td>Zonas acotadas, caché de 7 días, peticiones espaciadas. Si un servidor no responde en 12 s se prueba el siguiente en paralelo y gana el primero; los errores de saturación se reintentan una vez.</td></tr>
+    <tr><td>Calles y POIs</td><td>Overpass API (3 servidores)</td><td>Solo lo que se ve o lo que necesita la ruta (sin precargas de zona), caché de 7 días con límites, como mucho 2 consultas a la vez. Los servidores se prueban de uno en uno; si uno no responde en 15 s se lanza un único respaldo en otro. Los errores de saturación se reintentan hasta 2 veces.</td></tr>
     <tr><td>Imagen del mapa</td><td>OSM, Esri, OpenTopoMap</td><td>Ninguno requiere clave. Los mapas de CARTO pasaron a exigir clave durante el desarrollo y se sustituyeron.</td></tr>
   </table>
 
@@ -491,8 +491,8 @@ npm run dev</pre>
 <section class="section">
   <h2><span class="num">8</span>Calidad, pruebas y revisión</h2>
   <div class="kpis">
-    <div class="kpi"><b>120</b><span>tests unitarios y de integración</span></div>
-    <div class="kpi"><b>48</b><span>pruebas e2e (24 escenarios × escritorio y móvil)</span></div>
+    <div class="kpi"><b>213</b><span>tests unitarios y de integración</span></div>
+    <div class="kpi"><b>70</b><span>pruebas e2e (35 escenarios × escritorio y móvil)</span></div>
     <div class="kpi"><b>0</b><span>avisos de lint y de TypeScript estricto</span></div>
     <div class="kpi"><b>196 kB</b><span>JavaScript principal comprimido</span></div>
   </div>
@@ -500,8 +500,8 @@ npm run dev</pre>
   <h3>Qué se prueba</h3>
   <div class="grid2">
     <div class="card"><h4>Motor de rutas</h4>Los 12 casos pedidos: ruta directa, varios tramos, óptima frente a alternativa más larga, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo y reconstrucción. Además: sin bucles, evitar autopistas, grafo desde datos OSM reales de Buñol, rotondas, autovías, multi-parada y ampliación del corredor.</div>
-    <div class="card"><h4>Resto de la lógica</h4>Búsqueda (acentos, categorías, coordenadas), adaptadores Photon y Nominatim, 10 estilos (válidos y distintos), estado (cambiar de estilo no borra la ruta; persistencia), calibración de imágenes, progreso de navegación, limitador de peticiones, servidores escalonados y reintentos.</div>
-    <div class="card"><h4>Navegador real (e2e)</h4>Carga del mapa; búsqueda de Buñol con nombre real; cambio de 4 estilos sin perder la ruta (y recordado al recargar); ruta con parada y modo navegación; POIs reales; menú del mapa sin nombres inventados; pantalla de permiso de ubicación (concedida y denegada), ubicación como origen; editor de mapas completo y sus casos límite; teselas en pantallas retina; preferencias dañadas; móvil pequeño (375×667).</div>
+    <div class="card"><h4>Resto de la lógica</h4>Búsqueda (acentos, categorías, coordenadas, duplicados, etiquetas y nombres en español), adaptadores Photon y Nominatim, 10 estilos (válidos, distintos y con contraste accesible), estado (cambiar de estilo no borra la ruta; el GPS no escribe en el navegador ni repinta la app), caché con límites, mapas importados validados, calibración de imágenes, progreso de navegación, servidores de uno en uno con respaldo y reintentos, y un benchmark con 45.000 vías.</div>
+    <div class="card"><h4>Navegador real (e2e)</h4>Carga del mapa; búsqueda de Buñol con nombre real; cambio de 4 estilos sin perder la ruta (y recordado al recargar); ruta con parada y modo navegación; POIs reales; menú del mapa sin nombres inventados; uso sin ubicación (buscar y calcular rutas sin GPS), ubicación como origen y «Ir aquí»; escrituras del GPS en el navegador; pestañas con teclado; editor de mapas completo y sus casos límite; teselas en pantallas retina; preferencias dañadas; móvil pequeño (375×667).</div>
     <div class="card"><h4>Sin depender de la red</h4>Las pruebas e2e responden a las búsquedas y a Overpass con el extracto real de OSM incluido, así que son reproducibles. La ruta Valencia→Buñol se verificó además en vivo contra los servicios reales.</div>
   </div>
 </section>
@@ -530,35 +530,35 @@ npm run dev</pre>
     <tr><td><span class="tag fix">fix</span> La ruta no salía de donde estabas</td><td>En una prueba real en el móvil la ruta empezaba a 410 m del usuario. Dos causas: el coche no usaba los caminos (<code>track</code>, el 14 % de las vías de Buñol) y la parada se ajustaba al cruce más cercano. Ahora se usan los caminos permitidos y se sale del punto exacto de la calle (en Buñol: de 629 m a 0 m).</td></tr>
     <tr><td><span class="tag fix">fix</span> Iconos de marcadores vacíos</td><td>Regresión de la optimización del bundle: los iconos se generaban durante el render de React, donde no se puede, y salían vacíos (gasolineras, restaurantes, flecha de navegación). Ahora se generan una vez al cargar. Test unitario y e2e.</td></tr>
     <tr><td><span class="tag fix">fix</span> El mapa no seguía al GPS</td><td>Con lecturas muy seguidas se descartaba la última posición y el marcador podía quedar fuera de pantalla. Ahora siempre se aplica la última.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Lista del buscador que se cerraba sola</td><td>Al pulsar otro botón y escribir enseguida, un cierre programado al perder el foco se ejecutaba igualmente. Ahora se cancela al volver al campo. Prueba e2e que falla con el código anterior.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Zoom involuntario en iPhone</td><td>Safari de iOS amplía la página al tocar un campo con letra de menos de 16 px y la dejaba desplazada. En pantallas táctiles los campos usan 16 px y el teclado se cierra al elegir un resultado. Comprobado en el simulador de iOS.</td></tr>
+    <tr><td><span class="tag fix">fix</span> Contraste según el tema</td><td>El color de acento de cada tema se usaba tal cual en la interfaz (cian sobre blanco: 1,8:1). Ahora se ajusta para que textos y botones superen 4,5:1 con los 10 temas, en modo claro y oscuro (axe-core sin incidencias).</td></tr>
     <tr><td><span class="tag fix">fix</span> GPS en el móvil</td><td>Por red local sin HTTPS el navegador bloquea la ubicación. Se añadió <code>npm run dev:movil</code> (HTTPS) y un aviso claro.</td></tr>
   </table>
 </section>
 
 <section class="section">
   <h3>Rendimiento</h3>
-  <p>Medido con la versión de producción servida comprimida, como en un hosting real.</p>
+  <p><b>Con los servicios reales</b> (ruta Valencia → Buñol, 40 km): el tiempo lo marca el estado de los servidores públicos de Overpass. En las mediciones de noviembre de 2026 la versión actual tardó entre 57 s y 163 s en mostrar la ruta (siempre 31 min y 40 km). La anterior, que lanzaba la misma consulta en paralelo a varios servidores, tardaba entre 30 s y 90 s, pero multiplicaba la carga sobre servicios gratuitos.</p>
   <table>
-    <tr><th>Medida</th><th>Antes</th><th>Ahora</th></tr>
-    <tr><td>Ruta Valencia → Buñol (servidor de calles con 3 s de respuesta)</td><td>16,5 s tras elegir el destino</td><td><b>7,9 s</b></td></tr>
-    <tr><td>Segunda visita en móvil (4G lento, CPU ×4): todo cargado</td><td>5,8 s</td><td><b>0,6 s</b></td></tr>
-    <tr><td>Segunda visita: primera imagen del mapa</td><td>2,4 s</td><td><b>0,15 s</b></td></tr>
-    <tr><td>Primer pintado en móvil lento (primera visita)</td><td>1,24 s</td><td><b>0,19 s</b></td></tr>
-    <tr><td>Buscar: primera sugerencia (calle ya cargada)</td><td>0,79 s</td><td><b>0,03 s</b></td></tr>
-    <tr><td>Ruta pulsando origen y destino en el mapa</td><td>4,8 s</td><td><b>0,8 s</b></td></tr>
-    <tr><td>Ruta larga Valencia → Buñol (servidor a 1,5 s por respuesta)</td><td>3,8 s</td><td><b>3,3 s</b></td></tr>
-    <tr><td>Movimiento del mapa tras una lectura GPS</td><td>0,25 s y parado</td><td><b>continuo (44-47 fotogramas/s)</b></td></tr>
-    <tr><td>Huecos en blanco al desplazar el mapa</td><td>20</td><td><b>0</b></td></tr>
-    <tr><td>Construir el grafo (15 000 vías) + A*</td><td colspan="2">≈ 100 ms: no es el cuello de botella</td></tr>
+    <tr><th>Medida (servicios simulados o benchmark)</th><th>Antes</th><th>Ahora</th></tr>
+    <tr><td>Consultas Overpass al abrir la app</td><td>11 (zona de 200 km)</td><td><b>0</b></td></tr>
+    <tr><td>Consultas Overpass en una ruta corta</td><td>14</td><td><b>4</b></td></tr>
+    <tr><td>Escrituras en el navegador en 3 s de simulación</td><td>362</td><td><b>0</b></td></tr>
+    <tr><td>Añadir 100 vías al grafo (ciudad de 45.000 vías)</td><td>139 ms</td><td><b>2,4 ms</b></td></tr>
+    <tr><td>Ajustar una parada a la calle más cercana</td><td>5 ms</td><td><b>0,04 ms</b></td></tr>
+    <tr><td>JavaScript al mover el mapa con 45.000 vías</td><td>~315 ms</td><td><b>~125 ms</b></td></tr>
+    <tr><td>Arrastrar el mapa en Cyberpunk (fotograma típico)</td><td>42 ms</td><td><b>20 ms</b></td></tr>
+    <tr><td>Ruta de 29 km en un móvil medio (CPU ×4): interfaz congelada</td><td>673 ms</td><td><b>168 ms</b></td></tr>
+    <tr><td>Lighthouse (móvil): accesibilidad, buenas prácticas y SEO</td><td colspan="2"><b>100 / 100 / 100</b></td></tr>
   </table>
   <ul>
-    <li><b>Descargas en paralelo</b> (de 2 en 2, el corredor primero) y <b>precarga</b> de las calles de cada parada en cuanto se elige.</li>
-    <li><b>Sin duplicados</b>: una consulta ya en curso se reutiliza (p. ej. precarga + ruta).</li>
-    <li><b>PWA</b>: la app y las teselas vistas se guardan en el dispositivo durante 14 días; se puede instalar como app y el mapa visitado funciona sin conexión.</li>
-    <li><b>Librerías en paquetes propios</b> que se cachean entre versiones, <b>conexiones anticipadas</b> a los servidores y <b>menos esperas</b> (buscador 180 ms; calles y POIs 400 ms).</li>
-    <li><b>Búsqueda en dos fases</b>: lo que ya está en el dispositivo (coordenadas, categorías, favoritos, historial, calles cargadas) aparece al instante.</li>
-    <li><b>Clic en el mapa instantáneo</b>: el punto se usa al momento y el nombre real llega después sin recalcular.</li>
-    <li><b>Rejilla de celdas compartida</b> entre mapa, precarga y rutas; <b>servidor Overpass recordado</b> entre visitas y siguiente servidor a los 6 s.</li>
-    <li><b>Arranque</b>: pantalla inicial en el HTML, estilos y registro de la PWA sin bloquear el pintado (este último retrasaba 1 s el primer pintado), paneles secundarios diferidos y teselas sin fundido.</li>
+    <li><b>Sin descargas de fondo masivas</b>: solo se pide lo que se ve o lo que necesita la ruta; servidores de uno en uno con un único respaldo a los 15 s.</li>
+    <li><b>Grafo incremental</b> con índice espacial, que se va preparando en los ratos libres del navegador y por tandas pequeñas.</li>
+    <li><b>Estado separado</b>: el GPS y la navegación no se guardan en el navegador ni repintan la app; el mapa solo dibuja las calles de la zona visible.</li>
+    <li><b>Caché acotada</b> (7 días, 400 consultas, ~200 MB) y red viaria en memoria con tope (50.000 vías).</li>
+    <li><b>PWA</b>: la app y las teselas vistas se guardan en el dispositivo; se puede instalar y el mapa visitado funciona sin conexión.</li>
+    <li><b>Resplandor de los temas</b> dibujado en el lienzo en lugar de filtros CSS, que se recalculaban en cada fotograma.</li>
   </ul>
 </section>
 

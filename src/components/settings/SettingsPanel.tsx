@@ -50,7 +50,7 @@ export function SettingsPanel() {
       </Section>
 
       <Section title="Ubicación">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-slate-600 dark:text-slate-400">
           Atlas usa tu ubicación desde que se abre: centra el mapa donde estás, precarga 200 km a tu alrededor y la mantiene
           actualizada. Nunca se envía a ningún servidor.
         </p>
@@ -63,7 +63,7 @@ export function SettingsPanel() {
           checked={autoLoad}
           onChange={(v) => setPref('autoLoadRoads', v)}
         />
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-slate-600 dark:text-slate-400">
           <Database className="mr-1 inline h-3.5 w-3.5" /> {networkStore.size.toLocaleString('es-ES')} vías OSM en memoria.
         </p>
         <div className="flex flex-wrap gap-2">
@@ -95,7 +95,7 @@ export function SettingsPanel() {
       </Section>
 
       <Section title="Mapas personalizados">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="text-xs text-slate-600 dark:text-slate-400">
           Carga una imagen propia, calíbrala con puntos de referencia y dibuja tu red de carreteras. Todo se procesa en tu navegador.
         </p>
         <Link

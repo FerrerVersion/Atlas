@@ -70,7 +70,7 @@ export function PanelTabs({ variant = 'top' }: { variant?: 'top' | 'bottom' }) {
             tabIndex={active ? 0 : -1}
             onClick={() => setTab(t.id)}
             className={`focus-ring relative flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[11px] font-medium transition ${
-              active ? 'text-accent' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
+              active ? 'text-accent' : 'text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
             } ${active && variant === 'top' ? 'bg-accent/10' : ''}`}
           >
             <t.icon className="h-5 w-5" />

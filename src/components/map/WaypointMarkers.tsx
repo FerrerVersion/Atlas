@@ -45,7 +45,7 @@ export function WaypointMarkers({ theme }: { theme: MapTheme }) {
               draggable
               autoPan
               keyboard
-              title={w.place.name}
+              title={`${i === 0 ? 'Origen' : i === last ? 'Destino' : `Parada ${i}`}: ${w.place.name}`}
               eventHandlers={{
                 dragend: (e: LeafletEvent) => {
                   const ll = (e.target as LMarker).getLatLng()

@@ -6,6 +6,8 @@
   --font-sans: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --color-accent: var(--ui-accent, #22d3ee);
+  /* Texto sobre un fondo de acento (blanco o casi negro según el contraste). */
+  --color-on-accent: var(--ui-on-accent, #ffffff);
   --color-ink-950: #070a12;
   --color-ink-900: #0b1020;
   --color-ink-800: #121a2e;
@@ -50,15 +52,17 @@ body {
 
 @layer components {
   .glass {
-    @apply border border-white/60 bg-white/80 shadow-glass backdrop-blur-xl backdrop-saturate-150
-      dark:border-white/10 dark:bg-ink-900/80;
+    /* 92 % de opacidad: el texto mantiene el contraste aunque detrás haya un mapa
+       oscuro (o claro, en modo noche). */
+    @apply border border-white/60 bg-white/92 shadow-glass backdrop-blur-xl backdrop-saturate-150
+      dark:border-white/10 dark:bg-ink-900/92;
   }
   .glass-strong {
     @apply border border-white/70 bg-white/92 shadow-glass backdrop-blur-2xl
       dark:border-white/10 dark:bg-ink-900/92;
   }
   .panel-title {
-    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400;
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-slate-400;
   }
   .focus-ring {
     @apply outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2
@@ -77,5 +81,18 @@ body {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * iOS Safari amplía la página al enfocar un campo con letra de menos de 16 px (y la
+ * deja ampliada y desplazada). En pantallas táctiles los campos usan 16 px. Va fuera de
+ * las capas de Tailwind para que prevalezca sobre utilidades como text-sm.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }

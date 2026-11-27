@@ -33,9 +33,13 @@ export function NavigationHUD() {
   const eta = new Date(now + st.remainingTime * 1000)
   return (
     <>
-      <div className="pointer-events-auto fixed inset-x-3 top-3 z-[1000] mx-auto max-w-xl animate-slide-up md:top-4" data-testid="nav-hud">
+      <section
+        aria-label="Próxima maniobra"
+        className="pointer-events-auto fixed inset-x-3 top-3 z-[1000] mx-auto max-w-xl animate-slide-up md:top-4"
+        data-testid="nav-hud"
+      >
         <div className="flex items-center gap-4 rounded-3xl bg-slate-900/92 p-4 text-white shadow-glass backdrop-blur-xl">
-          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-accent">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-accent text-on-accent">
             <ManeuverIcon type={st.arrived ? 'arrive' : target.type} className="h-8 w-8" />
           </span>
           <div className="min-w-0 flex-1">
@@ -50,13 +54,13 @@ export function NavigationHUD() {
             )}
           </div>
         </div>
-      </div>
-      <div className="pointer-events-auto fixed inset-x-3 bottom-3 z-[1000] mx-auto max-w-xl animate-slide-up md:bottom-6">
+      </section>
+      <section aria-label="Resumen y controles de navegación" className="pointer-events-auto fixed inset-x-3 bottom-3 z-[1000] mx-auto max-w-xl animate-slide-up md:bottom-6">
         {/* En pantallas estrechas: datos en una fila y botones en otra. */}
         <div className="glass-strong flex flex-wrap items-center gap-x-2 gap-y-1 rounded-3xl p-3">
           <div className="flex min-w-0 basis-full items-baseline gap-3 px-1 sm:block sm:flex-1 sm:basis-auto">
             <p className="text-lg font-bold whitespace-nowrap tabular-nums">{formatDuration(st.remainingTime)}</p>
-            <p className="text-xs whitespace-nowrap text-slate-500 dark:text-slate-400">
+            <p className="text-xs whitespace-nowrap text-slate-600 dark:text-slate-400">
               {formatDistance(st.remainingDistance)} · {eta.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
@@ -95,7 +99,7 @@ export function NavigationHUD() {
           </IconButton>
           </div>
         </div>
-      </div>
+      </section>
     </>
   )
 }

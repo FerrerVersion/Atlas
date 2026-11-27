@@ -50,7 +50,7 @@ export function RouteSummary() {
           {new Date(now + liveState.remainingTime * 1000).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
         </p>
       )}
-      <dl className="grid grid-cols-3 gap-2 text-center text-[11px] text-slate-500 dark:text-slate-400">
+      <dl className="grid grid-cols-3 gap-2 text-center text-[11px] text-slate-600 dark:text-slate-400">
         <div className="rounded-xl bg-white/50 p-2 dark:bg-white/5">
           <Milestone className="mx-auto mb-0.5 h-3.5 w-3.5" />
           <dt className="sr-only">Tramos</dt>

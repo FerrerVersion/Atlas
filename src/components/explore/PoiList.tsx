@@ -41,8 +41,8 @@ export function PoiList() {
                 s.selectPlace(place, { addToHistory: false })
               }}
             >
-              <span className={`block truncate text-sm font-medium ${p.name ? '' : 'italic text-slate-500'}`}>{place.name}</span>
-              <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+              <span className={`block truncate text-sm font-medium ${p.name ? '' : 'italic text-slate-600 dark:text-slate-400'}`}>{place.name}</span>
+              <span className="block truncate text-xs text-slate-600 dark:text-slate-400">
                 {def.label}
                 {p.address ? ` · ${p.address}` : ''} · {formatDistance(d)}
               </span>

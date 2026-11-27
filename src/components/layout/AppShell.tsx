@@ -24,7 +24,7 @@ export function AppShell() {
   const sheetExpanded = useAppStore((s) => s.sheetExpanded)
 
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ ['--ui-accent' as string]: theme.colors.accent }}>
+    <div className="relative h-full w-full overflow-hidden">
       <main className="absolute inset-0" aria-label="Mapa">
         <MapView theme={theme} />
       </main>

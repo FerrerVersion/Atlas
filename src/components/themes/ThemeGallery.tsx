@@ -68,13 +68,13 @@ export function ThemeGallery({ compact = false, onPick }: { compact?: boolean; o
                         {t.name}
                         {t.effects.animations && <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-label="Con animaciones" />}
                       </h4>
-                      <p className="line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{t.description}</p>
+                      <p className="line-clamp-2 text-xs text-slate-600 dark:text-slate-400">{t.description}</p>
                       <button
                         type="button"
                         onClick={() => setTheme(t.id)}
                         aria-pressed={active}
                         className={`focus-ring mt-auto inline-flex h-7 w-fit items-center gap-1 rounded-lg px-2.5 text-xs font-medium transition ${
-                          active ? 'bg-accent text-white' : 'bg-slate-900/5 hover:bg-slate-900/10 dark:bg-white/10 dark:hover:bg-white/15'
+                          active ? 'bg-accent text-on-accent' : 'bg-slate-900/5 hover:bg-slate-900/10 dark:bg-white/10 dark:hover:bg-white/15'
                         }`}
                       >
                         {active ? (
@@ -93,7 +93,7 @@ export function ThemeGallery({ compact = false, onPick }: { compact?: boolean; o
           </section>
         )
       })}
-      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+      <p className="text-[11px] text-slate-600 dark:text-slate-400">
         Cambiar de estilo no altera la búsqueda, la ruta, las paradas ni los nombres: solo la apariencia.
       </p>
     </div>

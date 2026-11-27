@@ -239,6 +239,20 @@ test('un tema fusionado guardado (Holográfico) se abre como su equivalente (Cyb
   await expect(page.locator('.atlas-map')).toHaveAttribute('data-theme', 'cyberpunk')
 })
 
+test('escribir en el buscador justo después de pulsar otro botón no cierra la lista', async ({ page }) => {
+  await page.goto('/')
+  const collapse = page.getByRole('button', { name: 'Contraer panel' })
+  if (await collapse.isVisible()) await collapse.click()
+  const input = page.getByRole('combobox', { name: 'Buscar un lugar' })
+  // Sale del buscador (pulsa otro botón) y vuelve a escribir enseguida (< 120 ms).
+  await input.focus()
+  await page.getByRole('button', { name: 'Acercar' }).click()
+  await input.fill('Buñol')
+  await page.waitForTimeout(600)
+  await expect(input).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('option', { name: /Buñol.*Municipio/ })).toBeVisible()
+})
+
 test('filtro de POIs muestra establecimientos reales', async ({ page }) => {
   await page.goto('/')
   await openTab(page, 'Ajustes')
@@ -618,7 +632,7 @@ test.describe('medición en tiempo real con el GPS', () => {
 
     await page.getByRole('button', { name: 'Iniciar' }).click()
     await expect(page.getByTestId('live-gps')).toContainText('GPS ±8 m')
-    const remaining = async () => (await page.locator('[data-testid=nav-hud] ~ div p.text-xs').first().innerText()).split(' · ')[0]
+    const remaining = async () => (await page.getByRole('region', { name: 'Resumen y controles de navegación' }).locator('p.text-xs').first().innerText()).split(' · ')[0]
     await at(r.distance * 0.4)
     const before = await remaining()
     // Avance realista: una lectura cada ~0,6 s, recorriendo el 30 % de la ruta.

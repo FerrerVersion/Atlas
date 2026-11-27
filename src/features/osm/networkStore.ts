@@ -220,7 +220,41 @@ export class NetworkStore {
   private bump() {
     this.version++
     this.listeners.forEach((l) => l())
+    this.scheduleIdleBuild()
   }
+
+  private idleHandle: number | null = null
+  /** Vías por tanda en los ratos libres (~25 ms en un móvil medio). */
+  static readonly IDLE_SLICE = 1_500
+
+  /**
+   * Con las calles recién llegadas, el grafo de coche se va actualizando en los ratos
+   * libres del navegador y por tandas pequeñas: al pedir una ruta ya está hecho y no
+   * hay que construirlo de golpe (con decenas de miles de vías eran cientos de ms de
+   * interfaz congelada en un móvil). Trocear no cambia el resultado (es incremental).
+   */
+  private scheduleIdleBuild() {
+    if (typeof window === 'undefined' || !('requestIdleCallback' in window) || this.idleHandle !== null) return
+    this.idleHandle = window.requestIdleCallback(
+      (deadline) => {
+        this.idleHandle = null
+        let entry = this.builders.get('car')
+        if (!entry) this.builders.set('car', (entry = { version: -1, builder: new GraphBuilder({ profile: 'car' }) }))
+        const builder = entry.builder
+        const pending: OsmWay[] = []
+        for (const w of this.ways.values()) if (!builder.knows(w.id)) pending.push(w)
+        let i = 0
+        while (i < pending.length && (deadline.timeRemaining() > 4 || deadline.didTimeout)) {
+          builder.addWays(pending.slice(i, i + NetworkStore.IDLE_SLICE))
+          i += NetworkStore.IDLE_SLICE
+          if (deadline.didTimeout) break
+        }
+        if (i < pending.length) this.scheduleIdleBuild()
+      },
+      { timeout: 3_000 },
+    )
+  }
+
 }
 
 export const networkStore = new NetworkStore()

@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Search, X } from 'lucide-react'
 import { Spinner } from '@/components/ui/Controls'
 import type { Place } from '@/features/geocoding/geocodingService'
@@ -20,16 +20,28 @@ interface Props {
 /** Campo de búsqueda con autocompletado accesible (combobox ARIA, teclado). */
 export function PlaceAutocomplete({ value, onValueChange, onPick, placeholder, ariaLabel, leading, size = 'md', autoFocus, footer }: Props) {
   const [open, setOpen] = useState(false)
+  // Cierre diferido al perder el foco (deja pulsar una opción). Se cancela si se vuelve
+  // al campo o se escribe antes: si no, la lista se cerraba sola al escribir rápido
+  // justo después de pulsar otro botón.
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const openList = () => {
+    clearTimeout(closeTimer.current)
+    setOpen(true)
+  }
+  useEffect(() => () => clearTimeout(closeTimer.current), [])
   const [active, setActive] = useState(0)
   const [navigated, setNavigated] = useState(false)
   const [submitNonce, setSubmitNonce] = useState(0)
   const { results, status, error } = useSearch(value, submitNonce)
   const listId = useId()
 
+  const inputRef = useRef<HTMLInputElement>(null)
   const pick = (p: Place) => {
     setOpen(false)
     setSubmitNonce(0)
     onPick(p)
+    // En pantallas táctiles se cierra el teclado al elegir (si no, tapa medio mapa).
+    if (window.matchMedia?.('(pointer: coarse)').matches) inputRef.current?.blur()
   }
 
   const showList = open && value.trim().length >= 2
@@ -42,6 +54,7 @@ export function PlaceAutocomplete({ value, onValueChange, onPick, placeholder, a
       >
         {leading ?? <Search className="h-4 w-4 shrink-0 text-slate-400" />}
         <input
+          ref={inputRef}
           role="combobox"
           aria-label={ariaLabel}
           aria-expanded={showList}
@@ -53,13 +66,16 @@ export function PlaceAutocomplete({ value, onValueChange, onPick, placeholder, a
           placeholder={placeholder}
           onChange={(e) => {
             onValueChange(e.target.value)
-            setOpen(true)
+            openList()
             setActive(0)
             setNavigated(false)
             setSubmitNonce(0)
           }}
-          onFocus={() => setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onFocus={openList}
+          onBlur={() => {
+            clearTimeout(closeTimer.current)
+            closeTimer.current = setTimeout(() => setOpen(false), 120)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown') {
               e.preventDefault()
@@ -77,7 +93,7 @@ export function PlaceAutocomplete({ value, onValueChange, onPick, placeholder, a
               else if (results[active] && navigated) pick(results[active])
               else {
                 setSubmitNonce((n) => n + 1)
-                setOpen(true)
+                openList()
               }
             } else if (e.key === 'Escape') {
               setOpen(false)
@@ -103,17 +119,17 @@ export function PlaceAutocomplete({ value, onValueChange, onPick, placeholder, a
       {showList && (
         <div className="glass-strong absolute inset-x-0 top-full z-[1100] mt-2 animate-fade-in overflow-hidden rounded-2xl">
           {error ? (
-            <p className="px-4 py-3 text-sm text-rose-600 dark:text-rose-300">{error}</p>
+            <p className="px-4 py-3 text-sm text-rose-800 dark:text-rose-300">{error}</p>
           ) : results.length > 0 ? (
             <SearchResults id={listId} results={results} activeIndex={active} onPick={pick} onHover={setActive} />
           ) : status === 'idle' && value.trim().length >= 3 ? (
-            <p className="px-4 py-3 text-sm text-slate-500">
+            <p className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
               Sin resultados en OpenStreetMap. Pulsa Enter para una búsqueda completa.
             </p>
           ) : (
-            <p className="px-4 py-3 text-sm text-slate-500">Escribe al menos 3 letras…</p>
+            <p className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">Escribe al menos 3 letras…</p>
           )}
-          <div className="border-t border-slate-200/70 px-4 py-1.5 text-[10px] text-slate-500 dark:text-slate-400 dark:border-white/10">
+          <div className="border-t border-slate-200/70 px-4 py-1.5 text-[10px] text-slate-600 dark:text-slate-400 dark:border-white/10">
             {footer ?? (submitNonce > 0 ? 'Resultados de Nominatim' : 'Autocompletado: Photon · Enter: Nominatim')} · © OpenStreetMap
           </div>
         </div>

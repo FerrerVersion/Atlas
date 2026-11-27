@@ -12,6 +12,8 @@ export function POIMarker({ poi, theme, selected }: { poi: POI; theme: MapTheme;
     <Marker
       position={[poi.coordinates.lat, poi.coordinates.lng]}
       icon={icon}
+      // Nombre accesible del marcador (Leaflet le da role="button").
+      title={`${poi.name ?? 'Sin nombre en OSM'} · ${POI_CATEGORY_MAP[poi.category].label}`}
       zIndexOffset={selected ? 1000 : 0}
       eventHandlers={{
         click: () => {

@@ -24,10 +24,10 @@ export function NavigationInstructions() {
               <span className="min-w-0 flex-1">
                 <span className="block text-sm">{ins.text}</span>
                 {ins.distance > 0 && ins.type !== 'depart' && ins.type !== 'continue' && (
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Luego {formatDistance(ins.distance)}</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">Luego {formatDistance(ins.distance)}</span>
                 )}
               </span>
-              <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">{formatDistance(ins.offset)}</span>
+              <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-slate-600 dark:text-slate-400">{formatDistance(ins.offset)}</span>
             </button>
           </li>
         ))}

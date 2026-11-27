@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SearchBar } from '@/components/search/SearchBar'
 import { useAppStore } from '@/store/useAppStore'
 import { PanelContent, PanelTabs } from './PanelContent'
@@ -18,14 +18,23 @@ export function MobileNavigation() {
   const collapsedH = 132
   const expandedVh = 68
   const height = drag ?? (expanded ? `${expandedVh}vh` : `${collapsedH}px`)
+  // La atribución del mapa (obligatoria) se coloca justo encima del panel: si no,
+  // quedaba debajo y tapaba su contenido.
+  const sheetTop = typeof height === 'number' ? `${height}px` : height
+  useEffect(() => {
+    document.documentElement.style.setProperty('--mobile-sheet-h', sheetTop)
+    return () => {
+      document.documentElement.style.removeProperty('--mobile-sheet-h')
+    }
+  }, [sheetTop])
 
   return (
     <>
-      <div className="pointer-events-auto absolute inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[1000]">
-        <div className="glass rounded-2xl p-1.5">
+      <header className="pointer-events-auto absolute inset-x-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[1000]">
+        <search className="glass block rounded-2xl p-1.5" aria-label="Buscar en el mapa">
           <SearchBar size="md" />
-        </div>
-      </div>
+        </search>
+      </header>
       <section
         aria-label="Panel"
         className="glass-strong pointer-events-auto absolute inset-x-0 bottom-0 z-[900] flex flex-col rounded-t-3xl pb-[env(safe-area-inset-bottom)] transition-[height] duration-300 ease-out"

@@ -81,16 +81,16 @@ npm run preview
 ## Tests
 
 ```bash
-npm test             # Vitest: 192 tests unitarios y de integración
+npm test             # Vitest: 213 tests unitarios y de integración
 npm run bench        # Benchmarks con una ciudad sintética de 45.000 vías (no forman parte de npm test)
 npx playwright install chromium   # solo la primera vez
-npm run test:e2e     # Playwright: 68 pruebas (34 en escritorio y 34 en móvil), sin red (datos OSM reales simulados)
+npm run test:e2e     # Playwright: 70 pruebas (35 en escritorio y 35 en móvil), sin red (datos OSM reales simulados)
 npm run lint         # oxlint
 ```
 
 > En macOS, si la pantalla entra en reposo Chromium deja de emitir `requestAnimationFrame` y los e2e se ralentizan o fallan. Ejecútalos con `caffeinate -dis npm run test:e2e`.
 
-Cobertura de los tests: A* (ruta directa, varios tramos, óptima frente a alternativa, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo, reconstrucción, ausencia de ciclos), construcción del grafo desde OSM, instrucciones (giros, rotondas, autopistas), multi-parada, progreso de navegación, planificación de descargas, búsqueda y normalización, adaptadores Photon/Nominatim, temas, store (cambiar tema no borra ruta), persistencia (el GPS y la navegación no escriben en el navegador ni repintan la app), uso sin ubicación, calibración de imágenes, limitador de peticiones y componentes de UI.
+Cobertura de los tests: A* (ruta directa, varios tramos, óptima frente a alternativa, sentido único, inalcanzable, nodo inexistente, grafo vacío, varios caminos, geometría, distancia, tiempo, reconstrucción, ausencia de ciclos), construcción del grafo desde OSM, instrucciones (giros, rotondas, autopistas), multi-parada, progreso de navegación, planificación de descargas, búsqueda y normalización, adaptadores Photon/Nominatim, temas (contraste ≥ 4,5:1 del color de acento en los 10 temas, claro y oscuro), store (cambiar tema no borra ruta), persistencia (el GPS y la navegación no escriben en el navegador ni repintan la app), uso sin ubicación, calibración de imágenes, limitador de peticiones y componentes de UI.
 
 ## Rendimiento
 

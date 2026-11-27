@@ -278,6 +278,11 @@ export class GraphBuilder {
     return this.ways.has(wayId)
   }
 
+  /** ¿Ya se evaluó esta vía (aunque no sirva para este perfil)? */
+  knows(wayId: number) {
+    return this.seen.has(wayId)
+  }
+
   addWays(ways: Iterable<OsmWay>): this {
     const fresh: number[] = []
     // Grafo vacío (construcción completa): todo es nuevo y los nodos se crean ya con su

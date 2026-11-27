@@ -52,20 +52,20 @@ export function SearchResults({ id, results, activeIndex, onPick, onHover }: Pro
           >
             <span
               className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg ${
-                p.kind === 'category' ? 'bg-accent text-white' : 'bg-slate-900/5 text-slate-600 dark:bg-white/8 dark:text-slate-300'
+                p.kind === 'category' ? 'bg-accent text-on-accent' : 'bg-slate-900/5 text-slate-600 dark:bg-white/8 dark:text-slate-300'
               }`}
             >
               <PlaceIcon place={p} />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{p.name}</span>
-              <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+              <span className="block truncate text-xs text-slate-600 dark:text-slate-400">
                 {p.kindLabel}
                 {p.address ? ` · ${p.address}` : ''}
               </span>
             </span>
             {p.distanceMeters !== undefined && (
-              <span className="shrink-0 text-[11px] tabular-nums text-slate-500 dark:text-slate-400">{formatDistance(p.distanceMeters)}</span>
+              <span className="shrink-0 text-[11px] tabular-nums text-slate-600 dark:text-slate-400">{formatDistance(p.distanceMeters)}</span>
             )}
           </button>
         </li>

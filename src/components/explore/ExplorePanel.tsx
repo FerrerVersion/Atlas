@@ -47,7 +47,7 @@ export function ExplorePanel() {
           </div>
           {history.length > 0 && (
             <div className="pt-1">
-              <h4 className="mb-1 text-xs font-medium text-slate-500">Recientes</h4>
+              <h4 className="mb-1 text-xs font-medium text-slate-600 dark:text-slate-400">Recientes</h4>
               <div className="flex flex-wrap gap-1.5">
                 {history.slice(0, 5).map((h: Place) => (
                   <button

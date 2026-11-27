@@ -46,7 +46,7 @@ export function RoutePanel() {
 
       {status === 'loading' && <RouteProgress message={message} />}
       {status === 'error' && message && (
-        <p className="rounded-xl bg-rose-500/10 px-3 py-2.5 text-sm text-rose-700 dark:text-rose-300" role="alert" data-testid="route-error">
+        <p className="rounded-xl bg-rose-500/10 px-3 py-2.5 text-sm text-rose-800 dark:text-rose-300" role="alert" data-testid="route-error">
           {message}
         </p>
       )}
@@ -76,7 +76,7 @@ function RouteProgress({ message }: { message: string | null }) {
     <div className="space-y-1 rounded-xl bg-slate-900/5 px-3 py-2.5 text-sm dark:bg-white/5" role="status" data-testid="route-progress">
       <p className="flex items-center gap-2">
         <Spinner /> <span className="flex-1">{message ?? 'Calculando…'}</span>
-        {seconds >= 3 && <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">{seconds} s</span>}
+        {seconds >= 3 && <span className="text-xs tabular-nums text-slate-600 dark:text-slate-400">{seconds} s</span>}
       </p>
       {seconds >= SLOW_ROUTE_S && (
         <p className="text-xs text-slate-600 dark:text-slate-300">
@@ -99,7 +99,7 @@ function OriginMissing() {
   return (
     <div className="space-y-3 rounded-2xl border border-dashed border-slate-300 px-4 py-4 text-center dark:border-white/10" data-testid="origin-missing">
       <p className="text-sm font-medium">Falta el punto de partida</p>
-      <p className="text-xs text-slate-500 dark:text-slate-400">Escribe el origen, pulsa sobre el mapa o usa tu ubicación actual.</p>
+      <p className="text-xs text-slate-600 dark:text-slate-400">Escribe el origen, pulsa sobre el mapa o usa tu ubicación actual.</p>
       <Button
         size="sm"
         icon={locating ? <Spinner className="h-3.5 w-3.5" /> : <LocateFixed className="h-3.5 w-3.5" />}

@@ -17,13 +17,19 @@
 .atlas-map .leaflet-control-attribution {
   font-family: var(--font-sans);
   font-size: 10px;
-  background: rgb(255 255 255 / 0.75);
+  background: rgb(255 255 255 / 0.92);
   backdrop-filter: blur(6px);
+  color: #334155;
   border-radius: 8px 0 0 0;
   max-width: 70vw;
 }
+.atlas-map .leaflet-control-attribution a {
+  /* Enlaces distinguibles del texto (no solo por el color) y con contraste suficiente. */
+  color: #075985;
+  text-decoration: underline;
+}
 .atlas-map.is-dark .leaflet-control-attribution {
-  background: rgb(10 14 25 / 0.7);
+  background: rgb(10 14 25 / 0.9);
   color: #cbd5e1;
 }
 .atlas-map.is-dark .leaflet-control-attribution a {
@@ -354,4 +360,11 @@
 .atlas-map.is-dark .leaflet-popup-tip {
   background: #0f172a;
   color: #e2e8f0;
+}
+
+/* Móvil: los controles inferiores de Leaflet (atribución) van encima del panel inferior. */
+@media (max-width: 767px) {
+  .atlas-map .leaflet-bottom {
+    bottom: var(--mobile-sheet-h, 0px);
+  }
 }

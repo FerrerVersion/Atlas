@@ -13,7 +13,7 @@ export function PoiFilters() {
       <div className="flex items-center justify-between">
         <h3 className="panel-title">Puntos de interés</h3>
         {status === 'loading' && (
-          <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <span className="flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-400">
             <Spinner className="h-3 w-3" /> Consultando OSM…
           </span>
         )}

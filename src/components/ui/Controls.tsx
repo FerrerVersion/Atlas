@@ -1,3 +1,4 @@
+import { textOn } from '@/utils/color'
 import type { ReactNode } from 'react'
 
 export function Toggle({
@@ -15,7 +16,7 @@ export function Toggle({
     <label className="flex cursor-pointer items-start justify-between gap-4 py-2">
       <span className="min-w-0">
         <span className="block text-sm font-medium">{label}</span>
-        {description && <span className="block text-xs text-slate-500 dark:text-slate-400">{description}</span>}
+        {description && <span className="block text-xs text-slate-600 dark:text-slate-400">{description}</span>}
       </span>
       <button
         type="button"
@@ -60,7 +61,7 @@ export function Segmented<T extends string>({
           className={`focus-ring flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium transition ${
             value === o.value
               ? 'bg-white text-slate-900 shadow-sm dark:bg-white/15 dark:text-white'
-              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
+              : 'text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100'
           }`}
         >
           {o.icon}
@@ -87,10 +88,11 @@ export function Chip({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      style={active && color ? { backgroundColor: color, borderColor: color } : undefined}
+      // Con color propio (p. ej. la categoría), el texto se elige para que se lea sobre él.
+      style={active && color ? { backgroundColor: color, borderColor: color, color: textOn(color) } : undefined}
       className={`focus-ring inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition ${
         active
-          ? 'border-accent bg-accent text-white'
+          ? 'border-accent bg-accent text-on-accent'
           : 'border-slate-200 bg-white/70 text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:border-white/25'
       }`}
     >
@@ -126,7 +128,7 @@ export function EmptyState({ icon, title, text }: { icon: ReactNode; title: stri
     <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-slate-300 px-4 py-6 text-center dark:border-white/10">
       <span className="text-slate-400">{icon}</span>
       <p className="text-sm font-medium">{title}</p>
-      {text && <p className="text-xs text-slate-500 dark:text-slate-400">{text}</p>}
+      {text && <p className="text-xs text-slate-600 dark:text-slate-400">{text}</p>}
     </div>
   )
 }

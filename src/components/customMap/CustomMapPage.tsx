@@ -78,7 +78,7 @@ export default function CustomMapPage() {
           </Link>
           <div>
             <h1 className="text-base font-bold">Mapas personalizados</h1>
-            <p className="text-[11px] text-slate-500">Procesado 100 % local · nombres definidos por ti</p>
+            <p className="text-[11px] text-slate-600 dark:text-slate-400">Procesado 100 % local · nombres definidos por ti</p>
           </div>
         </header>
 
@@ -92,8 +92,8 @@ export default function CustomMapPage() {
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="Imagen del mapa" onChange={(e) => onImage(e.target.files?.[0])} />
           <input ref={jsonRef} type="file" accept="application/json,.json" hidden aria-label="Archivo JSON" onChange={(e) => onJson(e.target.files?.[0])} />
         </div>
-        {error && <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{error}</p>}
-        {ed.saveError && <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{ed.saveError}</p>}
+        {error && <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-800 dark:text-rose-300">{error}</p>}
+        {ed.saveError && <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-800 dark:text-rose-300">{ed.saveError}</p>}
 
         {map.image && (
           <>
@@ -131,11 +131,11 @@ export default function CustomMapPage() {
 
             {ed.mode === 'nodes' && (
               <Section title={`Nodos (${map.nodes.length})`}>
-                <p className="text-xs text-slate-500">Haz clic en la imagen para crear un nodo (intersección). Puedes nombrarlo libremente.</p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Haz clic en la imagen para crear un nodo (intersección). Puedes nombrarlo libremente.</p>
                 <ul className="space-y-1">
                   {map.nodes.map((n, i) => (
                     <li key={n.id} className="flex items-center gap-2">
-                      <span className="w-6 text-right text-[11px] text-slate-500 dark:text-slate-400">{i + 1}</span>
+                      <span className="w-6 text-right text-[11px] text-slate-600 dark:text-slate-400">{i + 1}</span>
                       <input
                         value={n.name}
                         placeholder="Sin nombre"
@@ -158,7 +158,7 @@ export default function CustomMapPage() {
 
             {ed.mode === 'roads' && (
               <Section title={`Vías (${map.roads.length})`}>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-600 dark:text-slate-400">
                   Pulsa un nodo y después otro para conectarlos. {ed.pendingNode ? 'Elige el nodo final…' : ''}
                 </p>
                 <input
@@ -200,8 +200,8 @@ export default function CustomMapPage() {
 
             {ed.mode === 'route' && (
               <Section title="Ruta A* en tu mapa">
-                <p className="text-xs text-slate-500">Pulsa el nodo de origen y luego el de destino.</p>
-                {ed.route && !ed.route.ok && <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-600">{ed.route.message}</p>}
+                <p className="text-xs text-slate-600 dark:text-slate-400">Pulsa el nodo de origen y luego el de destino.</p>
+                {ed.route && !ed.route.ok && <p role="alert" className="rounded-xl bg-rose-500/10 px-3 py-2 text-sm text-rose-800 dark:text-rose-300">{ed.route.message}</p>}
                 {ed.route?.ok && (
                   <div className="space-y-2">
                     <p className="text-lg font-bold">
@@ -239,7 +239,7 @@ export default function CustomMapPage() {
               {ed.saved.map((m) => (
                 <li key={m.id} className="flex items-center gap-2">
                   <button type="button" className="min-w-0 flex-1 truncate text-left hover:text-accent" onClick={() => ed.setMap(m)}>
-                    {m.name} <span className="text-xs text-slate-500 dark:text-slate-400">· {m.nodes.length} nodos</span>
+                    {m.name} <span className="text-xs text-slate-600 dark:text-slate-400">· {m.nodes.length} nodos</span>
                   </button>
                   <IconButton
                     label={`Borrar ${m.name}`}
@@ -257,7 +257,7 @@ export default function CustomMapPage() {
           </Section>
         )}
 
-        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+        <p className="text-[11px] text-slate-600 dark:text-slate-400">
           Limitaciones: la calibración asume una proyección plana local (válida para zonas de pocos km); las vías se dibujan como
           tramos rectos entre nodos.
         </p>
@@ -284,7 +284,7 @@ export default function CustomMapPage() {
               e.preventDefault()
               onImage(e.dataTransfer.files[0])
             }}
-            className="absolute inset-4 grid place-items-center rounded-3xl border-2 border-dashed border-slate-300 text-center text-slate-500 hover:border-accent hover:text-accent dark:border-white/15"
+            className="absolute inset-4 grid place-items-center rounded-3xl border-2 border-dashed border-slate-300 text-center text-slate-600 dark:text-slate-400 hover:border-accent hover:text-accent dark:border-white/15"
           >
             <span>
               <Download className="mx-auto mb-2 h-8 w-8 rotate-180" />

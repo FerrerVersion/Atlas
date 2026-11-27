@@ -13,7 +13,7 @@ function PlaceRow({ place, actions }: { place: Place; actions?: React.ReactNode 
       </span>
       <button type="button" className="min-w-0 flex-1 text-left" onClick={() => useAppStore.getState().selectPlace(place, { addToHistory: false })}>
         <span className="block truncate text-sm font-medium">{place.name}</span>
-        <span className="block truncate text-xs text-slate-500 dark:text-slate-400">
+        <span className="block truncate text-xs text-slate-600 dark:text-slate-400">
           {place.kindLabel}
           {place.address ? ` · ${place.address}` : ''}
         </span>
